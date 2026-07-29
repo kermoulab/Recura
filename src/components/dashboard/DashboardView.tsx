@@ -29,7 +29,7 @@ import {
   Area,
 } from 'recharts';
 import { KPIStats, SubscriptionStatus, Customer, Order, Plan, UserRole } from '../../types/erp';
-import { MOCK_CUSTOMERS, MOCK_ORDERS, MOCK_PLANS } from '../../data/mockData';
+// No mock defaults — rely on data passed from parent or DB-driven queries
 import { formatCurrency } from '../../utils/crypto';
 
 interface DashboardViewProps {
@@ -69,9 +69,9 @@ const MINI_BRAND_BARS = [
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   kpis,
-  customers = MOCK_CUSTOMERS,
-  orders = MOCK_ORDERS,
-  plans = MOCK_PLANS,
+  customers = [],
+  orders = [],
+  plans = [],
   currency = 'USD ($)',
   onOpenNewCustomer,
   onOpenNewOrder,

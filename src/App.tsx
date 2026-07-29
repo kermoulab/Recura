@@ -33,7 +33,17 @@ import {
   touchSessionActivity,
 } from './utils/sessionManager';
 
-import { INITIAL_KPI_STATS } from './data/mockData';
+// Replaced mock KPI defaults with an empty baseline so app relies on DB-driven data
+const INITIAL_KPI_STATS: KPIStats = {
+  totalOrders: 0,
+  activeCustomers: 0,
+  totalSales: 0,
+  totalIncome: 0,
+  expiring3DaysCount: 0,
+  expiring7DaysCount: 0,
+  expiredCount: 0,
+  mrrGrowth: 0,
+};
 import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile } from './types/erp';
 import {
   fetchCustomersFromSupabase,

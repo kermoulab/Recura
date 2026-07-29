@@ -4,63 +4,12 @@ const ACTIVE_SESSION_KEY = 'recura_active_session_v2';
 const ALL_SESSIONS_KEY = 'recura_all_sessions_v2';
 const BROADCAST_CHANNEL_NAME = 'recura_session_sync_channel';
 
-// Default mock initial sessions for device tracking demonstration
-const DEFAULT_DEMO_SESSIONS: UserSession[] = [
-  {
-    id: 'sess_remote_mobile_01',
-    userId: 'user_admin_1',
-    userEmail: 'admin@recura.io',
-    userName: 'James Noah',
-    sessionToken: 'recura_sess_mobile_iphone15_9982',
-    createdAt: new Date(Date.now() - 3600 * 1000 * 4).toISOString(),
-    lastActiveAt: new Date(Date.now() - 1800 * 1000).toISOString(),
-    expiresAt: new Date(Date.now() + 3600 * 1000 * 8).toISOString(),
-    ipAddress: '102.164.88.12',
-    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15',
-    deviceInfo: {
-      browser: 'Mobile Safari',
-      os: 'iOS 17.4',
-      deviceType: 'Mobile',
-      deviceName: 'iPhone 15 Pro (London, UK)',
-      isCurrentDevice: false,
-    },
-    status: 'ACTIVE',
-    cookieFlags: {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
-    },
-  },
-  {
-    id: 'sess_remote_win_02',
-    userId: 'user_admin_1',
-    userEmail: 'admin@recura.io',
-    userName: 'James Noah',
-    sessionToken: 'recura_sess_win11_edge_1102',
-    createdAt: new Date(Date.now() - 3600 * 1000 * 12).toISOString(),
-    lastActiveAt: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
-    expiresAt: new Date(Date.now() + 3600 * 1000 * 12).toISOString(),
-    ipAddress: '197.230.14.99',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0',
-    deviceInfo: {
-      browser: 'Microsoft Edge',
-      os: 'Windows 11 Enterprise',
-      deviceType: 'Desktop',
-      deviceName: 'Workstation PC (Paris, FR)',
-      isCurrentDevice: false,
-    },
-    status: 'ACTIVE',
-    cookieFlags: {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
-    },
-  },
-];
+// Start with no demo sessions — rely on real sessions stored in DB or provided by auth
+const DEFAULT_DEMO_SESSIONS: UserSession[] = [];
 
 // In-memory session store replacing browser localStorage
 let activeMemorySession: UserSession | null = null;
-let allMemorySessions: UserSession[] = [...DEFAULT_DEMO_SESSIONS];
+let allMemorySessions: UserSession[] = [];
 
 /**
  * Broadcasts session state changes across browser tabs via BroadcastChannel if available

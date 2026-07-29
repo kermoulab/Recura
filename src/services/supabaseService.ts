@@ -147,22 +147,20 @@ const INITIAL_AUDIT_SEED: AuditLog[] = [
    ======================================================= */
 export async function fetchCustomersFromSupabase(): Promise<Customer[]> {
   if (!isSupabaseConfigured) {
-    return getLocalData(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS_SEED);
+    console.warn('Supabase not configured - returning empty customers array.');
+    return [];
   }
 
   try {
     const { data, error } = await supabase.from('customers').select('*');
-    if (error || !data || data.length === 0) {
-      const local = getLocalData(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS_SEED);
-      // Try auto-seeding to Supabase if empty
-      if (data && data.length === 0 && local.length > 0) {
-        await supabase.from('customers').insert(local.map(formatCustomerForDb));
-      }
-      return local;
+    if (error || !data) {
+      console.warn('Supabase customers fetch error or no data, returning empty array.', error);
+      return [];
     }
     return data.map(formatCustomerFromDb);
   } catch (err) {
-    return getLocalData(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS_SEED);
+    console.warn('Supabase customers fetch failed:', err);
+    return [];
   }
 }
 
@@ -231,21 +229,20 @@ export async function deleteCustomerFromSupabase(id: string): Promise<void> {
    ======================================================= */
 export async function fetchPlansFromSupabase(): Promise<Plan[]> {
   if (!isSupabaseConfigured) {
-    return getLocalData(STORAGE_KEYS.PLANS, INITIAL_PLANS_SEED);
+    console.warn('Supabase not configured - returning empty plans array.');
+    return [];
   }
 
   try {
     const { data, error } = await supabase.from('plans').select('*');
-    if (error || !data || data.length === 0) {
-      const local = getLocalData(STORAGE_KEYS.PLANS, INITIAL_PLANS_SEED);
-      if (data && data.length === 0 && local.length > 0) {
-        await supabase.from('plans').insert(local.map(formatPlanForDb));
-      }
-      return local;
+    if (error || !data) {
+      console.warn('Supabase plans fetch error or no data, returning empty array.', error);
+      return [];
     }
     return data.map(formatPlanFromDb);
   } catch (err) {
-    return getLocalData(STORAGE_KEYS.PLANS, INITIAL_PLANS_SEED);
+    console.warn('Supabase plans fetch failed:', err);
+    return [];
   }
 }
 
@@ -314,21 +311,23 @@ export async function deletePlanFromSupabase(id: string): Promise<void> {
    ======================================================= */
 export async function fetchOrdersFromSupabase(): Promise<Order[]> {
   if (!isSupabaseConfigured) {
-    return getLocalData(STORAGE_KEYS.ORDERS, INITIAL_ORDERS_SEED);
+    console.warn('Supabase not configured - returning empty orders array.');
+    return [];
   }
 
   try {
-    const { data, error } = await supabase.from('orders').select('*');
-    if (error || !data || data.length === 0) {
-      const local = getLocalData(STORAGE_KEYS.ORDERS, INITIAL_ORDERS_SEED);
-      if (data && data.length === 0 && local.length > 0) {
-        await supabase.from('orders').insert(local.map(formatOrderForDb));
-      }
-      return local;
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('start_date', { ascending: false });
+    if (error || !data) {
+      console.warn('Supabase orders fetch error or no data, returning empty array.', error);
+      return [];
     }
     return data.map(formatOrderFromDb);
   } catch (err) {
-    return getLocalData(STORAGE_KEYS.ORDERS, INITIAL_ORDERS_SEED);
+    console.warn('Supabase orders fetch failed:', err);
+    return [];
   }
 }
 
@@ -397,7 +396,8 @@ export async function deleteOrderFromSupabase(id: string): Promise<void> {
    ======================================================= */
 export async function fetchAuditLogsFromSupabase(): Promise<AuditLog[]> {
   if (!isSupabaseConfigured) {
-    return getLocalData(STORAGE_KEYS.AUDIT_LOGS, INITIAL_AUDIT_SEED);
+    console.warn('Supabase not configured - returning empty audit log array.');
+    return [];
   }
 
   try {
@@ -405,12 +405,14 @@ export async function fetchAuditLogsFromSupabase(): Promise<AuditLog[]> {
       .from('audit_logs')
       .select('*')
       .order('timestamp', { ascending: false });
-    if (error || !data || data.length === 0) {
-      return getLocalData(STORAGE_KEYS.AUDIT_LOGS, INITIAL_AUDIT_SEED);
+    if (error || !data) {
+      console.warn('Supabase audit logs fetch error or no data, returning empty array.', error);
+      return [];
     }
     return data.map(formatAuditLogFromDb);
   } catch (err) {
-    return getLocalData(STORAGE_KEYS.AUDIT_LOGS, INITIAL_AUDIT_SEED);
+    console.warn('Supabase audit logs fetch failed:', err);
+    return [];
   }
 }
 
@@ -434,21 +436,20 @@ export async function insertAuditLogToSupabase(log: AuditLog): Promise<AuditLog>
    ======================================================= */
 export async function fetchUserProfilesFromSupabase(): Promise<UserProfile[]> {
   if (!isSupabaseConfigured) {
-    return getLocalData(STORAGE_KEYS.PROFILES, INITIAL_PROFILES_SEED);
+    console.warn('Supabase not configured - returning empty user profiles array.');
+    return [];
   }
 
   try {
     const { data, error } = await supabase.from('user_profiles').select('*');
-    if (error || !data || data.length === 0) {
-      const local = getLocalData(STORAGE_KEYS.PROFILES, INITIAL_PROFILES_SEED);
-      if (data && data.length === 0 && local.length > 0) {
-        await supabase.from('user_profiles').insert(local.map(formatProfileForDb));
-      }
-      return local;
+    if (error || !data) {
+      console.warn('Supabase user profiles fetch error or no data, returning empty array.', error);
+      return [];
     }
     return data.map(formatProfileFromDb);
   } catch (err) {
-    return getLocalData(STORAGE_KEYS.PROFILES, INITIAL_PROFILES_SEED);
+    console.warn('Supabase user profiles fetch failed:', err);
+    return [];
   }
 }
 
