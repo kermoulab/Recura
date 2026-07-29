@@ -1,0 +1,6 @@
+{
+  "name": "Recura Subscription ERP",
+  "description": "Enterprise Digital Subscription Reseller ERP for Netflix, Disney+, Prime Video & IPTV with WhatsApp automation, inventory tracking, customer CRM, and audit logging.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

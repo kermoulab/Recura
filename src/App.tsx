@@ -1,0 +1,694 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect } from 'react';
+import { Toaster, toast } from 'sonner';
+import { Sidebar, ERPView } from './components/layout/Sidebar';
+import { Header } from './components/layout/Header';
+import { DashboardView } from './components/dashboard/DashboardView';
+import { CustomersView } from './components/customers/CustomersView';
+import { PlansView } from './components/plans/PlansView';
+import { OrdersView } from './components/orders/OrdersView';
+import { AlertsView } from './components/alerts/AlertsView';
+import { DatabaseView } from './components/database/DatabaseView';
+import { AuditLogsView } from './components/audit/AuditLogsView';
+import { SettingsView } from './components/settings/SettingsView';
+
+import { NewCustomerModal } from './components/modals/NewCustomerModal';
+import { NewPlanModal } from './components/modals/NewPlanModal';
+import { NewOrderModal } from './components/modals/NewOrderModal';
+import { QuickSearchModal } from './components/modals/QuickSearchModal';
+import { NewProfileModal } from './components/modals/NewProfileModal';
+import { LoginView } from './components/auth/LoginView';
+import { ActiveSessionsModal } from './components/auth/ActiveSessionsModal';
+
+import {
+  saveActiveSession,
+  getActiveSession,
+  validateSession,
+  terminateActiveSession,
+  setupMultiTabSessionSync,
+  touchSessionActivity,
+} from './utils/sessionManager';
+
+import { INITIAL_KPI_STATS } from './data/mockData';
+import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile } from './types/erp';
+import {
+  fetchCustomersFromSupabase,
+  insertCustomerToSupabase,
+  updateCustomerInSupabase,
+  deleteCustomerFromSupabase,
+  fetchPlansFromSupabase,
+  insertPlanToSupabase,
+  updatePlanInSupabase,
+  deletePlanFromSupabase,
+  fetchOrdersFromSupabase,
+  insertOrderToSupabase,
+  updateOrderInSupabase,
+  deleteOrderFromSupabase,
+  fetchAuditLogsFromSupabase,
+  insertAuditLogToSupabase,
+  fetchUserProfilesFromSupabase,
+  insertUserProfileToSupabase,
+  updateUserProfileInSupabase,
+  deleteUserProfileFromSupabase,
+} from './services/supabaseService';
+
+export default function App() {
+  const [currentView, setCurrentView] = useState<ERPView>('dashboard');
+
+  // User Profile & Authentication State
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [currency, setCurrency] = useState<string>('USD ($)');
+  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [currentUser, setCurrentUser] = useState<UserProfile>({
+    id: 'user_admin_1',
+    fullName: 'James Noah',
+    username: 'admin',
+    email: 'admin@recura.io',
+    role: 'ADMIN',
+    createdAt: '2026-01-01',
+    status: 'ACTIVE',
+  });
+  const [isNewProfileModalOpen, setIsNewProfileModalOpen] = useState(false);
+
+  // State collections connected to Supabase
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Initial Load from Supabase (SELECT queries)
+  useEffect(() => {
+    async function loadDataFromSupabase() {
+      setIsLoading(true);
+      try {
+        const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedLogs] = await Promise.all([
+          fetchUserProfilesFromSupabase(),
+          fetchCustomersFromSupabase(),
+          fetchPlansFromSupabase(),
+          fetchOrdersFromSupabase(),
+          fetchAuditLogsFromSupabase(),
+        ]);
+
+        setProfiles(loadedProfiles);
+        if (loadedProfiles.length > 0) {
+          setCurrentUser(loadedProfiles[0]);
+        }
+        setCustomers(loadedCustomers);
+        setPlans(loadedPlans);
+        setOrders(loadedOrders);
+        setAuditLogs(loadedLogs);
+      } catch (error) {
+        console.error('Failed fetching data from Supabase:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadDataFromSupabase();
+  }, []);
+
+
+  // Modals state
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
+
+  // Ensure login page is primary main page on mount (no browser persistence)
+  useEffect(() => {
+    const sessionCheck = validateSession();
+    if (sessionCheck.isValid && sessionCheck.session) {
+      const matchedUser = profiles.find((p) => p.id === sessionCheck.session?.userId || p.email === sessionCheck.session?.userEmail);
+      if (matchedUser) {
+        setCurrentUser(matchedUser);
+      }
+    } else {
+      setIsLoggedIn(false);
+    }
+  }, []);
+
+  // Multi-Tab Session Synchronization & Periodic Expiration Check
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    // Listen for multi-tab sync events (e.g. logout in Tab 2 logs out Tab 1 instantly)
+    const cleanupSync = setupMultiTabSessionSync((type) => {
+      if (type === 'SESSION_TERMINATED') {
+        setIsLoggedIn(false);
+        setIsSessionsModalOpen(false);
+        toast.info('Session terminated from another tab or device.');
+      }
+    });
+
+    // Periodic interval checking session validity every 5s
+    const checkInterval = setInterval(() => {
+      touchSessionActivity();
+      const validation = validateSession();
+      if (!validation.isValid) {
+        setIsLoggedIn(false);
+        setIsSessionsModalOpen(false);
+        toast.error('Session expired. Please sign in again.');
+      }
+    }, 5000);
+
+    return () => {
+      cleanupSync();
+      clearInterval(checkInterval);
+    };
+  }, [isLoggedIn]);
+
+  // RBAC view switch safety check
+  const handleSelectView = (view: ERPView) => {
+    const sessionCheck = validateSession();
+    if (!sessionCheck.isValid) {
+      setIsLoggedIn(false);
+      toast.error('Session expired. Please log in.');
+      return;
+    }
+
+    if (currentUser.role === 'LIMITED' && (view === 'plans' || view === 'database' || view === 'audit')) {
+      toast.error('Access Restricted: Low-level staff profiles cannot access this page.');
+      setCurrentView('orders');
+      return;
+    }
+    setCurrentView(view);
+  };
+
+  // Keyboard shortcut listener for Cmd + K search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchModalOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Compute live KPIs
+  const expiring3DaysCount = orders.filter((o) => o.status === 'EXPIRING_3D').length;
+  const expiring7DaysCount = orders.filter((o) => o.status === 'EXPIRING_7D').length;
+  const expiredCount = orders.filter((o) => o.status === 'EXPIRED').length;
+
+  const totalSales = orders.reduce((sum, o) => sum + o.price, 0);
+
+  const currentKPIs: KPIStats = {
+    ...INITIAL_KPI_STATS,
+    totalOrders: orders.length,
+    activeCustomers: customers.filter((c) => c.status === 'ACTIVE').length,
+    expiring3DaysCount,
+    expiring7DaysCount,
+    expiredCount,
+    totalSales,
+  };
+
+  // Audit Logger helper - attributes to current user or specified credentials
+  const logAudit = async (
+    action: AuditLog['action'],
+    details: string,
+    status: AuditLog['status'] = 'SUCCESS',
+    userEmail?: string,
+    userName?: string
+  ) => {
+    const newLog: AuditLog = {
+      id: `audit_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      userEmail: userEmail || currentUser?.email || 'admin@recura.io',
+      userName: userName || currentUser?.fullName || 'System User',
+      action,
+      details,
+      ipAddress: '192.168.1.105',
+      status,
+    };
+    setAuditLogs((prev) => [newLog, ...prev]);
+    await insertAuditLogToSupabase(newLog);
+  };
+
+  // Authentication & Session Handlers
+  const handleLogout = () => {
+    terminateActiveSession('LOGOUT');
+    logAudit('LOGOUT', `Logged out and expired session for ${currentUser.fullName} (${currentUser.email})`);
+    setIsLoggedIn(false);
+    setIsSessionsModalOpen(false);
+    toast.info('Session ended. Logged out successfully.');
+  };
+
+  const handleLoginSuccess = (user: UserProfile, session?: any) => {
+    setCurrentUser(user);
+    setIsLoggedIn(true);
+
+    if (session) {
+      saveActiveSession(session);
+    }
+
+    toast.success(`Welcome back, ${user.fullName}!`);
+    if (user.role === 'LIMITED' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit')) {
+      setCurrentView('orders');
+    }
+  };
+
+  // Profile Management Handlers
+  const handleCreateProfile = async (profileData: Omit<UserProfile, 'id' | 'createdAt'>) => {
+    const newProfile: UserProfile = {
+      ...profileData,
+      id: `user_${Date.now()}`,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+
+    setProfiles((prev) => [...prev, newProfile]);
+    await insertUserProfileToSupabase(newProfile);
+    toast.success(`Created profile: ${newProfile.fullName} (${newProfile.role === 'ADMIN' ? 'Admin' : 'Limited Staff'})`);
+    logAudit('SETTINGS_CHANGE', `Created user profile: ${newProfile.fullName} (${newProfile.email}) - Access Level: ${newProfile.role}`);
+  };
+
+  const handleUpdateCurrentProfile = async (data: { fullName: string; username?: string; email: string; password?: string }) => {
+    const updated = { ...currentUser, ...data };
+    setCurrentUser(updated);
+    setProfiles((prev) => prev.map((p) => (p.id === currentUser.id ? updated : p)));
+    await updateUserProfileInSupabase(updated);
+    toast.success('Updated profile credentials!');
+    logAudit('SETTINGS_CHANGE', `Updated profile credentials for ${data.fullName} (${data.email})`);
+  };
+
+  const handleSelectProfile = (profile: UserProfile) => {
+    setCurrentUser(profile);
+    toast.info(`Switched active profile to ${profile.fullName} (${profile.role === 'ADMIN' ? 'System Administrator' : 'Limited Staff'})`);
+    logAudit('LOGIN', `Switched active profile session to ${profile.fullName} (${profile.email})`);
+    if (profile.role === 'LIMITED' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit')) {
+      setCurrentView('orders');
+    }
+  };
+
+  const handleDeleteProfile = async (userId: string) => {
+    const target = profiles.find((p) => p.id === userId);
+    setProfiles((prev) => prev.filter((p) => p.id !== userId));
+    await deleteUserProfileFromSupabase(userId);
+    toast.info(`Deleted user profile ${target?.fullName || userId}`);
+    logAudit('SETTINGS_CHANGE', `Deleted user profile ${target?.fullName || userId}`);
+  };
+
+  // Customer Handlers
+  const handleSaveCustomer = async (
+    customerData: Omit<Customer, 'id' | 'registrationDate' | 'ordersCount' | 'totalSpent'>
+  ) => {
+    if (editingCustomer) {
+      const updated: Customer = { ...editingCustomer, ...customerData };
+      setCustomers((prev) =>
+        prev.map((c) => (c.id === editingCustomer.id ? updated : c))
+      );
+      await updateCustomerInSupabase(updated);
+      toast.success(`Updated customer profile: ${customerData.name}`);
+      logAudit('CUSTOMER_EDIT', `Updated customer profile for ${customerData.name}`);
+      setEditingCustomer(null);
+    } else {
+      const newCust: Customer = {
+        ...customerData,
+        id: `cust_${Date.now()}`,
+        registrationDate: new Date().toISOString().split('T')[0],
+        ordersCount: 0,
+        totalSpent: 0,
+      };
+      setCustomers((prev) => [newCust, ...prev]);
+      await insertCustomerToSupabase(newCust);
+      toast.success(`Created customer: ${customerData.name}`);
+      logAudit('CUSTOMER_CREATE', `Created new customer profile for ${customerData.name}`);
+    }
+  };
+
+  const handleDeleteCustomer = async (id: string) => {
+    const cust = customers.find((c) => c.id === id);
+    setCustomers((prev) => prev.filter((c) => c.id !== id));
+    await deleteCustomerFromSupabase(id);
+    toast.info(`Deleted customer ${cust?.name || id}`);
+  };
+
+  const handleToggleBlockCustomer = async (id: string) => {
+    const target = customers.find((c) => c.id === id);
+    if (!target) return;
+    const newStatus = target.status === 'BLOCKED' ? 'ACTIVE' : 'BLOCKED';
+    const updated: Customer = { ...target, status: newStatus };
+
+    setCustomers((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    await updateCustomerInSupabase(updated);
+    toast.info(`${newStatus === 'BLOCKED' ? 'Blocked' : 'Unblocked'} customer ${target.name}`);
+    logAudit('STATUS_CHANGE', `${newStatus === 'BLOCKED' ? 'Blocked' : 'Unblocked'} customer ${target.name}`);
+  };
+
+  // Plan Handlers
+  const handleSavePlan = async (planData: Omit<Plan, 'id' | 'activeOrders'>) => {
+    if (editingPlan) {
+      const updated: Plan = { ...editingPlan, ...planData };
+      setPlans((prev) => prev.map((p) => (p.id === editingPlan.id ? updated : p)));
+      await updatePlanInSupabase(updated);
+      toast.success(`Updated plan: ${planData.name}`);
+      setEditingPlan(null);
+    } else {
+      const newPlan: Plan = {
+        ...planData,
+        id: `plan_${Date.now()}`,
+        activeOrders: 0,
+      };
+      setPlans((prev) => [newPlan, ...prev]);
+      await insertPlanToSupabase(newPlan);
+      toast.success(`Added new plan: ${planData.name}`);
+      logAudit('PLAN_CREATE', `Created new streaming plan: ${planData.name}`);
+    }
+  };
+
+  const handleDeletePlan = async (id: string) => {
+    setPlans((prev) => prev.filter((p) => p.id !== id));
+    await deletePlanFromSupabase(id);
+    toast.info('Deleted plan');
+  };
+
+  // Order Handlers
+  const handleSaveOrder = async (orderData: Omit<Order, 'id'>) => {
+    if (editingOrder) {
+      const updated: Order = { ...orderData, id: editingOrder.id };
+      setOrders((prev) =>
+        prev.map((o) => (o.id === editingOrder.id ? updated : o))
+      );
+      await updateOrderInSupabase(updated);
+      toast.success(`Updated order #${editingOrder.id}`);
+      logAudit('ORDER_EDIT', `Updated order #${editingOrder.id} (${orderData.planName})`);
+      setEditingOrder(null);
+    } else {
+      const newOrd: Order = {
+        ...orderData,
+        id: `ord_${Math.floor(100 + Math.random() * 900)}`,
+      };
+      setOrders((prev) => [newOrd, ...prev]);
+      await insertOrderToSupabase(newOrd);
+
+      // Update customer stats in Supabase
+      const customerToUpdate = customers.find((c) => c.id === orderData.customerId);
+      if (customerToUpdate) {
+        const updatedCust: Customer = {
+          ...customerToUpdate,
+          ordersCount: customerToUpdate.ordersCount + 1,
+          totalSpent: customerToUpdate.totalSpent + orderData.price,
+        };
+        setCustomers((prev) => prev.map((c) => (c.id === updatedCust.id ? updatedCust : c)));
+        await updateCustomerInSupabase(updatedCust);
+      }
+
+      // Update plan stock & active orders in Supabase
+      const planToUpdate = plans.find((p) => p.id === orderData.planId);
+      if (planToUpdate) {
+        const updatedPlan: Plan = {
+          ...planToUpdate,
+          activeOrders: planToUpdate.activeOrders + 1,
+          availableStock: Math.max(0, planToUpdate.availableStock - 1),
+        };
+        setPlans((prev) => prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p)));
+        await updatePlanInSupabase(updatedPlan);
+      }
+
+      toast.success(`Order provisioned for ${orderData.customerName}!`);
+      logAudit('ORDER_CREATE', `Provisioned order #${newOrd.id} (${orderData.planName}) for ${orderData.customerName}`);
+    }
+  };
+
+  const handleDeleteOrder = async (id: string) => {
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+    await deleteOrderFromSupabase(id);
+    toast.info('Order removed');
+  };
+
+  // Alert renewal status handler
+  const handleMarkContacted = async (orderId: string) => {
+    const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 16);
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+
+    const updated: Order = { ...targetOrder, contactedForRenewal: true, contactedAt: nowStr };
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+    await updateOrderInSupabase(updated);
+
+    toast.success('Marked as contacted via WhatsApp!');
+    logAudit('WHATSAPP_SENT', `Sent renewal notice for order #${orderId}`);
+  };
+
+  const handleBulkMarkContacted = async (orderIds: string[]) => {
+    const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 16);
+    setOrders((prev) =>
+      prev.map((o) =>
+        orderIds.includes(o.id)
+          ? { ...o, contactedForRenewal: true, contactedAt: nowStr }
+          : o
+      )
+    );
+
+    for (const orderId of orderIds) {
+      const targetOrder = orders.find((o) => o.id === orderId);
+      if (targetOrder) {
+        await updateOrderInSupabase({ ...targetOrder, contactedForRenewal: true, contactedAt: nowStr });
+      }
+    }
+
+    toast.success(`Marked ${orderIds.length} orders as contacted!`);
+  };
+
+
+  // Export JSON backup
+  const handleExportAllData = () => {
+    const backupObj = {
+      exportedAt: new Date().toISOString(),
+      version: 'Recura ERP v2.6',
+      customers,
+      plans,
+      orders,
+      auditLogs,
+    };
+    const blob = new Blob([JSON.stringify(backupObj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `recura_erp_backup_${Date.now()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('Exported complete ERP database backup!');
+    logAudit('EXPORT_DATA', 'Exported complete system JSON data backup');
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] text-[#111827] font-sans antialiased">
+        <Toaster position="top-right" richColors />
+        <LoginView
+          profiles={profiles}
+          onLoginSuccess={handleLoginSuccess}
+          onAuditLog={logAudit}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F5F7FA] text-[#111827] font-sans antialiased selection:bg-blue-200">
+      <Toaster position="top-right" richColors />
+
+      {/* Fixed Left 80px Vertical Sidebar */}
+      <Sidebar
+        currentView={currentView}
+        onSelectView={handleSelectView}
+        expiringBadgeCount={expiring3DaysCount + expiredCount}
+        userRole={currentUser.role}
+        onLogout={handleLogout}
+      />
+
+      {/* Top Full-Width Navigation Header */}
+      <Header
+        currentView={currentView}
+        onSelectView={handleSelectView}
+        onOpenSearch={() => setIsSearchModalOpen(true)}
+        unreadNotificationsCount={expiring3DaysCount + expiredCount}
+        currentUser={currentUser}
+        profiles={profiles}
+        onSelectProfile={handleSelectProfile}
+        onLogout={handleLogout}
+        onOpenSessionsModal={() => setIsSessionsModalOpen(true)}
+      />
+
+      {/* Main View Area */}
+      <main className="ml-[80px]">
+        {currentView === 'dashboard' && (
+          <DashboardView
+            kpis={currentKPIs}
+            customers={customers}
+            orders={orders}
+            plans={plans}
+            currency={currency}
+            onOpenNewCustomer={() => {
+              setEditingCustomer(null);
+              setIsCustomerModalOpen(true);
+            }}
+            onOpenNewOrder={() => {
+              setEditingOrder(null);
+              setIsOrderModalOpen(true);
+            }}
+            onOpenNewPlan={() => {
+              setEditingPlan(null);
+              setIsPlanModalOpen(true);
+            }}
+            onNavigate={handleSelectView}
+            userRole={currentUser.role}
+          />
+        )}
+
+        {currentView === 'customers' && (
+          <CustomersView
+            customers={customers}
+            currency={currency}
+            onAddCustomer={() => {
+              setEditingCustomer(null);
+              setIsCustomerModalOpen(true);
+            }}
+            onEditCustomer={(cust) => {
+              setEditingCustomer(cust);
+              setIsCustomerModalOpen(true);
+            }}
+            onDeleteCustomer={handleDeleteCustomer}
+            onToggleBlockCustomer={handleToggleBlockCustomer}
+          />
+        )}
+
+        {currentView === 'plans' && (
+          <PlansView
+            plans={plans}
+            currency={currency}
+            onAddPlan={() => {
+              setEditingPlan(null);
+              setIsPlanModalOpen(true);
+            }}
+            onEditPlan={(plan) => {
+              setEditingPlan(plan);
+              setIsPlanModalOpen(true);
+            }}
+            onDeletePlan={handleDeletePlan}
+          />
+        )}
+
+        {currentView === 'orders' && (
+          <OrdersView
+            orders={orders}
+            currency={currency}
+            onAddOrder={() => {
+              setEditingOrder(null);
+              setIsOrderModalOpen(true);
+            }}
+            onEditOrder={(order) => {
+              setEditingOrder(order);
+              setIsOrderModalOpen(true);
+            }}
+            onDeleteOrder={handleDeleteOrder}
+          />
+        )}
+
+        {currentView === 'alerts' && (
+          <AlertsView
+            orders={orders}
+            onMarkContacted={handleMarkContacted}
+            onBulkMarkContacted={handleBulkMarkContacted}
+          />
+        )}
+
+        {currentView === 'database' && <DatabaseView />}
+
+        {currentView === 'audit' && <AuditLogsView logs={auditLogs} />}
+
+        {currentView === 'settings' && (
+          <SettingsView
+            currentUser={currentUser}
+            profiles={profiles}
+            currency={currency}
+            onCurrencyChange={setCurrency}
+            onExportAllData={handleExportAllData}
+            onOpenNewProfileModal={() => setIsNewProfileModalOpen(true)}
+            onUpdateCurrentProfile={handleUpdateCurrentProfile}
+            onSelectProfile={handleSelectProfile}
+            onDeleteProfile={handleDeleteProfile}
+            onOpenSessionsModal={() => setIsSessionsModalOpen(true)}
+          />
+        )}
+      </main>
+
+      {/* ERP Interactive Modals */}
+      <NewProfileModal
+        isOpen={isNewProfileModalOpen}
+        onClose={() => setIsNewProfileModalOpen(false)}
+        onSubmit={handleCreateProfile}
+        existingProfiles={profiles}
+      />
+
+      <NewCustomerModal
+        isOpen={isCustomerModalOpen}
+        onClose={() => {
+          setIsCustomerModalOpen(false);
+          setEditingCustomer(null);
+        }}
+        onSubmit={handleSaveCustomer}
+        initialData={editingCustomer}
+      />
+
+
+      <NewPlanModal
+        isOpen={isPlanModalOpen}
+        onClose={() => {
+          setIsPlanModalOpen(false);
+          setEditingPlan(null);
+        }}
+        currency={currency}
+        onSubmit={handleSavePlan}
+        initialData={editingPlan}
+      />
+
+      <NewOrderModal
+        isOpen={isOrderModalOpen}
+        onClose={() => {
+          setIsOrderModalOpen(false);
+          setEditingOrder(null);
+        }}
+        customers={customers}
+        plans={plans}
+        currency={currency}
+        onSubmit={handleSaveOrder}
+        initialData={editingOrder}
+      />
+
+      <QuickSearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        customers={customers}
+        orders={orders}
+        plans={plans}
+        currency={currency}
+        onSelectResult={(type) => {
+          if (type === 'customer') setCurrentView('customers');
+          else if (type === 'order') setCurrentView('orders');
+          else if (type === 'plan') setCurrentView('plans');
+        }}
+      />
+
+      <ActiveSessionsModal
+        isOpen={isSessionsModalOpen}
+        onClose={() => setIsSessionsModalOpen(false)}
+        currentUserEmail={currentUser.email}
+        currentUserId={currentUser.id}
+        onSessionTerminated={handleLogout}
+      />
+    </div>
+  );
+}
