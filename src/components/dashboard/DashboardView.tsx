@@ -112,7 +112,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   });
 
   // Real Orders metrics & Orders by Days data
-  const realOrders = orders.length > 0 ? orders : MOCK_ORDERS;
+  const realOrders = orders;
   const totalOrdersCount = realOrders.length;
   const totalOrdersRevenue = realOrders.reduce((sum, o) => sum + (o.price || 0), 0);
 
@@ -136,7 +136,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   });
 
   // Top Selling Plans (Real Data calculation with custom colors per plan)
-  const realPlans = plans.length > 0 ? plans : MOCK_PLANS;
+  const realPlans = plans;
   const PLAN_COLORS = [
     '#3B82F6', // Blue
     '#10B981', // Emerald Green
