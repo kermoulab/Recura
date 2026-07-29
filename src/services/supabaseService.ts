@@ -152,7 +152,7 @@ export async function fetchCustomersFromSupabase(): Promise<Customer[]> {
   }
 
   try {
-    const { data, error } = await supabase.from('customers').select('*');
+    const { data, error } = await supabase.from('"Customer"').select('*');
     if (error || !data) {
       console.warn('Supabase customers fetch error or no data, returning empty array.', error);
       return [];
@@ -170,7 +170,7 @@ export async function insertCustomerToSupabase(customer: Customer): Promise<Cust
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
-        .from('customers')
+        .from('"Customer"')
         .insert([formatted])
         .select()
         .single();
@@ -194,7 +194,7 @@ export async function updateCustomerInSupabase(customer: Customer): Promise<Cust
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
-        .from('customers')
+        .from('"Customer"')
         .update(formatted)
         .eq('id', customer.id)
         .select()
@@ -216,7 +216,7 @@ export async function updateCustomerInSupabase(customer: Customer): Promise<Cust
 export async function deleteCustomerFromSupabase(id: string): Promise<void> {
   if (isSupabaseConfigured) {
     try {
-      await supabase.from('customers').delete().eq('id', id);
+      await supabase.from('"Customer"').delete().eq('id', id);
     } catch (e) {
       console.warn('Supabase delete failed', e);
     }
@@ -234,7 +234,7 @@ export async function fetchPlansFromSupabase(): Promise<Plan[]> {
   }
 
   try {
-    const { data, error } = await supabase.from('plans').select('*');
+    const { data, error } = await supabase.from('"Plan"').select('*');
     if (error || !data) {
       console.warn('Supabase plans fetch error or no data, returning empty array.', error);
       return [];
@@ -252,7 +252,7 @@ export async function insertPlanToSupabase(plan: Plan): Promise<Plan> {
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
-        .from('plans')
+        .from('"Plan"')
         .insert([formatted])
         .select()
         .single();
@@ -276,7 +276,7 @@ export async function updatePlanInSupabase(plan: Plan): Promise<Plan> {
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
-        .from('plans')
+        .from('"Plan"')
         .update(formatted)
         .eq('id', plan.id)
         .select()
@@ -298,7 +298,7 @@ export async function updatePlanInSupabase(plan: Plan): Promise<Plan> {
 export async function deletePlanFromSupabase(id: string): Promise<void> {
   if (isSupabaseConfigured) {
     try {
-      await supabase.from('plans').delete().eq('id', id);
+      await supabase.from('"Plan"').delete().eq('id', id);
     } catch (e) {
       console.warn('Supabase plan delete error', e);
     }
@@ -317,9 +317,9 @@ export async function fetchOrdersFromSupabase(): Promise<Order[]> {
 
   try {
     const { data, error } = await supabase
-      .from('orders')
+      .from('"Order"')
       .select('*')
-      .order('start_date', { ascending: false });
+      .order('startDate', { ascending: false });
     if (error || !data) {
       console.warn('Supabase orders fetch error or no data, returning empty array.', error);
       return [];
@@ -337,7 +337,7 @@ export async function insertOrderToSupabase(order: Order): Promise<Order> {
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
-        .from('orders')
+        .from('"Order"')
         .insert([formatted])
         .select()
         .single();
@@ -361,7 +361,7 @@ export async function updateOrderInSupabase(order: Order): Promise<Order> {
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
-        .from('orders')
+        .from('"Order"')
         .update(formatted)
         .eq('id', order.id)
         .select()
@@ -383,7 +383,7 @@ export async function updateOrderInSupabase(order: Order): Promise<Order> {
 export async function deleteOrderFromSupabase(id: string): Promise<void> {
   if (isSupabaseConfigured) {
     try {
-      await supabase.from('orders').delete().eq('id', id);
+      await supabase.from('"Order"').delete().eq('id', id);
     } catch (e) {
       console.warn('Supabase order delete error', e);
     }
@@ -402,9 +402,9 @@ export async function fetchAuditLogsFromSupabase(): Promise<AuditLog[]> {
 
   try {
     const { data, error } = await supabase
-      .from('audit_logs')
+      .from('"AuditLog"')
       .select('*')
-      .order('timestamp', { ascending: false });
+      .order('createdAt', { ascending: false });
     if (error || !data) {
       console.warn('Supabase audit logs fetch error or no data, returning empty array.', error);
       return [];
@@ -421,7 +421,7 @@ export async function insertAuditLogToSupabase(log: AuditLog): Promise<AuditLog>
 
   if (isSupabaseConfigured) {
     try {
-      await supabase.from('audit_logs').insert([formatted]);
+      await supabase.from('"AuditLog"').insert([formatted]);
     } catch (e) {
       console.warn('Supabase audit insert error', e);
     }
@@ -441,7 +441,7 @@ export async function fetchUserProfilesFromSupabase(): Promise<UserProfile[]> {
   }
 
   try {
-    const { data, error } = await supabase.from('user_profiles').select('*');
+    const { data, error } = await supabase.from('"User"').select('*');
     if (error || !data) {
       console.warn('Supabase user profiles fetch error or no data, returning empty array.', error);
       return [];
@@ -459,7 +459,7 @@ export async function insertUserProfileToSupabase(profile: UserProfile): Promise
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
+        .from('"User"')
         .insert([formatted])
         .select()
         .single();
@@ -483,7 +483,7 @@ export async function updateUserProfileInSupabase(profile: UserProfile): Promise
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
+        .from('"User"')
         .update(formatted)
         .eq('id', profile.id)
         .select()
@@ -505,7 +505,7 @@ export async function updateUserProfileInSupabase(profile: UserProfile): Promise
 export async function deleteUserProfileFromSupabase(id: string): Promise<void> {
   if (isSupabaseConfigured) {
     try {
-      await supabase.from('user_profiles').delete().eq('id', id);
+      await supabase.from('"User"').delete().eq('id', id);
     } catch (e) {
       console.warn('Supabase profile delete error', e);
     }
@@ -522,11 +522,9 @@ function formatCustomerForDb(c: Customer) {
     name: c.name,
     whatsapp: c.whatsapp,
     email: c.email || null,
-    preferred_language: c.preferredLanguage,
-    registration_date: c.registrationDate,
+    preferredLanguage: c.preferredLanguage,
+    createdAt: c.registrationDate || new Date().toISOString(),
     status: c.status,
-    orders_count: c.ordersCount,
-    total_spent: c.totalSpent,
     notes: c.notes || null,
   };
 }
@@ -537,11 +535,11 @@ function formatCustomerFromDb(row: any): Customer {
     name: row.name,
     whatsapp: row.whatsapp,
     email: row.email || undefined,
-    preferredLanguage: row.preferred_language || row.preferredLanguage || 'EN',
-    registrationDate: row.registration_date || row.registrationDate || new Date().toISOString().split('T')[0],
+    preferredLanguage: row.preferredLanguage || row.preferred_language || 'EN',
+    registrationDate: row.createdAt || row.registrationDate || new Date().toISOString().split('T')[0],
     status: row.status || 'ACTIVE',
-    ordersCount: row.orders_count ?? row.ordersCount ?? 0,
-    totalSpent: Number(row.total_spent ?? row.totalSpent ?? 0),
+    ordersCount: Number(row.ordersCount ?? row.orders_count ?? 0),
+    totalSpent: Number(row.totalSpent ?? row.total_spent ?? 0),
     notes: row.notes || undefined,
   };
 }
@@ -552,11 +550,11 @@ function formatPlanForDb(p: Plan) {
     name: p.name,
     category: p.category,
     price: p.price,
-    duration_months: p.durationMonths,
+    durationMonths: p.durationMonths,
     notes: p.notes || null,
-    available_stock: p.availableStock,
-    total_accounts: p.totalAccounts,
-    active_orders: p.activeOrders,
+    availableStock: p.availableStock,
+    totalAccounts: p.totalAccounts,
+    activeOrders: p.activeOrders,
   };
 }
 
@@ -566,57 +564,57 @@ function formatPlanFromDb(row: any): Plan {
     name: row.name,
     category: row.category || 'Other',
     price: Number(row.price || 0),
-    durationMonths: row.duration_months ?? row.durationMonths ?? 1,
+    durationMonths: row.durationMonths ?? row.duration_months ?? 1,
     notes: row.notes || undefined,
-    availableStock: row.available_stock ?? row.availableStock ?? 0,
-    totalAccounts: row.total_accounts ?? row.totalAccounts ?? 0,
-    activeOrders: row.active_orders ?? row.activeOrders ?? 0,
+    availableStock: row.availableStock ?? row.available_stock ?? 0,
+    totalAccounts: row.totalAccounts ?? row.total_accounts ?? 0,
+    activeOrders: row.activeOrders ?? row.active_orders ?? 0,
   };
 }
 
 function formatOrderForDb(o: Order) {
   return {
     id: o.id,
-    customer_id: o.customerId,
-    customer_name: o.customerName,
-    customer_whatsapp: o.customerWhatsApp,
-    plan_id: o.planId,
-    plan_name: o.planName,
+    customerId: o.customerId,
+    customerName: o.customerName,
+    customerWhatsApp: o.customerWhatsApp,
+    planId: o.planId,
+    planName: o.planName,
     price: o.price,
-    duration_months: o.durationMonths,
-    start_date: o.startDate,
-    end_date: o.endDate,
+    durationMonths: o.durationMonths,
+    startDate: o.startDate,
+    endDate: o.endDate,
     status: o.status,
-    account_email: o.accountEmail,
-    account_password_encrypted: o.accountPasswordEncrypted,
-    pin_code_encrypted: o.pinCodeEncrypted || null,
-    screen_profile_name: o.screenProfileName || null,
+    accountEmail: o.accountEmail,
+    accountPasswordEncrypted: o.accountPasswordEncrypted,
+    pinCodeEncrypted: o.pinCodeEncrypted || null,
+    screenProfileName: o.screenProfileName || null,
     notes: o.notes || null,
-    contacted_for_renewal: o.contactedForRenewal || false,
-    contacted_at: o.contactedAt || null,
+    contactedForRenewal: o.contactedForRenewal || false,
+    contactedAt: o.contactedAt || null,
   };
 }
 
 function formatOrderFromDb(row: any): Order {
   return {
     id: row.id,
-    customerId: row.customer_id || row.customerId || '',
-    customerName: row.customer_name || row.customerName || 'Customer',
-    customerWhatsApp: row.customer_whatsapp || row.customerWhatsApp || '',
-    planId: row.plan_id || row.planId || '',
-    planName: row.plan_name || row.planName || 'Subscription',
+    customerId: row.customerId || row.customer_id || '',
+    customerName: row.customerName || row.customer_name || 'Customer',
+    customerWhatsApp: row.customerWhatsApp || row.customer_whatsapp || '',
+    planId: row.planId || row.plan_id || '',
+    planName: row.planName || row.plan_name || 'Subscription',
     price: Number(row.price || 0),
-    durationMonths: row.duration_months ?? row.durationMonths ?? 1,
-    startDate: row.start_date || row.startDate || new Date().toISOString().split('T')[0],
-    endDate: row.end_date || row.endDate || new Date().toISOString().split('T')[0],
+    durationMonths: row.durationMonths ?? row.duration_months ?? 1,
+    startDate: row.startDate || row.start_date || new Date().toISOString().split('T')[0],
+    endDate: row.endDate || row.end_date || new Date().toISOString().split('T')[0],
     status: row.status || 'ACTIVE',
-    accountEmail: row.account_email || row.accountEmail || '',
-    accountPasswordEncrypted: row.account_password_encrypted || row.accountPasswordEncrypted || '',
-    pinCodeEncrypted: row.pin_code_encrypted || row.pinCodeEncrypted || undefined,
-    screenProfileName: row.screen_profile_name || row.screenProfileName || undefined,
+    accountEmail: row.accountEmail || row.account_email || '',
+    accountPasswordEncrypted: row.accountPasswordEncrypted || row.account_password_encrypted || '',
+    pinCodeEncrypted: row.pinCodeEncrypted || row.pin_code_encrypted || undefined,
+    screenProfileName: row.screenProfileName || row.screen_profile_name || undefined,
     notes: row.notes || undefined,
-    contactedForRenewal: Boolean(row.contacted_for_renewal ?? row.contactedForRenewal ?? false),
-    contactedAt: row.contacted_at || row.contactedAt || undefined,
+    contactedForRenewal: Boolean(row.contactedForRenewal ?? row.contacted_for_renewal ?? false),
+    contactedAt: row.contactedAt || row.contacted_at || undefined,
   };
 }
 
@@ -624,11 +622,11 @@ function formatAuditLogForDb(a: AuditLog) {
   return {
     id: a.id,
     timestamp: a.timestamp,
-    user_email: a.userEmail,
-    user_name: a.userName,
+    userEmail: a.userEmail,
+    userName: a.userName,
     action: a.action,
     details: a.details,
-    ip_address: a.ipAddress,
+    ipAddress: a.ipAddress,
     status: a.status,
   };
 }
@@ -637,11 +635,11 @@ function formatAuditLogFromDb(row: any): AuditLog {
   return {
     id: row.id,
     timestamp: row.timestamp || new Date().toISOString(),
-    userEmail: row.user_email || row.userEmail || 'system',
-    userName: row.user_name || row.userName || 'System User',
+    userEmail: row.userEmail || row.user_email || 'system',
+    userName: row.userName || row.user_name || 'System User',
     action: row.action || 'LOGIN',
     details: row.details || '',
-    ipAddress: row.ip_address || row.ipAddress || '127.0.0.1',
+    ipAddress: row.ipAddress || row.ip_address || '127.0.0.1',
     status: row.status || 'SUCCESS',
   };
 }
@@ -649,34 +647,29 @@ function formatAuditLogFromDb(row: any): AuditLog {
 function formatProfileForDb(p: UserProfile) {
   return {
     id: p.id,
-    full_name: p.fullName,
+    name: p.fullName,
     username: p.username || null,
     email: p.email,
-    password: p.password || null,
-    password_hash: p.passwordHash || null,
+    passwordHash: p.passwordHash || p.password || null,
     role: p.role,
-    created_at: p.createdAt,
-    status: p.status || 'ACTIVE',
-    is_blocked: p.isBlocked || false,
-    max_sessions_allowed: p.maxSessionsAllowed || 3,
-    active_sessions_count: p.activeSessionsCount || 0,
+    mfaEnabled: false,
+    createdAt: p.createdAt || new Date().toISOString(),
   };
 }
 
 function formatProfileFromDb(row: any): UserProfile {
   return {
     id: row.id,
-    fullName: row.full_name || row.fullName || 'User',
+    fullName: row.name || row.fullName || 'User',
     username: row.username || undefined,
     email: row.email || '',
-    password: row.password || undefined,
-    passwordHash: row.password_hash || row.passwordHash || undefined,
+    passwordHash: row.passwordHash || row.password_hash || undefined,
     role: row.role || 'LIMITED',
-    createdAt: row.created_at || row.createdAt || new Date().toISOString().split('T')[0],
-    status: row.status || 'ACTIVE',
-    isBlocked: Boolean(row.is_blocked ?? row.isBlocked ?? false),
-    maxSessionsAllowed: row.max_sessions_allowed ?? row.maxSessionsAllowed ?? 3,
-    activeSessionsCount: row.active_sessions_count ?? row.activeSessionsCount ?? 0,
+    createdAt: row.createdAt || row.created_at || new Date().toISOString().split('T')[0],
+    status: 'ACTIVE',
+    isBlocked: false,
+    maxSessionsAllowed: 3,
+    activeSessionsCount: 0,
   };
 }
 
