@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import { Sidebar, ERPView } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -24,14 +24,7 @@ import { NewProfileModal } from './components/modals/NewProfileModal';
 import { LoginView } from './components/auth/LoginView';
 import { ActiveSessionsModal } from './components/auth/ActiveSessionsModal';
 
-import {
-  saveActiveSession,
-  getActiveSession,
-  validateSession,
-  terminateActiveSession,
-  setupMultiTabSessionSync,
-  touchSessionActivity,
-} from './utils/sessionManager';
+import { saveActiveSession, getActiveSession, validateSession, terminateActiveSession, setupMultiTabSessionSync, touchSessionActivity } from './utils/sessionManager';
 
 // Replaced mock KPI defaults with an empty baseline so app relies on DB-driven data
 const INITIAL_KPI_STATS: KPIStats = {
@@ -45,7 +38,7 @@ const INITIAL_KPI_STATS: KPIStats = {
   mrrGrowth: 0,
 };
 import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile, UserSession } from './types/erp';
-import { hashPasswordArgon2id } from './utils/security';
+import { hashPasswordArgon2id, createSecureSessionToken } from './utils/security';
 import {
   fetchCustomersFromSupabase,
   insertCustomerToSupabase,
@@ -136,8 +129,10 @@ export default function App() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
 
-  // Restore session from localStorage on mount (profiles may not be loaded yet)
+  // Restore session from localStorage on mount only (profiles may not be loaded yet)
+  const sessionRestoredRef = useRef(false);
   useEffect(() => {
+    if (sessionRestoredRef.current) return;
     const sessionCheck = validateSession();
     if (sessionCheck.isValid && sessionCheck.session) {
       const session = sessionCheck.session;
@@ -158,6 +153,7 @@ export default function App() {
     } else {
       setIsLoggedIn(false);
     }
+    sessionRestoredRef.current = true;
   }, [profiles]);
 
   // Multi-Tab Session Synchronization & Periodic Expiration Check
@@ -335,6 +331,8 @@ export default function App() {
 
   const handleSelectProfile = (profile: UserProfile) => {
     setCurrentUser(profile);
+    const newSession = createSecureSessionToken(profile.id, profile.email, profile.fullName);
+    saveActiveSession(newSession);
     toast.info(`Switched active profile to ${profile.fullName} (${profile.role === 'ADMIN' ? 'System Administrator' : 'Limited Staff'})`);
     logAudit('LOGIN', `Switched active profile session to ${profile.fullName} (${profile.email})`);
     if (profile.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit')) {
