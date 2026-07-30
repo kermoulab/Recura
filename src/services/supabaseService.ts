@@ -19,7 +19,7 @@ export async function fetchCustomersFromSupabase(): Promise<Customer[]> {
   }
 
   try {
-    const { data, error } = await client.from('"Customer"').select('*');
+    const { data, error } = await client.from('Customer').select('*');
     if (error || !data) {
       console.warn('Supabase customers fetch error or no data, returning empty array.', error);
       return [];
@@ -41,7 +41,7 @@ export async function insertCustomerToSupabase(customer: Customer): Promise<Cust
 
   try {
     const { data, error } = await client
-      .from('"Customer"')
+      .from('Customer')
       .insert([formatted])
       .select()
       .single();
@@ -65,7 +65,7 @@ export async function updateCustomerInSupabase(customer: Customer): Promise<Cust
 
   try {
     const { data, error } = await client
-      .from('"Customer"')
+      .from('Customer')
       .update(formatted)
       .eq('id', customer.id)
       .select()
@@ -87,7 +87,7 @@ export async function deleteCustomerFromSupabase(id: string): Promise<void> {
   }
 
   try {
-    await client.from('"Customer"').delete().eq('id', id);
+    await client.from('Customer').delete().eq('id', id);
   } catch (e) {
     console.warn('Supabase delete failed', e);
   }
@@ -104,7 +104,7 @@ export async function fetchPlansFromSupabase(): Promise<Plan[]> {
   }
 
   try {
-    const { data, error } = await client.from('"Plan"').select('*');
+    const { data, error } = await client.from('Plan').select('*');
     if (error || !data) {
       console.warn('Supabase plans fetch error or no data, returning empty array.', error);
       return [];
@@ -126,7 +126,7 @@ export async function insertPlanToSupabase(plan: Plan): Promise<Plan> {
 
   try {
     const { data, error } = await client
-      .from('"Plan"')
+      .from('Plan')
       .insert([formatted])
       .select()
       .single();
@@ -150,7 +150,7 @@ export async function updatePlanInSupabase(plan: Plan): Promise<Plan> {
 
   try {
     const { data, error } = await client
-      .from('"Plan"')
+      .from('Plan')
       .update(formatted)
       .eq('id', plan.id)
       .select()
@@ -172,7 +172,7 @@ export async function deletePlanFromSupabase(id: string): Promise<void> {
   }
 
   try {
-    await client.from('"Plan"').delete().eq('id', id);
+    await client.from('Plan').delete().eq('id', id);
   } catch (e) {
     console.warn('Supabase plan delete error', e);
   }
@@ -190,7 +190,7 @@ export async function fetchOrdersFromSupabase(): Promise<Order[]> {
 
   try {
     const { data, error } = await client
-      .from('"Order"')
+      .from('Order')
       .select('*')
       .order('createdAt', { ascending: false });
     if (error || !data) {
@@ -214,7 +214,7 @@ export async function insertOrderToSupabase(order: Order): Promise<Order> {
 
   try {
     const { data, error } = await client
-      .from('"Order"')
+      .from('Order')
       .insert([formatted])
       .select()
       .single();
@@ -238,7 +238,7 @@ export async function updateOrderInSupabase(order: Order): Promise<Order> {
 
   try {
     const { data, error } = await client
-      .from('"Order"')
+      .from('Order')
       .update(formatted)
       .eq('id', order.id)
       .select()
@@ -260,7 +260,7 @@ export async function deleteOrderFromSupabase(id: string): Promise<void> {
   }
 
   try {
-    await client.from('"Order"').delete().eq('id', id);
+    await client.from('Order').delete().eq('id', id);
   } catch (e) {
     console.warn('Supabase order delete error', e);
   }
@@ -278,7 +278,7 @@ export async function fetchAuditLogsFromSupabase(): Promise<AuditLog[]> {
 
   try {
     const { data, error } = await client
-      .from('"AuditLog"')
+      .from('AuditLog')
       .select('*')
       .order('createdAt', { ascending: false });
     if (error || !data) {
@@ -301,7 +301,7 @@ export async function insertAuditLogToSupabase(log: AuditLog): Promise<AuditLog>
   }
 
   try {
-    await client.from('"AuditLog"').insert([formatted]);
+    await client.from('AuditLog').insert([formatted]);
   } catch (e) {
     console.warn('Supabase audit insert error', e);
   }
@@ -320,7 +320,7 @@ export async function fetchUserProfilesFromSupabase(): Promise<UserProfile[]> {
   }
 
   try {
-    const { data, error } = await client.from('"User"').select('*');
+    const { data, error } = await client.from('User').select('*');
     if (error || !data) {
       console.warn('Supabase user profiles fetch error or no data, returning empty array.', error);
       return [];
@@ -342,7 +342,7 @@ export async function insertUserProfileToSupabase(profile: UserProfile): Promise
 
   try {
     const { data, error } = await client
-      .from('"User"')
+      .from('User')
       .insert([formatted])
       .select()
       .single();
@@ -366,7 +366,7 @@ export async function updateUserProfileInSupabase(profile: UserProfile): Promise
 
   try {
     const { data, error } = await client
-      .from('"User"')
+      .from('User')
       .update(formatted)
       .eq('id', profile.id)
       .select()
@@ -388,7 +388,7 @@ export async function deleteUserProfileFromSupabase(id: string): Promise<void> {
   }
 
   try {
-    await client.from('"User"').delete().eq('id', id);
+    await client.from('User').delete().eq('id', id);
   } catch (e) {
     console.warn('Supabase profile delete error', e);
   }
