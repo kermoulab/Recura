@@ -59,8 +59,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const isAdmin = userRole === 'ADMIN';
   const orderDates = orders.map((o) => o.startDate).filter(Boolean).sort();
+  const safeDate = (d: string) => { try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }); } catch { return ''; } };
+  const safeDateFull = (d: string) => { try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; } };
   const computedTimeRange = orderDates.length >= 2
-    ? `${new Date(orderDates[0]).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} - ${new Date(orderDates[orderDates.length - 1]).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+    ? `${safeDate(orderDates[0])} - ${safeDateFull(orderDates[orderDates.length - 1])}`
     : 'No data';
   const [timeRange, setTimeRange] = useState(computedTimeRange);
 
