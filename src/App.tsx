@@ -136,18 +136,29 @@ export default function App() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
 
-  // Ensure login page is primary main page on mount (no browser persistence)
+  // Restore session from localStorage on mount (profiles may not be loaded yet)
   useEffect(() => {
     const sessionCheck = validateSession();
     if (sessionCheck.isValid && sessionCheck.session) {
-      const matchedUser = profiles.find((p) => p.id === sessionCheck.session?.userId || p.email === sessionCheck.session?.userEmail);
+      const session = sessionCheck.session;
+      const matchedUser = profiles.find((p) => p.id === session.userId || p.email === session.userEmail);
       if (matchedUser) {
         setCurrentUser(matchedUser);
+      } else {
+        setCurrentUser({
+          id: session.userId,
+          fullName: session.userName || session.userEmail.split('@')[0],
+          email: session.userEmail,
+          role: 'AGENT',
+          createdAt: new Date().toISOString(),
+          status: 'ACTIVE',
+        });
       }
+      setIsLoggedIn(true);
     } else {
       setIsLoggedIn(false);
     }
-  }, []);
+  }, [profiles]);
 
   // Multi-Tab Session Synchronization & Periodic Expiration Check
   useEffect(() => {
