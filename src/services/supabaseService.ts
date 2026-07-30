@@ -1,18 +1,25 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+﻿import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Customer, Plan, Order, AuditLog, UserProfile } from '../types/erp';
 
+function getSupabaseClient() {
+  if (!isSupabaseConfigured || !supabase) {
+    return null;
+  }
+  return supabase;
+}
 
 /* =======================================================
    1. CUSTOMERS CRUD
    ======================================================= */
 export async function fetchCustomersFromSupabase(): Promise<Customer[]> {
-  if (!isSupabaseConfigured) {
+  const client = getSupabaseClient();
+  if (!client) {
     console.warn('Supabase not configured - returning empty customers array.');
     return [];
   }
 
   try {
-    const { data, error } = await supabase.from('"Customer"').select('*');
+    const { data, error } = await client.from('"Customer"').select('*');
     if (error || !data) {
       console.warn('Supabase customers fetch error or no data, returning empty array.', error);
       return [];
@@ -26,20 +33,23 @@ export async function fetchCustomersFromSupabase(): Promise<Customer[]> {
 
 export async function insertCustomerToSupabase(customer: Customer): Promise<Customer> {
   const formatted = formatCustomerForDb(customer);
-  
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('"Customer"')
-        .insert([formatted])
-        .select()
-        .single();
-      if (!error && data) {
-        return formatCustomerFromDb(data);
-      }
-    } catch (e) {
-      console.warn('Supabase insert failed', e);
+  const client = getSupabaseClient();
+
+  if (!client) {
+    return customer;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('"Customer"')
+      .insert([formatted])
+      .select()
+      .single();
+    if (!error && data) {
+      return formatCustomerFromDb(data);
     }
+  } catch (e) {
+    console.warn('Supabase insert failed', e);
   }
 
   return customer;
@@ -47,33 +57,39 @@ export async function insertCustomerToSupabase(customer: Customer): Promise<Cust
 
 export async function updateCustomerInSupabase(customer: Customer): Promise<Customer> {
   const formatted = formatCustomerForDb(customer);
+  const client = getSupabaseClient();
 
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('"Customer"')
-        .update(formatted)
-        .eq('id', customer.id)
-        .select()
-        .single();
-      if (!error && data) {
-        return formatCustomerFromDb(data);
-      }
-    } catch (e) {
-      console.warn('Supabase update failed', e);
+  if (!client) {
+    return customer;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('"Customer"')
+      .update(formatted)
+      .eq('id', customer.id)
+      .select()
+      .single();
+    if (!error && data) {
+      return formatCustomerFromDb(data);
     }
+  } catch (e) {
+    console.warn('Supabase update failed', e);
   }
 
   return customer;
 }
 
 export async function deleteCustomerFromSupabase(id: string): Promise<void> {
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('"Customer"').delete().eq('id', id);
-    } catch (e) {
-      console.warn('Supabase delete failed', e);
-    }
+  const client = getSupabaseClient();
+  if (!client) {
+    return;
+  }
+
+  try {
+    await client.from('"Customer"').delete().eq('id', id);
+  } catch (e) {
+    console.warn('Supabase delete failed', e);
   }
 }
 
@@ -81,13 +97,14 @@ export async function deleteCustomerFromSupabase(id: string): Promise<void> {
    2. PLANS CRUD
    ======================================================= */
 export async function fetchPlansFromSupabase(): Promise<Plan[]> {
-  if (!isSupabaseConfigured) {
+  const client = getSupabaseClient();
+  if (!client) {
     console.warn('Supabase not configured - returning empty plans array.');
     return [];
   }
 
   try {
-    const { data, error } = await supabase.from('"Plan"').select('*');
+    const { data, error } = await client.from('"Plan"').select('*');
     if (error || !data) {
       console.warn('Supabase plans fetch error or no data, returning empty array.', error);
       return [];
@@ -101,20 +118,23 @@ export async function fetchPlansFromSupabase(): Promise<Plan[]> {
 
 export async function insertPlanToSupabase(plan: Plan): Promise<Plan> {
   const formatted = formatPlanForDb(plan);
+  const client = getSupabaseClient();
 
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('"Plan"')
-        .insert([formatted])
-        .select()
-        .single();
-      if (!error && data) {
-        return formatPlanFromDb(data);
-      }
-    } catch (e) {
-      console.warn('Supabase plan insert error', e);
+  if (!client) {
+    return plan;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('"Plan"')
+      .insert([formatted])
+      .select()
+      .single();
+    if (!error && data) {
+      return formatPlanFromDb(data);
     }
+  } catch (e) {
+    console.warn('Supabase plan insert error', e);
   }
 
   return plan;
@@ -122,33 +142,39 @@ export async function insertPlanToSupabase(plan: Plan): Promise<Plan> {
 
 export async function updatePlanInSupabase(plan: Plan): Promise<Plan> {
   const formatted = formatPlanForDb(plan);
+  const client = getSupabaseClient();
 
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('"Plan"')
-        .update(formatted)
-        .eq('id', plan.id)
-        .select()
-        .single();
-      if (!error && data) {
-        return formatPlanFromDb(data);
-      }
-    } catch (e) {
-      console.warn('Supabase plan update error', e);
+  if (!client) {
+    return plan;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('"Plan"')
+      .update(formatted)
+      .eq('id', plan.id)
+      .select()
+      .single();
+    if (!error && data) {
+      return formatPlanFromDb(data);
     }
+  } catch (e) {
+    console.warn('Supabase plan update error', e);
   }
 
   return plan;
 }
 
 export async function deletePlanFromSupabase(id: string): Promise<void> {
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('"Plan"').delete().eq('id', id);
-    } catch (e) {
-      console.warn('Supabase plan delete error', e);
-    }
+  const client = getSupabaseClient();
+  if (!client) {
+    return;
+  }
+
+  try {
+    await client.from('"Plan"').delete().eq('id', id);
+  } catch (e) {
+    console.warn('Supabase plan delete error', e);
   }
 }
 
@@ -156,16 +182,17 @@ export async function deletePlanFromSupabase(id: string): Promise<void> {
    3. ORDERS CRUD
    ======================================================= */
 export async function fetchOrdersFromSupabase(): Promise<Order[]> {
-  if (!isSupabaseConfigured) {
+  const client = getSupabaseClient();
+  if (!client) {
     console.warn('Supabase not configured - returning empty orders array.');
     return [];
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('"Order"')
       .select('*')
-      .order('startDate', { ascending: false });
+      .order('createdAt', { ascending: false });
     if (error || !data) {
       console.warn('Supabase orders fetch error or no data, returning empty array.', error);
       return [];
@@ -179,20 +206,23 @@ export async function fetchOrdersFromSupabase(): Promise<Order[]> {
 
 export async function insertOrderToSupabase(order: Order): Promise<Order> {
   const formatted = formatOrderForDb(order);
+  const client = getSupabaseClient();
 
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('"Order"')
-        .insert([formatted])
-        .select()
-        .single();
-      if (!error && data) {
-        return formatOrderFromDb(data);
-      }
-    } catch (e) {
-      console.warn('Supabase order insert error', e);
+  if (!client) {
+    return order;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('"Order"')
+      .insert([formatted])
+      .select()
+      .single();
+    if (!error && data) {
+      return formatOrderFromDb(data);
     }
+  } catch (e) {
+    console.warn('Supabase order insert error', e);
   }
 
   return order;
@@ -200,33 +230,39 @@ export async function insertOrderToSupabase(order: Order): Promise<Order> {
 
 export async function updateOrderInSupabase(order: Order): Promise<Order> {
   const formatted = formatOrderForDb(order);
+  const client = getSupabaseClient();
 
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('"Order"')
-        .update(formatted)
-        .eq('id', order.id)
-        .select()
-        .single();
-      if (!error && data) {
-        return formatOrderFromDb(data);
-      }
-    } catch (e) {
-      console.warn('Supabase order update error', e);
+  if (!client) {
+    return order;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('"Order"')
+      .update(formatted)
+      .eq('id', order.id)
+      .select()
+      .single();
+    if (!error && data) {
+      return formatOrderFromDb(data);
     }
+  } catch (e) {
+    console.warn('Supabase order update error', e);
   }
 
   return order;
 }
 
 export async function deleteOrderFromSupabase(id: string): Promise<void> {
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('"Order"').delete().eq('id', id);
-    } catch (e) {
-      console.warn('Supabase order delete error', e);
-    }
+  const client = getSupabaseClient();
+  if (!client) {
+    return;
+  }
+
+  try {
+    await client.from('"Order"').delete().eq('id', id);
+  } catch (e) {
+    console.warn('Supabase order delete error', e);
   }
 }
 
@@ -234,13 +270,14 @@ export async function deleteOrderFromSupabase(id: string): Promise<void> {
    4. AUDIT LOGS CRUD
    ======================================================= */
 export async function fetchAuditLogsFromSupabase(): Promise<AuditLog[]> {
-  if (!isSupabaseConfigured) {
+  const client = getSupabaseClient();
+  if (!client) {
     console.warn('Supabase not configured - returning empty audit log array.');
     return [];
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('"AuditLog"')
       .select('*')
       .order('createdAt', { ascending: false });
@@ -257,13 +294,16 @@ export async function fetchAuditLogsFromSupabase(): Promise<AuditLog[]> {
 
 export async function insertAuditLogToSupabase(log: AuditLog): Promise<AuditLog> {
   const formatted = formatAuditLogForDb(log);
+  const client = getSupabaseClient();
 
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('"AuditLog"').insert([formatted]);
-    } catch (e) {
-      console.warn('Supabase audit insert error', e);
-    }
+  if (!client) {
+    return log;
+  }
+
+  try {
+    await client.from('"AuditLog"').insert([formatted]);
+  } catch (e) {
+    console.warn('Supabase audit insert error', e);
   }
 
   return log;
@@ -273,13 +313,14 @@ export async function insertAuditLogToSupabase(log: AuditLog): Promise<AuditLog>
    5. USER PROFILES CRUD
    ======================================================= */
 export async function fetchUserProfilesFromSupabase(): Promise<UserProfile[]> {
-  if (!isSupabaseConfigured) {
+  const client = getSupabaseClient();
+  if (!client) {
     console.warn('Supabase not configured - returning empty user profiles array.');
     return [];
   }
 
   try {
-    const { data, error } = await supabase.from('"User"').select('*');
+    const { data, error } = await client.from('"User"').select('*');
     if (error || !data) {
       console.warn('Supabase user profiles fetch error or no data, returning empty array.', error);
       return [];
@@ -293,20 +334,23 @@ export async function fetchUserProfilesFromSupabase(): Promise<UserProfile[]> {
 
 export async function insertUserProfileToSupabase(profile: UserProfile): Promise<UserProfile> {
   const formatted = formatProfileForDb(profile);
+  const client = getSupabaseClient();
 
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('"User"')
-        .insert([formatted])
-        .select()
-        .single();
-      if (!error && data) {
-        return formatProfileFromDb(data);
-      }
-    } catch (e) {
-      console.warn('Supabase profile insert error', e);
+  if (!client) {
+    return profile;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('"User"')
+      .insert([formatted])
+      .select()
+      .single();
+    if (!error && data) {
+      return formatProfileFromDb(data);
     }
+  } catch (e) {
+    console.warn('Supabase profile insert error', e);
   }
 
   return profile;
@@ -314,38 +358,44 @@ export async function insertUserProfileToSupabase(profile: UserProfile): Promise
 
 export async function updateUserProfileInSupabase(profile: UserProfile): Promise<UserProfile> {
   const formatted = formatProfileForDb(profile);
+  const client = getSupabaseClient();
 
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('"User"')
-        .update(formatted)
-        .eq('id', profile.id)
-        .select()
-        .single();
-      if (!error && data) {
-        return formatProfileFromDb(data);
-      }
-    } catch (e) {
-      console.warn('Supabase profile update error', e);
+  if (!client) {
+    return profile;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('"User"')
+      .update(formatted)
+      .eq('id', profile.id)
+      .select()
+      .single();
+    if (!error && data) {
+      return formatProfileFromDb(data);
     }
+  } catch (e) {
+    console.warn('Supabase profile update error', e);
   }
 
   return profile;
 }
 
 export async function deleteUserProfileFromSupabase(id: string): Promise<void> {
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('"User"').delete().eq('id', id);
-    } catch (e) {
-      console.warn('Supabase profile delete error', e);
-    }
+  const client = getSupabaseClient();
+  if (!client) {
+    return;
+  }
+
+  try {
+    await client.from('"User"').delete().eq('id', id);
+  } catch (e) {
+    console.warn('Supabase profile delete error', e);
   }
 }
 
 /* =======================================================
-   DATA MAPPING UTILITIES (snake_case <-> camelCase)
+   DATA MAPPING UTILITIES (camelCase <-> PostgreSQL columns)
    ======================================================= */
 function formatCustomerForDb(c: Customer) {
   return {
@@ -354,9 +404,11 @@ function formatCustomerForDb(c: Customer) {
     whatsapp: c.whatsapp,
     email: c.email || null,
     preferredLanguage: c.preferredLanguage,
-    createdAt: c.registrationDate || new Date().toISOString(),
     status: c.status,
     notes: c.notes || null,
+    isDeleted: false,
+    createdAt: c.registrationDate || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -386,6 +438,9 @@ function formatPlanForDb(p: Plan) {
     availableStock: p.availableStock,
     totalAccounts: p.totalAccounts,
     activeOrders: p.activeOrders,
+    isDeleted: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -423,6 +478,9 @@ function formatOrderForDb(o: Order) {
     notes: o.notes || null,
     contactedForRenewal: o.contactedForRenewal || false,
     contactedAt: o.contactedAt || null,
+    isDeleted: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -459,6 +517,7 @@ function formatAuditLogForDb(a: AuditLog) {
     details: a.details,
     ipAddress: a.ipAddress,
     status: a.status,
+    createdAt: a.timestamp,
   };
 }
 
@@ -481,10 +540,11 @@ function formatProfileForDb(p: UserProfile) {
     name: p.fullName,
     username: p.username || null,
     email: p.email,
-    passwordHash: p.passwordHash || p.password || null,
+    passwordHash: p.passwordHash || null,
     role: p.role,
     mfaEnabled: false,
     createdAt: p.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -503,4 +563,3 @@ function formatProfileFromDb(row: any): UserProfile {
     activeSessionsCount: 0,
   };
 }
-

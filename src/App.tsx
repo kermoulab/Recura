@@ -44,7 +44,8 @@ const INITIAL_KPI_STATS: KPIStats = {
   expiredCount: 0,
   mrrGrowth: 0,
 };
-import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile } from './types/erp';
+import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile, UserSession } from './types/erp';
+import { hashPasswordArgon2id } from './utils/security';
 import {
   fetchCustomersFromSupabase,
   insertCustomerToSupabase,
@@ -213,6 +214,29 @@ export default function App() {
   const expiredCount = orders.filter((o) => o.status === 'EXPIRED').length;
 
   const totalSales = orders.reduce((sum, o) => sum + o.price, 0);
+  const totalIncome = totalSales;
+
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+  const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+  const currentMonthRevenue = orders
+    .filter((o) => {
+      const d = new Date(o.startDate);
+      return !isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    })
+    .reduce((sum, o) => sum + o.price, 0);
+
+  const prevMonthRevenue = orders
+    .filter((o) => {
+      const d = new Date(o.startDate);
+      return !isNaN(d.getTime()) && d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+    })
+    .reduce((sum, o) => sum + o.price, 0);
+
+  const mrrGrowth = prevMonthRevenue > 0 ? Math.round(((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100) : 0;
 
   const currentKPIs: KPIStats = {
     ...INITIAL_KPI_STATS,
@@ -222,6 +246,8 @@ export default function App() {
     expiring7DaysCount,
     expiredCount,
     totalSales,
+    totalIncome,
+    mrrGrowth,
   };
 
   // Audit Logger helper - attributes to current user or specified credentials
@@ -239,7 +265,7 @@ export default function App() {
       userName: userName || currentUser?.fullName || 'System User',
       action,
       details,
-      ipAddress: '192.168.1.105',
+      ipAddress: typeof window !== 'undefined' ? window.location.hostname : 'localhost',
       status,
     };
     setAuditLogs((prev) => [newLog, ...prev]);
@@ -255,7 +281,7 @@ export default function App() {
     toast.info('Session ended. Logged out successfully.');
   };
 
-  const handleLoginSuccess = (user: UserProfile, session?: any) => {
+  const handleLoginSuccess = (user: UserProfile, session?: UserSession) => {
     setCurrentUser(user);
     setIsLoggedIn(true);
 
@@ -271,10 +297,13 @@ export default function App() {
 
   // Profile Management Handlers
   const handleCreateProfile = async (profileData: Omit<UserProfile, 'id' | 'createdAt'>) => {
+    const passwordHash = profileData.password ? await hashPasswordArgon2id(profileData.password) : undefined;
     const newProfile: UserProfile = {
       ...profileData,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString().split('T')[0],
+      password: undefined,
+      passwordHash,
     };
 
     setProfiles((prev) => [...prev, newProfile]);
@@ -284,7 +313,8 @@ export default function App() {
   };
 
   const handleUpdateCurrentProfile = async (data: { fullName: string; username?: string; email: string; password?: string }) => {
-    const updated = { ...currentUser, ...data };
+    const passwordHash = data.password ? await hashPasswordArgon2id(data.password) : currentUser.passwordHash;
+    const updated = { ...currentUser, ...data, password: undefined, passwordHash };
     setCurrentUser(updated);
     setProfiles((prev) => prev.map((p) => (p.id === currentUser.id ? updated : p)));
     await updateUserProfileInSupabase(updated);
@@ -527,6 +557,7 @@ export default function App() {
         unreadNotificationsCount={expiring3DaysCount + expiredCount}
         currentUser={currentUser}
         profiles={profiles}
+        orders={orders}
         onSelectProfile={handleSelectProfile}
         onLogout={handleLogout}
         onOpenSessionsModal={() => setIsSessionsModalOpen(true)}

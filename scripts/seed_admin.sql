@@ -6,6 +6,7 @@
 -- username: admin
 -- email: admin@recura.io
 -- password: TestAdmin@123
+-- stored password hash: $argon2id$v=19$m=65536,t=3,p=1$QdiQ/RMZXNk4nbzGNtQcIA$rFFVNx7nm/b4xDGMLbB8JIU6GTIH1cI3KA+bRMXmI+E
 
 INSERT INTO "User" (
   "id",
@@ -20,13 +21,12 @@ INSERT INTO "User" (
   'System Administrator',
   'admin',
   'admin@recura.io',
-  'TestAdmin@123',
+  '$argon2id$v=19$m=65536,t=3,p=1$QdiQ/RMZXNk4nbzGNtQcIA$rFFVNx7nm/b4xDGMLbB8JIU6GTIH1cI3KA+bRMXmI+E',
   'ADMIN',
   now()
 )
 ON CONFLICT ("username") DO NOTHING;
 
 -- Note:
--- The application stores login credentials in the "passwordHash" column for backward compatibility
--- with its current authentication flow. For production use, replace this with a proper Argon2id hash
--- and a server-side authentication layer instead of client-side password validation.
+-- The application now stores a real Argon2id hash in the passwordHash column.
+-- For production use, replace this client-side validation flow with a server-side authentication layer.

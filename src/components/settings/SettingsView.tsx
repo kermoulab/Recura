@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { Language, WhatsAppTemplate, UserProfile } from '../../types/erp';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../utils/whatsapp';
-import { sanitizeInput, sanitizeUsername, validateEmail, stripControlCharacters } from '../../utils/security';
+import { sanitizeInput, sanitizeUsername, validateEmail, stripControlCharacters, verifyArgon2idPassword } from '../../utils/security';
 
 interface SettingsViewProps {
   currentUser?: UserProfile;
@@ -45,8 +45,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     fullName: 'James Noah',
     username: 'admin',
     email: 'admin@recura.io',
-    password: 'password123',
-    passwordHash: 'password123',
+    password: undefined,
+    passwordHash: '$argon2id$v=19$m=65536,t=3,p=1$QdiQ/RMZXNk4nbzGNtQcIA$rFFVNx7nm/b4xDGMLbB8JIU6GTIH1cI3KA+bRMXmI+E',
     role: 'ADMIN',
     createdAt: '2026-01-01',
   },
@@ -76,14 +76,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [fullName, setFullName] = useState(currentUser.fullName);
   const [username, setUsername] = useState(currentUser.username || '');
   const [email, setEmail] = useState(currentUser.email);
-  const [selectedRole, setSelectedRole] = useState(currentUser.role === 'ADMIN' ? 'ADMIN' : 'AGENT');
+  const [selectedRole, setSelectedRole] = useState(currentUser.role);
   const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     setFullName(currentUser.fullName);
     setUsername(currentUser.username || '');
     setEmail(currentUser.email);
-    setSelectedRole(currentUser.role === 'ADMIN' ? 'ADMIN' : 'AGENT');
+    setSelectedRole(currentUser.role);
     setProfileError(null);
   }, [currentUser]);
 
@@ -146,19 +146,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const hasNumber = /[0-9]/.test(newPassword);
   const hasSymbol = /[^a-zA-Z0-9]/.test(newPassword);
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
     setPasswordSuccess(null);
-
-    const savedDatabasePassword = currentUser.password || currentUser.passwordHash || '';
 
     if (!currentPassword) {
       setPasswordError('Current Password is required.');
       return;
     }
 
-    if (currentPassword !== savedDatabasePassword) {
+    const isCurrentPasswordValid = await verifyArgon2idPassword(
+      currentPassword,
+      currentUser.passwordHash || currentUser.password || ''
+    );
+
+    if (!isCurrentPasswordValid) {
       setPasswordError('Current password is incorrect. It does not match the password saved in database.');
       return;
     }
@@ -186,7 +189,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
 
     if (onUpdateCurrentProfile) {
-      onUpdateCurrentProfile({
+      await onUpdateCurrentProfile({
         fullName: currentUser.fullName,
         email: currentUser.email,
         password: newPassword,
@@ -367,10 +370,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {isAdmin ? (
                   <select
                     disabled
-                    value="SUPER_ADMIN"
+                    value="ADMIN"
                     className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-700 cursor-not-allowed"
                   >
-                    <option value="SUPER_ADMIN">System Administrator (Super Admin - Full Access)</option>
+                    <option value="ADMIN">System Administrator (Full Access)</option>
                   </select>
                 ) : (
                   <input

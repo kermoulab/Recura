@@ -98,9 +98,15 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ logs }) => {
                   <td className="py-4 px-6 font-medium text-slate-700 max-w-sm">{log.details}</td>
                   <td className="py-4 px-6 font-mono text-slate-500">{log.ipAddress}</td>
                   <td className="py-4 px-6 text-right">
-                    <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full text-[11px] font-bold border border-emerald-200">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                      Success
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                      log.status === 'SUCCESS'
+                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        : log.status === 'WARNING'
+                        ? 'text-amber-700 bg-amber-50 border-amber-200'
+                        : 'text-rose-700 bg-rose-50 border-rose-200'
+                    }`}>
+                      {log.status === 'SUCCESS' ? <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : <ShieldAlert className="w-3 h-3" />}
+                      {log.status === 'SUCCESS' ? 'Success' : log.status === 'WARNING' ? 'Warning' : 'Failed'}
                     </span>
                   </td>
                 </tr>

@@ -52,7 +52,7 @@ export const PlansView: React.FC<PlansViewProps> = ({
 
       {/* Category Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
-        {['ALL', 'Netflix', 'Disney+', 'Prime Video', 'Spotify', 'IPTV', 'YouTube Premium'].map(
+        {['ALL', 'Netflix', 'Disney+', 'Prime Video', 'Spotify', 'IPTV', 'YouTube Premium', 'HBO Max', 'Other'].map(
           (cat) => (
             <button
               key={cat}

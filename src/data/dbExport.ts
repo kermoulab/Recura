@@ -254,9 +254,9 @@ CREATE TABLE "AuditLog" (
 );
 
 -- Initial Seed Admin Data
--- WARNING: This example seed stores the login value directly in passwordHash for app compatibility.
+-- Seed uses a real Argon2id hash for the admin workspace account.
 INSERT INTO "User" ("name", "username", "email", "passwordHash", "role")
-VALUES ('James Noah', 'admin', 'admin@recura.io', 'TestAdmin@123', 'ADMIN');
+VALUES ('James Noah', 'admin', 'admin@recura.io', '$argon2id$v=19$m=65536,t=3,p=1$QdiQ/RMZXNk4nbzGNtQcIA$rFFVNx7nm/b4xDGMLbB8JIU6GTIH1cI3KA+bRMXmI+E', 'ADMIN');
 `;
 
 export const DOCKER_COMPOSE = `version: '3.8'
@@ -294,7 +294,7 @@ async function main() {
       name: 'James Noah',
       username: 'admin',
       email: 'admin@recura.io',
-      passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$simulated_hash',
+      passwordHash: '$argon2id$v=19$m=65536,t=3,p=1$QdiQ/RMZXNk4nbzGNtQcIA$rFFVNx7nm/b4xDGMLbB8JIU6GTIH1cI3KA+bRMXmI+E',
       role: 'ADMIN',
     },
   });

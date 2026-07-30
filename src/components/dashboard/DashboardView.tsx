@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
-  Sparkles,
 } from 'lucide-react';
 import {
   BarChart,
@@ -29,6 +28,7 @@ import {
   Area,
 } from 'recharts';
 import { KPIStats, SubscriptionStatus, Customer, Order, Plan, UserRole } from '../../types/erp';
+import { ERPView } from '../layout/Sidebar';
 // No mock defaults — rely on data passed from parent or DB-driven queries
 import { formatCurrency } from '../../utils/crypto';
 
@@ -41,31 +41,9 @@ interface DashboardViewProps {
   onOpenNewCustomer: () => void;
   onOpenNewOrder: () => void;
   onOpenNewPlan: () => void;
-  onNavigate: (view: any) => void;
+  onNavigate: (view: ERPView) => void;
   userRole?: UserRole;
 }
-
-// Sample monthly trends matching reference mockup
-const MONTHLY_TRENDS_DATA = [
-  { month: 'Jan', active: 8200, trials: 4500, colorType: 'pink' },
-  { month: 'Feb', active: 7100, trials: 3600, colorType: 'striped' },
-  { month: 'Mar', active: 5200, trials: 2600, colorType: 'stripe_light' },
-  { month: 'Apr', active: 10400, trials: 5100, colorType: 'blue' },
-  { month: 'May', active: 10800, trials: 5300, colorType: 'blue' },
-  { month: 'Jun', active: 8500, trials: 4100, colorType: 'striped' },
-  { month: 'Jul', active: 13200, trials: 6400, colorType: 'cyan' },
-  { month: 'Aug', active: 15140, trials: 7200, colorType: 'cyan' },
-  { month: 'Sep', active: 7800, trials: 3800, colorType: 'stripe_light' },
-  { month: 'Oct', active: 12400, trials: 5900, colorType: 'pink' },
-  { month: 'Nov', active: 3400, trials: 1600, colorType: 'blue_cyan' },
-  { month: 'Dec', active: 6800, trials: 3200, colorType: 'blue' },
-];
-
-const MINI_BRAND_BARS = [
-  { brand: 'Netflix 4K', val: 75, fill: 'url(#pinkGradient)' },
-  { brand: 'IPTV Ultra', val: 95, fill: 'url(#blueGradient)' },
-  { brand: 'Disney+', val: 60, fill: 'url(#cyanGradient)' },
-];
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   kpis,
@@ -80,7 +58,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   userRole = 'ADMIN',
 }) => {
   const isAdmin = userRole === 'ADMIN';
-  const [timeRange, setTimeRange] = useState('01 Jan - 02 Feb 2026');
+  const orderDates = orders.map((o) => o.startDate).filter(Boolean).sort();
+  const computedTimeRange = orderDates.length >= 2
+    ? `${new Date(orderDates[0]).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} - ${new Date(orderDates[orderDates.length - 1]).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+    : 'No data';
+  const [timeRange, setTimeRange] = useState(computedTimeRange);
 
   // Real Customer Metrics
   const totalCustomers = customers.length;
@@ -170,12 +152,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     .sort((a, b) => b.sales - a.sales);
 
   // Donut chart distribution
+  const activeOrdersCount = orders.filter((o) => o.status === 'ACTIVE').length;
+  const expiring7DCount = orders.filter((o) => o.status === 'EXPIRING_7D').length;
   const statusDistributionData = [
-    { name: 'Active', value: 92, color: '#4A90FF' },
-    { name: 'Expiring in 7D', value: 12, color: '#D9B8FF' },
-    { name: 'Expiring in 3D', value: kpis.expiring3DaysCount + 4, color: '#F8A8D8' },
-    { name: 'Expired', value: kpis.expiredCount + 2, color: '#FF5B5B' },
+    { name: 'Active', value: activeOrdersCount || 1, color: '#4A90FF' },
+    { name: 'Expiring in 7D', value: expiring7DCount || 1, color: '#D9B8FF' },
+    { name: 'Expiring in 3D', value: kpis.expiring3DaysCount || 1, color: '#F8A8D8' },
+    { name: 'Expired', value: kpis.expiredCount || 1, color: '#FF5B5B' },
   ];
+  const totalStatusCount = statusDistributionData.reduce((sum, d) => sum + d.value, 0);
+  const activePercent = totalStatusCount > 0 ? Math.round((activeOrdersCount / totalStatusCount) * 100) : 0;
 
   return (
     <div id="subly-dashboard-view" className="p-8 space-y-8 bg-[#F5F7FA] min-h-[calc(100vh-72px)]">
@@ -466,7 +452,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Active</span>
-                <span className="text-lg font-black text-[#111827]">92%</span>
+                <span className="text-lg font-black text-[#111827]">{activePercent}%</span>
               </div>
             </div>
 

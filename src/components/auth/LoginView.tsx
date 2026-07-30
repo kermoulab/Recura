@@ -30,8 +30,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
   const [lockoutTimer, setLockoutTimer] = useState<number>(0);
   const [botTrap, setBotTrap] = useState<string>(''); // Anti-bot honeypot field
 
-  // Active Session info preview for UI transparency
-  const [, setLastSessionCreated] = useState<UserSession | null>(null);
+
 
   // Countdown effect for lockout timer
   useEffect(() => {
@@ -52,7 +51,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
     };
   }, [lockoutTimer]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -70,7 +69,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
         const waitSec = Math.ceil((rateCheck.remainingMs || 30000) / 1000);
         setLockoutTimer(waitSec);
         setError(`Too many login requests. Please wait ${waitSec}s.`);
-        onAuditLog?.('FAILED_LOGIN', `Rate limit exceeded for IP 192.168.1.105`, 'FAILED');
+        onAuditLog?.('FAILED_LOGIN', `Rate limit exceeded`, 'FAILED');
         return;
       }
 
@@ -98,11 +97,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
           p.email.split('@')[0].toLowerCase() === cleanUsername.toLowerCase()
       );
 
-      // Step 2b: Verify password strictly against user's password and passwordHash
+      // Step 2b: Verify password strictly against the stored password hash or legacy plaintext value
       const isPasswordValid = matchedUser
-        ? (matchedUser.password && cleanPassword === matchedUser.password) ||
-          (matchedUser.passwordHash && verifyArgon2idPassword(cleanPassword, matchedUser.passwordHash)) ||
-          verifyArgon2idPassword(cleanPassword, matchedUser.password)
+        ? await verifyArgon2idPassword(cleanPassword, matchedUser.passwordHash || matchedUser.password)
         : false;
 
       if (!matchedUser || !isPasswordValid) {
@@ -129,7 +126,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
       // Step 2d: Check active session limits
       const activeCount = matchedUser.activeSessionsCount ?? 1;
       const maxLimit = matchedUser.maxSessionsAllowed ?? 3;
-      if (activeCount > maxLimit) {
+      if (activeCount >= maxLimit) {
         onAuditLog?.('FAILED_LOGIN', `Session limit exceeded (${activeCount}/${maxLimit}) for: ${matchedUser.email}`, 'FAILED');
         setError('Session expired.');
         return;
@@ -137,7 +134,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
 
       // Step 2e: Create secure session
       const session = createSecureSessionToken(matchedUser.id, matchedUser.email, matchedUser.fullName);
-      setLastSessionCreated(session);
 
       onAuditLog?.(
         'LOGIN',

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Bell, ShieldCheck, UserCheck, ChevronDown, CheckCircle2, User, Users, Lock, LogOut } from 'lucide-react';
 import { ERPView } from './Sidebar';
-import { UserProfile } from '../../types/erp';
+import { UserProfile, Order } from '../../types/erp';
 
 interface HeaderProps {
   currentView: ERPView;
@@ -10,6 +10,7 @@ interface HeaderProps {
   unreadNotificationsCount?: number;
   currentUser?: UserProfile;
   profiles?: UserProfile[];
+  orders?: Order[];
   onSelectProfile?: (user: UserProfile) => void;
   onLogout?: () => void;
   onOpenSessionsModal?: () => void;
@@ -28,10 +29,19 @@ export const Header: React.FC<HeaderProps> = ({
     createdAt: '2026-01-01',
   },
   profiles = [],
+  orders = [],
   onSelectProfile,
   onLogout,
   onOpenSessionsModal,
 }) => {
+  const expiring3DNames = orders
+    .filter((o) => o.status === 'EXPIRING_3D')
+    .map((o) => o.customerName)
+    .slice(0, 3);
+  const expiredNames = orders
+    .filter((o) => o.status === 'EXPIRED')
+    .map((o) => o.customerName)
+    .slice(0, 3);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -145,32 +155,39 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </div>
               <div className="space-y-2 text-xs">
-                <div
-                  onClick={() => {
-                    onSelectView('alerts');
-                    setShowNotifications(false);
-                  }}
-                  className="p-2.5 rounded-xl bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
-                >
-                  <div className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0" />
-                  <div>
-                    <p className="font-bold text-amber-900">2 Accounts Expiring in 3 Days</p>
-                    <p className="text-amber-700 text-[11px] mt-0.5">Karim Mansouri & Sophie Laurent</p>
+                {expiring3DNames.length > 0 && (
+                  <div
+                    onClick={() => {
+                      onSelectView('alerts');
+                      setShowNotifications(false);
+                    }}
+                    className="p-2.5 rounded-xl bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0" />
+                    <div>
+                      <p className="font-bold text-amber-900">{expiring3DNames.length} Account{expiring3DNames.length > 1 ? 's' : ''} Expiring in 3 Days</p>
+                      <p className="text-amber-700 text-[11px] mt-0.5">{expiring3DNames.join(', ')}</p>
+                    </div>
                   </div>
-                </div>
-                <div
-                  onClick={() => {
-                    onSelectView('alerts');
-                    setShowNotifications(false);
-                  }}
-                  className="p-2.5 rounded-xl bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
-                >
-                  <div className="w-2 h-2 rounded-full bg-rose-500 mt-1 shrink-0" />
-                  <div>
-                    <p className="font-bold text-rose-900">1 Expired Account Needs Renewal</p>
-                    <p className="text-rose-700 text-[11px] mt-0.5">Youssef El Amrani (IPTV 12M)</p>
+                )}
+                {expiredNames.length > 0 && (
+                  <div
+                    onClick={() => {
+                      onSelectView('alerts');
+                      setShowNotifications(false);
+                    }}
+                    className="p-2.5 rounded-xl bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-rose-500 mt-1 shrink-0" />
+                    <div>
+                      <p className="font-bold text-rose-900">{expiredNames.length} Expired Account{expiredNames.length > 1 ? 's' : ''} Need{expiredNames.length === 1 ? 's' : ''} Renewal</p>
+                      <p className="text-rose-700 text-[11px] mt-0.5">{expiredNames.join(', ')}</p>
+                    </div>
                   </div>
-                </div>
+                )}
+                {expiring3DNames.length === 0 && expiredNames.length === 0 && (
+                  <p className="text-xs text-slate-500 text-center py-2">No pending alerts</p>
+                )}
               </div>
             </div>
           )}

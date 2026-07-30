@@ -113,7 +113,6 @@ The application produces a standard single-page application (SPA) output in `dis
 │   │   ├── customers/     # Customer CRM management
 │   │   ├── dashboard/     # KPI cards, charts, & stats
 │   │   ├── layout/        # Sidebar navigation & Header bar
-│   │   ├── logs/          # Audit logging table
 │   │   ├── orders/        # Order creation & list views
 │   │   ├── plans/         # Subscription catalog & inventory
 │   │   └── settings/      # User profile, session control, & templates

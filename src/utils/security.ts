@@ -233,29 +233,109 @@ class RateLimiter {
 
 export const securityRateLimiter = new RateLimiter();
 
+import { argon2id } from 'hash-wasm';
+import { UserSession, DeviceInfo } from '../types/erp';
+
+const ARGON2_HASH_LENGTH = 32;
+const ARGON2_ITERATIONS = 3;
+const ARGON2_MEMORY_SIZE = 65536;
+const ARGON2_PARALLELISM = 1;
+
+function generateSalt(bytes = 16): Uint8Array {
+ const salt = new Uint8Array(bytes);
+ if (typeof globalThis.crypto?.getRandomValues === 'function') {
+   globalThis.crypto.getRandomValues(salt);
+ } else {
+   for (let i = 0; i < bytes; i += 1) {
+     salt[i] = Math.floor(Math.random() * 256);
+   }
+ }
+ return salt;
+}
+
+function decodeBase64ToBytes(value: string): Uint8Array {
+ if (typeof Buffer !== 'undefined') {
+   return Uint8Array.from(Buffer.from(value, 'base64'));
+ }
+
+ const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+ const padding = '='.repeat((4 - (normalized.length % 4)) % 4);
+ const binary = globalThis.atob?.(normalized + padding) ?? '';
+ const bytes = new Uint8Array(binary.length);
+ for (let i = 0; i < binary.length; i += 1) {
+   bytes[i] = binary.charCodeAt(i);
+ }
+ return bytes;
+}
+
+function parseArgon2EncodedHash(hash: string): { iterations: number; memorySize: number; parallelism: number; salt: Uint8Array } | null {
+ const match = /^\$argon2(?:i|d|id)\$v=19\$m=(\d+),t=(\d+),p=(\d+)\$([A-Za-z0-9+/=]+)\$([A-Za-z0-9+/=]+)$/.exec(hash);
+ if (!match) return null;
+
+ return {
+   iterations: Number(match[2]),
+   memorySize: Number(match[1]),
+   parallelism: Number(match[3]),
+   salt: decodeBase64ToBytes(match[4]),
+ };
+}
+
+export async function hashPasswordArgon2id(password: string): Promise<string> {
+ if (!password) {
+   throw new Error('Password is required.');
+ }
+
+ return argon2id({
+   password,
+   salt: generateSalt(16),
+   iterations: ARGON2_ITERATIONS,
+   memorySize: ARGON2_MEMORY_SIZE,
+   parallelism: ARGON2_PARALLELISM,
+   hashLength: ARGON2_HASH_LENGTH,
+   outputType: 'encoded',
+ });
+}
+
 /**
  * Verifies password against stored password or Argon2id/bcrypt hash representation
  */
-export function verifyArgon2idPassword(password: string, storedPasswordOrHash?: string): boolean {
-  if (!password || !storedPasswordOrHash) return false;
+export async function verifyArgon2idPassword(password: string, storedPasswordOrHash?: string): Promise<boolean> {
+ if (!password || !storedPasswordOrHash) return false;
 
-  // Direct match with stored password or hash
-  if (password === storedPasswordOrHash) return true;
+ // Direct match with stored password or hash (legacy fallback)
+ if (password === storedPasswordOrHash) return true;
 
-  // If stored password is encrypted with AES-256 simulation
-  if (storedPasswordOrHash.startsWith('enc_aes256_')) {
-    try {
-      const decrypted = atob(storedPasswordOrHash.replace('enc_aes256_', ''));
-      if (decrypted === password) return true;
-    } catch {
-      // ignore
-    }
-  }
+ // If stored password is encrypted with AES-256 simulation
+ if (storedPasswordOrHash.startsWith('enc_aes256_')) {
+   try {
+     const decrypted = globalThis.atob?.(storedPasswordOrHash.replace('enc_aes256_', '')) ?? '';
+     if (decrypted === password) return true;
+   } catch {
+     // ignore
+   }
+ }
 
-  return false;
+ if (!storedPasswordOrHash.startsWith('$argon2id$')) return false;
+
+ try {
+   const parsed = parseArgon2EncodedHash(storedPasswordOrHash);
+   if (!parsed) return false;
+
+   const derivedHash = await argon2id({
+     password,
+     salt: parsed.salt,
+     iterations: parsed.iterations,
+     memorySize: parsed.memorySize,
+     parallelism: parsed.parallelism,
+     hashLength: ARGON2_HASH_LENGTH,
+     outputType: 'encoded',
+   });
+
+   return derivedHash === storedPasswordOrHash;
+ } catch {
+   return false;
+ }
 }
-
-import { UserSession, DeviceInfo } from '../types/erp';
 
 /**
  * Detects client browser, OS, and device type from window.navigator.userAgent
@@ -311,7 +391,7 @@ export function createSecureSessionToken(userId: string, userEmail: string, user
     createdAt: now.toISOString(),
     lastActiveAt: now.toISOString(),
     expiresAt: expires.toISOString(),
-    ipAddress: '192.168.1.105', // Client container IP
+    ipAddress: typeof window !== 'undefined' ? window.location.hostname : 'localhost',
     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'RecuraERP-Client/2.6',
     deviceInfo: device,
     status: 'ACTIVE',

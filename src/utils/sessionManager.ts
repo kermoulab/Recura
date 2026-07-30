@@ -7,9 +7,39 @@ const BROADCAST_CHANNEL_NAME = 'recura_session_sync_channel';
 // Start with no demo sessions — rely on real sessions stored in DB or provided by auth
 const DEFAULT_DEMO_SESSIONS: UserSession[] = [];
 
-// In-memory session store replacing browser localStorage
-let activeMemorySession: UserSession | null = null;
-let allMemorySessions: UserSession[] = [];
+// Persisted session store with localStorage fallback
+function loadPersistedSession(): UserSession | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function persistActiveSession(session: UserSession | null): void {
+  try {
+    if (session) {
+      localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
+    } else {
+      localStorage.removeItem(ACTIVE_SESSION_KEY);
+    }
+  } catch { /* quota exceeded or private mode */ }
+}
+
+function loadPersistedAllSessions(): UserSession[] {
+  try {
+    const raw = localStorage.getItem(ALL_SESSIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function persistAllSessions(sessions: UserSession[]): void {
+  try {
+    localStorage.setItem(ALL_SESSIONS_KEY, JSON.stringify(sessions));
+  } catch { /* quota exceeded or private mode */ }
+}
+
+let activeMemorySession: UserSession | null = loadPersistedSession();
+let allMemorySessions: UserSession[] = loadPersistedAllSessions();
 
 /**
  * Broadcasts session state changes across browser tabs via BroadcastChannel if available
@@ -38,6 +68,7 @@ export function getAllSessions(): UserSession[] {
  */
 export function saveAllSessions(sessions: UserSession[]) {
   allMemorySessions = sessions;
+  persistAllSessions(sessions);
 }
 
 /**
@@ -73,6 +104,7 @@ export function saveActiveSession(session: UserSession): void {
   };
 
   activeMemorySession = activeSession;
+  persistActiveSession(activeSession);
 
   // Update all sessions array
   const existingIndex = allMemorySessions.findIndex(
@@ -85,6 +117,7 @@ export function saveActiveSession(session: UserSession): void {
     allMemorySessions.unshift(activeSession);
   }
 
+  persistAllSessions(allMemorySessions);
   broadcastSessionEvent('SESSION_CREATED', activeSession);
 }
 
@@ -161,6 +194,8 @@ export function terminateActiveSession(reason: 'LOGOUT' | 'EXPIRED' | 'REMOTE_TE
   }
 
   activeMemorySession = null;
+  persistActiveSession(null);
+  persistAllSessions(allMemorySessions);
   broadcastSessionEvent('SESSION_TERMINATED', { reason });
 }
 
