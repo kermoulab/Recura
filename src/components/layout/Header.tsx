@@ -91,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       id="subly-top-header"
-      className="ml-[80px] h-[72px] bg-[#F5F7FA] border-b border-[#E8EAF0] px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs"
+      className="ml-0 md:ml-[80px] h-[72px] bg-[#F5F7FA] border-b border-[#E8EAF0] px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs"
     >
       {/* Brand & Center Navigation Pills */}
       <div className="flex items-center gap-6">

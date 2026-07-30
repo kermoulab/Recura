@@ -280,31 +280,6 @@ export const NewProfileModal: React.FC<NewProfileModalProps> = ({
 
               <label
                 className={`p-2.5 rounded-2xl border cursor-pointer transition-all flex items-start gap-2.5 ${
-                  role === 'MANAGER'
-                    ? 'border-[#4A90FF] bg-blue-50/50 ring-2 ring-blue-500/20'
-                    : 'border-[#E8EAF0] bg-[#F5F7FA] hover:bg-slate-100'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="userRole"
-                  value="MANAGER"
-                  checked={role === 'MANAGER'}
-                  onChange={() => setRole('MANAGER')}
-                  className="mt-0.5 text-[#4A90FF]"
-                />
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-extrabold text-[#111827]">Manager (Elevated Access)</span>
-                    <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
-                      Mid-Level
-                    </span>
-                  </div>
-                </div>
-              </label>
-
-              <label
-                className={`p-2.5 rounded-2xl border cursor-pointer transition-all flex items-start gap-2.5 ${
                   role === 'ADMIN'
                     ? 'border-[#4A90FF] bg-blue-50/50 ring-2 ring-blue-500/20'
                     : 'border-[#E8EAF0] bg-[#F5F7FA] hover:bg-slate-100'

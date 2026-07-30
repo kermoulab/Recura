@@ -93,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       id="subly-sidebar"
-      className="fixed left-0 top-0 bottom-0 w-[80px] bg-[#111111] text-white flex flex-col justify-between items-center py-6 z-40 rounded-r-2xl shadow-xl select-none"
+      className="hidden md:flex fixed left-0 top-0 bottom-0 w-[80px] bg-[#111111] text-white flex-col justify-between items-center py-6 z-40 rounded-r-2xl shadow-xl select-none"
     >
       {/* Navigation Icons Stack */}
       <nav className="flex flex-col gap-3 my-auto">

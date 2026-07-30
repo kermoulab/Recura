@@ -30,7 +30,6 @@ enum CustomerStatus {
 
 enum UserRole {
   ADMIN
-  MANAGER
   AGENT
 }
 
@@ -170,7 +169,7 @@ CREATE TYPE "SubscriptionStatus" AS ENUM ('ACTIVE', 'EXPIRING_7D', 'EXPIRING_3D'
 -- CustomerStatus is VARCHAR(20) (not enum) — frontend TypeScript validates values.
 -- Enum definition retained for reference only:
 -- CREATE TYPE "CustomerStatus" AS ENUM ('ACTIVE', 'BLOCKED', 'INACTIVE', 'VIP');
-CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MANAGER', 'AGENT');
+CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'AGENT');
 
 -- Table: Users
 CREATE TABLE "User" (

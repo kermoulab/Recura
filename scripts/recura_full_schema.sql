@@ -24,7 +24,7 @@ END $$;
 -- with ALTER TYPE ADD VALUE. Frontend TypeScript types enforce valid values.
 
 DO $$ BEGIN
-  CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MANAGER', 'AGENT');
+  CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'AGENT');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -160,7 +160,7 @@ INSERT INTO "User" ("id", "name", "username", "email", "passwordHash", "role") V
   'manager',
   'sarah@recura.io',
   '$argon2id$v=19$m=65536,t=3,p=1$4v8j3GmFkz2P9xRdTq7YcA$kL9mN3pQ5rS7tU9vW1xY3zB5cD7eF9hJ2kL4mN6pQ8rS0tU',
-  'MANAGER'
+  'AGENT'
 )
 ON CONFLICT ("username") DO NOTHING;
 

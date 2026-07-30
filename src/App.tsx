@@ -596,7 +596,7 @@ export default function App() {
       />
 
       {/* Main View Area */}
-      <main className="ml-[80px]">
+      <main className="ml-0 md:ml-[80px]">
         {currentView === 'dashboard' && (
           <DashboardView
             kpis={currentKPIs}
