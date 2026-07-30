@@ -25,6 +25,9 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+-- Ensure VIP is added even if the enum was already created without it
+ALTER TYPE "CustomerStatus" ADD VALUE IF NOT EXISTS 'VIP';
+
 DO $$ BEGIN
   CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MANAGER', 'AGENT');
 EXCEPTION WHEN duplicate_object THEN NULL;

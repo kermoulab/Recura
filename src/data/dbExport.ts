@@ -167,7 +167,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Enums
 CREATE TYPE "Language" AS ENUM ('AR', 'FR', 'EN');
 CREATE TYPE "SubscriptionStatus" AS ENUM ('ACTIVE', 'EXPIRING_7D', 'EXPIRING_3D', 'EXPIRED');
-CREATE TYPE "CustomerStatus" AS ENUM ('ACTIVE', 'BLOCKED', 'INACTIVE');
+CREATE TYPE "CustomerStatus" AS ENUM ('ACTIVE', 'BLOCKED', 'INACTIVE', 'VIP');
 CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MANAGER', 'AGENT');
 
 -- Table: Users
