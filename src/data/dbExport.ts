@@ -167,7 +167,9 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Enums
 CREATE TYPE "Language" AS ENUM ('AR', 'FR', 'EN');
 CREATE TYPE "SubscriptionStatus" AS ENUM ('ACTIVE', 'EXPIRING_7D', 'EXPIRING_3D', 'EXPIRED');
-CREATE TYPE "CustomerStatus" AS ENUM ('ACTIVE', 'BLOCKED', 'INACTIVE', 'VIP');
+-- CustomerStatus is VARCHAR(20) (not enum) — frontend TypeScript validates values.
+-- Enum definition retained for reference only:
+-- CREATE TYPE "CustomerStatus" AS ENUM ('ACTIVE', 'BLOCKED', 'INACTIVE', 'VIP');
 CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MANAGER', 'AGENT');
 
 -- Table: Users
@@ -190,7 +192,7 @@ CREATE TABLE "Customer" (
     "whatsapp" VARCHAR(50) UNIQUE NOT NULL,
     "email" VARCHAR(255),
     "preferredLanguage" "Language" DEFAULT 'AR',
-    "status" "CustomerStatus" DEFAULT 'ACTIVE',
+    "status" VARCHAR(20) DEFAULT 'ACTIVE',
     "notes" TEXT,
     "isDeleted" BOOLEAN DEFAULT FALSE,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

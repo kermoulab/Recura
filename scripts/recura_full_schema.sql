@@ -20,13 +20,8 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$ BEGIN
-  CREATE TYPE "CustomerStatus" AS ENUM ('ACTIVE', 'BLOCKED', 'INACTIVE', 'VIP');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- Ensure VIP is added even if the enum was already created without it
-ALTER TYPE "CustomerStatus" ADD VALUE IF NOT EXISTS 'VIP';
+-- CustomerStatus is defined as TEXT (not enum) to avoid transaction visibility issues
+-- with ALTER TYPE ADD VALUE. Frontend TypeScript types enforce valid values.
 
 DO $$ BEGIN
   CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MANAGER', 'AGENT');
@@ -59,7 +54,7 @@ CREATE TABLE IF NOT EXISTS "Customer" (
     "whatsapp" VARCHAR(50) NOT NULL,
     "email" VARCHAR(255),
     "preferredLanguage" "Language" DEFAULT 'EN',
-    "status" "CustomerStatus" DEFAULT 'ACTIVE',
+    "status" VARCHAR(20) DEFAULT 'ACTIVE',
     "notes" TEXT,
     "isDeleted" BOOLEAN DEFAULT FALSE,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
