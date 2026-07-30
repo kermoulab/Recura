@@ -99,9 +99,6 @@ export default function App() {
         ]);
 
         setProfiles(loadedProfiles);
-        if (loadedProfiles.length > 0) {
-          setCurrentUser(loadedProfiles[0]);
-        }
         setCustomers(loadedCustomers);
         setPlans(loadedPlans);
         setOrders(loadedOrders);
@@ -129,31 +126,57 @@ export default function App() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
 
-  // Restore session from localStorage on mount only (profiles may not be loaded yet)
+  // On mount, immediately restore logged-in state from session (prevents login flash)
+  // then sync to the correct profile once profiles load.
   const sessionRestoredRef = useRef(false);
   useEffect(() => {
     if (sessionRestoredRef.current) return;
+
     const sessionCheck = validateSession();
-    if (sessionCheck.isValid && sessionCheck.session) {
-      const session = sessionCheck.session;
+    if (!sessionCheck.isValid || !sessionCheck.session) {
+      setIsLoggedIn(false);
+      sessionRestoredRef.current = true;
+      return;
+    }
+
+    // Immediately mark as logged in with a temp profile from session data
+    const session = sessionCheck.session;
+    setIsLoggedIn(true);
+    sessionRestoredRef.current = true;
+
+    // If profiles already loaded, use the real profile
+    if (profiles.length > 0) {
       const matchedUser = profiles.find((p) => p.id === session.userId || p.email === session.userEmail);
       if (matchedUser) {
         setCurrentUser(matchedUser);
-      } else {
-        setCurrentUser({
-          id: session.userId,
-          fullName: session.userName || session.userEmail.split('@')[0],
-          email: session.userEmail,
-          role: 'AGENT',
-          createdAt: new Date().toISOString(),
-          status: 'ACTIVE',
-        });
+        return;
       }
-      setIsLoggedIn(true);
-    } else {
-      setIsLoggedIn(false);
     }
-    sessionRestoredRef.current = true;
+
+    // Otherwise set temp profile; will be updated when profiles load (see next effect)
+    setCurrentUser({
+      id: session.userId,
+      fullName: session.userName || session.userEmail.split('@')[0],
+      email: session.userEmail,
+      role: 'AGENT',
+      createdAt: new Date().toISOString(),
+      status: 'ACTIVE',
+    });
+  }, []); // runs once on mount
+
+  // Sync currentUser to the real profile once profiles arrive (after mount only)
+  useEffect(() => {
+    if (!sessionRestoredRef.current) return;
+    if (profiles.length === 0) return;
+
+    const sessionCheck = validateSession();
+    if (!sessionCheck.isValid || !sessionCheck.session) return;
+
+    const session = sessionCheck.session;
+    const matchedUser = profiles.find((p) => p.id === session.userId || p.email === session.userEmail);
+    if (matchedUser) {
+      setCurrentUser(matchedUser);
+    }
   }, [profiles]);
 
   // Multi-Tab Session Synchronization & Periodic Expiration Check
