@@ -78,7 +78,7 @@ export interface KPIStats {
   mrrGrowth: number;
 }
 
-export type UserRole = 'ADMIN' | 'LIMITED';
+export type UserRole = 'ADMIN' | 'MANAGER' | 'AGENT';
 
 export interface DeviceInfo {
   browser: string;

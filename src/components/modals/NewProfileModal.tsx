@@ -20,7 +20,7 @@ export const NewProfileModal: React.FC<NewProfileModalProps> = ({
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('LIMITED');
+  const [role, setRole] = useState<UserRole>('AGENT');
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -94,7 +94,7 @@ export const NewProfileModal: React.FC<NewProfileModalProps> = ({
     setUsername('');
     setEmail('');
     setPassword('');
-    setRole('LIMITED');
+    setRole('AGENT');
     setError(null);
     onClose();
   };
@@ -255,7 +255,7 @@ export const NewProfileModal: React.FC<NewProfileModalProps> = ({
             <div className="grid grid-cols-1 gap-2">
               <label
                 className={`p-2.5 rounded-2xl border cursor-pointer transition-all flex items-start gap-2.5 ${
-                  role === 'LIMITED'
+                  role === 'AGENT'
                     ? 'border-[#4A90FF] bg-blue-50/50 ring-2 ring-blue-500/20'
                     : 'border-[#E8EAF0] bg-[#F5F7FA] hover:bg-slate-100'
                 }`}
@@ -263,9 +263,9 @@ export const NewProfileModal: React.FC<NewProfileModalProps> = ({
                 <input
                   type="radio"
                   name="userRole"
-                  value="LIMITED"
-                  checked={role === 'LIMITED'}
-                  onChange={() => setRole('LIMITED')}
+                  value="AGENT"
+                  checked={role === 'AGENT'}
+                  onChange={() => setRole('AGENT')}
                   className="mt-0.5 text-[#4A90FF]"
                 />
                 <div>

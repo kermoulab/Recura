@@ -74,12 +74,12 @@ export default function App() {
   const [currency, setCurrency] = useState<string>('USD ($)');
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [currentUser, setCurrentUser] = useState<UserProfile>({
-    id: 'user_admin_1',
-    fullName: 'James Noah',
-    username: 'admin',
-    email: 'admin@recura.io',
-    role: 'ADMIN',
-    createdAt: '2026-01-01',
+    id: '',
+    fullName: '',
+    username: '',
+    email: '',
+    role: 'AGENT',
+    createdAt: new Date().toISOString(),
     status: 'ACTIVE',
   });
   const [isNewProfileModalOpen, setIsNewProfileModalOpen] = useState(false);
@@ -187,7 +187,7 @@ export default function App() {
       return;
     }
 
-    if (currentUser.role === 'LIMITED' && (view === 'plans' || view === 'database' || view === 'audit')) {
+    if (currentUser.role !== 'ADMIN' && (view === 'plans' || view === 'database' || view === 'audit')) {
       toast.error('Access Restricted: Low-level staff profiles cannot access this page.');
       setCurrentView('orders');
       return;
@@ -264,7 +264,7 @@ export default function App() {
     }
 
     toast.success(`Welcome back, ${user.fullName}!`);
-    if (user.role === 'LIMITED' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit')) {
+    if (user.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit')) {
       setCurrentView('orders');
     }
   };
@@ -273,7 +273,7 @@ export default function App() {
   const handleCreateProfile = async (profileData: Omit<UserProfile, 'id' | 'createdAt'>) => {
     const newProfile: UserProfile = {
       ...profileData,
-      id: `user_${Date.now()}`,
+      id: crypto.randomUUID(),
       createdAt: new Date().toISOString().split('T')[0],
     };
 
@@ -296,7 +296,7 @@ export default function App() {
     setCurrentUser(profile);
     toast.info(`Switched active profile to ${profile.fullName} (${profile.role === 'ADMIN' ? 'System Administrator' : 'Limited Staff'})`);
     logAudit('LOGIN', `Switched active profile session to ${profile.fullName} (${profile.email})`);
-    if (profile.role === 'LIMITED' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit')) {
+    if (profile.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit')) {
       setCurrentView('orders');
     }
   };
@@ -325,7 +325,7 @@ export default function App() {
     } else {
       const newCust: Customer = {
         ...customerData,
-        id: `cust_${Date.now()}`,
+        id: crypto.randomUUID(),
         registrationDate: new Date().toISOString().split('T')[0],
         ordersCount: 0,
         totalSpent: 0,
@@ -367,7 +367,7 @@ export default function App() {
     } else {
       const newPlan: Plan = {
         ...planData,
-        id: `plan_${Date.now()}`,
+        id: crypto.randomUUID(),
         activeOrders: 0,
       };
       setPlans((prev) => [newPlan, ...prev]);
@@ -397,7 +397,7 @@ export default function App() {
     } else {
       const newOrd: Order = {
         ...orderData,
-        id: `ord_${Math.floor(100 + Math.random() * 900)}`,
+        id: crypto.randomUUID(),
       };
       setOrders((prev) => [newOrd, ...prev]);
       await insertOrderToSupabase(newOrd);

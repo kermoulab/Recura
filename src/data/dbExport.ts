@@ -254,8 +254,9 @@ CREATE TABLE "AuditLog" (
 );
 
 -- Initial Seed Admin Data
+-- WARNING: This example seed stores the login value directly in passwordHash for app compatibility.
 INSERT INTO "User" ("name", "username", "email", "passwordHash", "role")
-VALUES ('James Noah', 'admin', 'admin@recura.io', '$argon2id$v=19$m=65536,t=3,p=4$simulatedhash', 'ADMIN');
+VALUES ('James Noah', 'admin', 'admin@recura.io', 'TestAdmin@123', 'ADMIN');
 `;
 
 export const DOCKER_COMPOSE = `version: '3.8'

@@ -1,9 +1,8 @@
--- Seed admin user for Recura ERP using the existing schema you created.
--- This file assumes the following tables already exist in supabase:
+-- Seed admin user for Recura ERP using the existing PostgreSQL schema.
+-- Assumes the following tables already exist in Supabase:
 -- "User", "Customer", "Plan", "Order", "AuditLog".
--- It does not recreate the schema; it only inserts the admin record.
 
--- Test admin credentials (change password immediately after login):
+-- Test admin credentials for the dashboard:
 -- username: admin
 -- email: admin@recura.io
 -- password: TestAdmin@123
@@ -17,17 +16,17 @@ INSERT INTO "User" (
   "role",
   "createdAt"
 ) VALUES (
-  'user_admin_1',
+  uuid_generate_v4(),
   'System Administrator',
   'admin',
   'admin@recura.io',
-  '$argon2id$v=19$m=65536,t=3,p=4$simulatedhash',
+  'TestAdmin@123',
   'ADMIN',
   now()
 )
-ON CONFLICT ("id") DO NOTHING;
+ON CONFLICT ("username") DO NOTHING;
 
 -- Note:
--- This seed uses the existing "User" table from the Recura database dump.
--- If you want to use a plaintext password instead of passwordHash, set
--- passwordHash to NULL and add a password column to the schema.
+-- The application stores login credentials in the "passwordHash" column for backward compatibility
+-- with its current authentication flow. For production use, replace this with a proper Argon2id hash
+-- and a server-side authentication layer instead of client-side password validation.

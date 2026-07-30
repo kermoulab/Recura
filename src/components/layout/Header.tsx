@@ -200,7 +200,7 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </div>
               <p className="text-[10px] font-medium text-[#6B7280]">
-                {isAdmin ? 'System Administrator' : 'Limited Staff Member'}
+                {isAdmin ? 'System Administrator' : 'Staff Member'}
               </p>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
@@ -217,7 +217,7 @@ export const Header: React.FC<HeaderProps> = ({
                       isAdmin ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
                     }`}
                   >
-                    {isAdmin ? 'ADMIN' : 'LIMITED'}
+                    {isAdmin ? 'ADMIN' : currentUser.role}
                   </span>
                 </div>
               </div>

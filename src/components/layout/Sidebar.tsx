@@ -38,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   userRole = 'ADMIN',
   onLogout,
 }) => {
-  const isLimited = userRole === 'LIMITED';
+  const isRestrictedUser = userRole !== 'ADMIN';
 
   const rawNavItems: { id: ERPView; label: string; icon: React.ReactNode; badge?: number; adminOnly?: boolean }[] = [
     {
@@ -87,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  const navItems = isLimited ? rawNavItems.filter((i) => !i.adminOnly) : rawNavItems;
+  const navItems = isRestrictedUser ? rawNavItems.filter((i) => !i.adminOnly) : rawNavItems;
 
 
   return (

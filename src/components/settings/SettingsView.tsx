@@ -46,6 +46,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     username: 'admin',
     email: 'admin@recura.io',
     password: 'password123',
+    passwordHash: 'password123',
     role: 'ADMIN',
     createdAt: '2026-01-01',
   },
@@ -75,14 +76,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [fullName, setFullName] = useState(currentUser.fullName);
   const [username, setUsername] = useState(currentUser.username || '');
   const [email, setEmail] = useState(currentUser.email);
-  const [selectedRole, setSelectedRole] = useState(currentUser.role === 'ADMIN' ? 'SUPER_ADMIN' : 'LIMITED');
+  const [selectedRole, setSelectedRole] = useState(currentUser.role === 'ADMIN' ? 'ADMIN' : 'AGENT');
   const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     setFullName(currentUser.fullName);
     setUsername(currentUser.username || '');
     setEmail(currentUser.email);
-    setSelectedRole(currentUser.role === 'ADMIN' ? 'SUPER_ADMIN' : 'LIMITED');
+    setSelectedRole(currentUser.role === 'ADMIN' ? 'ADMIN' : 'AGENT');
     setProfileError(null);
   }, [currentUser]);
 
@@ -150,7 +151,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setPasswordError(null);
     setPasswordSuccess(null);
 
-    const savedDatabasePassword = currentUser.password || 'password123';
+    const savedDatabasePassword = currentUser.password || currentUser.passwordHash || '';
 
     if (!currentPassword) {
       setPasswordError('Current Password is required.');
