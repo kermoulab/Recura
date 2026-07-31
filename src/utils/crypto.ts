@@ -61,8 +61,20 @@ export function formatCurrency(amount: number, currencySetting: string = 'USD ($
     symbol = 'SAR';
     position = 'suffix';
   } else if (currencySetting.includes('GBP') || currencySetting.includes('£')) {
-    rate = 0.78;
+    rate = 0.79;
     symbol = '£';
+    position = 'prefix';
+  } else if (currencySetting.includes('AED') || currencySetting.includes('د.إ')) {
+    rate = 3.67;
+    symbol = 'د.إ';
+    position = 'suffix';
+  } else if (currencySetting.includes('RUB') || currencySetting.includes('₽')) {
+    rate = 92.0;
+    symbol = '₽';
+    position = 'suffix';
+  } else if (currencySetting.includes('INR') || currencySetting.includes('₹')) {
+    rate = 85.0;
+    symbol = '₹';
     position = 'prefix';
   } else if (currencySetting.includes('USD') || currencySetting.includes('$')) {
     rate = 1.0;

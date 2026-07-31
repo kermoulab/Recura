@@ -62,12 +62,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'sessions' | 'system' | 'security' | 'whatsapp' | 'export'>('profile');
+  type SettingsTab = 'profile' | 'sessions' | 'system' | 'security' | 'whatsapp' | 'export';
+  const ALL_SETTINGS_TABS: SettingsTab[] = ['profile', 'sessions', 'system', 'security', 'whatsapp', 'export'];
+  const SETTINGS_TAB_KEY = 'recura_settings_active_tab_v1';
+
+  function loadSettingsTab(): SettingsTab {
+    try {
+      const saved = localStorage.getItem(SETTINGS_TAB_KEY);
+      return saved && (ALL_SETTINGS_TABS as string[]).includes(saved) ? (saved as SettingsTab) : 'profile';
+    } catch {
+      return 'profile';
+    }
+  }
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>(loadSettingsTab);
   const [currency, setCurrency] = useState(currentGlobalCurrency);
 
   useEffect(() => {
     setCurrency(currentGlobalCurrency);
   }, [currentGlobalCurrency]);
+
+  // Persist active settings tab so refresh returns to the same tab
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETTINGS_TAB_KEY, activeTab);
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [activeTab]);
+
+  // Reset to profile tab if restored tab is admin-only for a non-admin user
+  useEffect(() => {
+    const adminOnly: SettingsTab[] = ['sessions', 'system', 'security', 'whatsapp', 'export'];
+    if (!isAdmin && adminOnly.includes(activeTab)) {
+      setActiveTab('profile');
+    }
+  }, [isAdmin, activeTab]);
   const [sessionTimeout, setSessionTimeout] = useState('15');
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -670,8 +700,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 >
                   <option value="USD ($)">USD ($) - US Dollar</option>
                   <option value="EUR (€)">EUR (€) - Euro</option>
-                  <option value="MAD (DH)">MAD (DH) - Moroccan Dirham</option>
+                  <option value="GBP (£)">GBP (£) - British Pound</option>
+                  <option value="AED (د.إ)">AED (د.إ) - UAE Dirham</option>
                   <option value="SAR (SAR)">SAR (SAR) - Saudi Riyal</option>
+                  <option value="MAD (DH)">MAD (DH) - Moroccan Dirham</option>
+                  <option value="RUB (₽)">RUB (₽) - Russian Ruble</option>
+                  <option value="INR (₹)">INR (₹) - Indian Rupee</option>
                 </select>
               </div>
 
