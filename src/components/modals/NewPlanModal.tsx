@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Package, DollarSign, Calendar, Layers, AlertCircle } from 'lucide-react';
 import { Plan } from '../../types/erp';
 import { sanitizeInput } from '../../utils/security';
+import { getCurrencyRate } from '../../utils/crypto';
 
 interface NewPlanModalProps {
   isOpen: boolean;
@@ -29,19 +30,23 @@ export const NewPlanModal: React.FC<NewPlanModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Reset the form whenever the modal opens so edit mode shows the current plan
-  // and add mode always starts fresh.
+  // and add mode always starts fresh. Prices are stored in USD (base) and shown
+  // in the currently selected display currency, so convert on open.
   React.useEffect(() => {
     if (isOpen) {
+      const rate = getCurrencyRate(currency);
+      const displayPrice = initialData?.price ? Math.round(initialData.price * rate * 100) / 100 : 10;
       setName(initialData?.name || '');
       setCategory(initialData?.category || 'Netflix');
-      setPrice(initialData?.price || 10);
-      setPriceInput(initialData?.price ? String(initialData.price) : '');
+      setPrice(displayPrice);
+      setPriceInput(String(displayPrice));
       setDurationMonths(initialData?.durationMonths || 1);
       setAvailableStock(initialData?.availableStock || 15);
       setTotalAccounts(initialData?.totalAccounts || 20);
       setNotes(initialData?.notes || '');
       setError(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -72,7 +77,7 @@ export const NewPlanModal: React.FC<NewPlanModalProps> = ({
     }
 
     if (isNaN(price) || price <= 0) {
-      setError('Plan Price must be a positive dollar amount.');
+      setError('Plan Price must be a positive amount.');
       return;
     }
 
@@ -86,10 +91,13 @@ export const NewPlanModal: React.FC<NewPlanModalProps> = ({
       return;
     }
 
+    // Convert the typed display-currency price to the USD base for storage
+    const priceInUsd = Math.round((price / getCurrencyRate(currency)) * 100) / 100;
+
     onSubmit({
       name: cleanName,
       category,
-      price: Number(price),
+      price: priceInUsd,
       durationMonths: Number(durationMonths),
       availableStock: Number(availableStock),
       totalAccounts: Number(totalAccounts || availableStock),

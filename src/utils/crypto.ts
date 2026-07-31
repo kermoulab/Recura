@@ -42,42 +42,45 @@ export function simulateEncrypt(plainText: string): string {
   }
 }
 
+export function getCurrencyRate(currencySetting: string = 'USD ($)'): number {
+  if (currencySetting.includes('EUR') || currencySetting.includes('€')) return 0.92;
+  if (currencySetting.includes('MAD') || currencySetting.includes('DH')) return 10.0;
+  if (currencySetting.includes('SAR')) return 3.75;
+  if (currencySetting.includes('GBP') || currencySetting.includes('£')) return 0.79;
+  if (currencySetting.includes('AED') || currencySetting.includes('د.إ')) return 3.67;
+  if (currencySetting.includes('RUB') || currencySetting.includes('₽')) return 92.0;
+  if (currencySetting.includes('INR') || currencySetting.includes('₹')) return 85.0;
+  return 1.0; // USD (base) and any unknown setting
+}
+
 export function formatCurrency(amount: number, currencySetting: string = 'USD ($)'): string {
   if (typeof amount !== 'number' || isNaN(amount)) amount = 0;
-  let rate = 1.0;
+  const rate = getCurrencyRate(currencySetting);
   let symbol = '$';
   let position: 'prefix' | 'suffix' = 'prefix';
 
   if (currencySetting.includes('EUR') || currencySetting.includes('€')) {
-    rate = 0.92;
     symbol = '€';
     position = 'prefix';
   } else if (currencySetting.includes('MAD') || currencySetting.includes('DH')) {
-    rate = 10.0;
     symbol = 'DH';
     position = 'suffix';
   } else if (currencySetting.includes('SAR')) {
-    rate = 3.75;
     symbol = 'SAR';
     position = 'suffix';
   } else if (currencySetting.includes('GBP') || currencySetting.includes('£')) {
-    rate = 0.79;
     symbol = '£';
     position = 'prefix';
   } else if (currencySetting.includes('AED') || currencySetting.includes('د.إ')) {
-    rate = 3.67;
     symbol = 'د.إ';
     position = 'suffix';
   } else if (currencySetting.includes('RUB') || currencySetting.includes('₽')) {
-    rate = 92.0;
     symbol = '₽';
     position = 'suffix';
   } else if (currencySetting.includes('INR') || currencySetting.includes('₹')) {
-    rate = 85.0;
     symbol = '₹';
     position = 'prefix';
   } else if (currencySetting.includes('USD') || currencySetting.includes('$')) {
-    rate = 1.0;
     symbol = '$';
     position = 'prefix';
   } else {
