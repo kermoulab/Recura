@@ -41,6 +41,7 @@ model User {
   passwordHash  String
   role          UserRole    @default(ADMIN)
   mfaEnabled    Boolean     @default(false)
+  currency      String      @default("USD ($)")
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 

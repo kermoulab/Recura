@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { Menu } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { Sidebar, ERPView } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -62,6 +63,7 @@ import {
 
 const LAST_VIEW_KEY = 'recura_last_view_v1';
 const VALID_VIEWS: ERPView[] = ['dashboard', 'customers', 'orders', 'plans', 'alerts', 'database', 'audit', 'settings'];
+const CURRENCY_KEY = 'recura_currency_v1';
 
 function loadLastView(): ERPView {
   try {
@@ -69,6 +71,14 @@ function loadLastView(): ERPView {
     return saved && (VALID_VIEWS as string[]).includes(saved) ? (saved as ERPView) : 'dashboard';
   } catch {
     return 'dashboard';
+  }
+}
+
+function loadCurrency(): string {
+  try {
+    return localStorage.getItem(CURRENCY_KEY) || 'USD ($)';
+  } catch {
+    return 'USD ($)';
   }
 }
 
@@ -86,7 +96,16 @@ export default function App() {
 
   // User Profile & Authentication State
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [currency, setCurrency] = useState<string>('USD ($)');
+  const [currency, setCurrency] = useState<string>(loadCurrency);
+
+  // Persist currency so refresh keeps the selected currency instantly
+  useEffect(() => {
+    try {
+      localStorage.setItem(CURRENCY_KEY, currency);
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [currency]);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [currentUser, setCurrentUser] = useState<UserProfile>({
     id: '',
@@ -146,6 +165,7 @@ export default function App() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // On mount, immediately restore logged-in state from session (prevents login flash)
   // then sync to the correct profile once profiles load.
@@ -197,6 +217,9 @@ export default function App() {
     const matchedUser = profiles.find((p) => p.id === session.userId || p.email === session.userEmail);
     if (matchedUser) {
       setCurrentUser(matchedUser);
+      if (matchedUser.currency) {
+        setCurrency(matchedUser.currency);
+      }
       // If restored view is admin-only and user is not ADMIN, fall back to dashboard
       if (matchedUser.role !== 'ADMIN' && ['plans', 'database', 'audit'].includes(currentView)) {
         setCurrentView('dashboard');
@@ -249,6 +272,7 @@ export default function App() {
       return;
     }
     setCurrentView(view);
+    setIsMobileSidebarOpen(false);
   };
 
   // Keyboard shortcut listener for Cmd + K search
@@ -339,6 +363,9 @@ export default function App() {
   const handleLoginSuccess = (user: UserProfile, session?: UserSession) => {
     setCurrentUser(user);
     setIsLoggedIn(true);
+    if (user.currency) {
+      setCurrency(user.currency);
+    }
 
     if (session) {
       saveActiveSession(session);
@@ -348,6 +375,17 @@ export default function App() {
     if (user.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit')) {
       setCurrentView('orders');
     }
+  };
+
+  const handleCurrencyChange = async (newCurrency: string) => {
+    setCurrency(newCurrency);
+    if (!currentUser.id) return;
+
+    const updated = { ...currentUser, currency: newCurrency };
+    setCurrentUser(updated);
+    setProfiles((prev) => prev.map((p) => (p.id === currentUser.id ? updated : p)));
+    await updateUserProfileInSupabase(updated);
+    logAudit('SETTINGS_CHANGE', `Changed system currency to ${newCurrency}`);
   };
 
   // Profile Management Handlers
@@ -379,6 +417,9 @@ export default function App() {
 
   const handleSelectProfile = (profile: UserProfile) => {
     setCurrentUser(profile);
+    if (profile.currency) {
+      setCurrency(profile.currency);
+    }
     const newSession = createSecureSessionToken(profile.id, profile.email, profile.fullName);
     saveActiveSession(newSession);
     toast.info(`Switched active profile to ${profile.fullName} (${profile.role === 'ADMIN' ? 'System Administrator' : 'Limited Staff'})`);
@@ -597,6 +638,16 @@ export default function App() {
     <div className="min-h-screen bg-[#F5F7FA] text-[#111827] font-sans antialiased selection:bg-blue-200">
       <Toaster position="top-right" richColors />
 
+      {/* Mobile Floating Sidebar Toggle (below top bar, top-left) */}
+      <button
+        id="btn-mobile-sidebar-toggle"
+        onClick={() => setIsMobileSidebarOpen((prev) => !prev)}
+        className="md:hidden fixed top-[78px] left-3 z-[60] w-10 h-10 rounded-full bg-[#111111] text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform cursor-pointer"
+        title="Open navigation menu"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
       {/* Fixed Left 80px Vertical Sidebar */}
       <Sidebar
         currentView={currentView}
@@ -604,6 +655,8 @@ export default function App() {
         expiringBadgeCount={expiring3DaysCount + expiredCount}
         userRole={currentUser.role}
         onLogout={handleLogout}
+        mobileOpen={isMobileSidebarOpen}
+        onMobileClose={() => setIsMobileSidebarOpen(false)}
       />
 
       {/* Top Full-Width Navigation Header */}
@@ -712,7 +765,7 @@ export default function App() {
             currentUser={currentUser}
             profiles={profiles}
             currency={currency}
-            onCurrencyChange={setCurrency}
+            onCurrencyChange={handleCurrencyChange}
             onExportAllData={handleExportAllData}
             onOpenNewProfileModal={() => setIsNewProfileModalOpen(true)}
             onUpdateCurrentProfile={handleUpdateCurrentProfile}

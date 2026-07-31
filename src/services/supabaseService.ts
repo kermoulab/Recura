@@ -543,6 +543,7 @@ function formatProfileForDb(p: UserProfile) {
     passwordHash: p.passwordHash || null,
     role: p.role,
     mfaEnabled: false,
+    currency: p.currency || null,
     createdAt: p.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -561,5 +562,6 @@ function formatProfileFromDb(row: any): UserProfile {
     isBlocked: false,
     maxSessionsAllowed: 3,
     activeSessionsCount: 0,
+    currency: row.currency || undefined,
   };
 }

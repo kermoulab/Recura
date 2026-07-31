@@ -123,4 +123,5 @@ export interface UserProfile {
   isBlocked?: boolean;
   maxSessionsAllowed?: number;
   activeSessionsCount?: number;
+  currency?: string;
 }

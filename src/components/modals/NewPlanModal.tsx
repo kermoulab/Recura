@@ -18,16 +18,46 @@ export const NewPlanModal: React.FC<NewPlanModalProps> = ({
   currency = 'USD ($)',
   initialData,
 }) => {
-  if (!isOpen) return null;
-
   const [name, setName] = useState(initialData?.name || '');
   const [category, setCategory] = useState<Plan['category']>(initialData?.category || 'Netflix');
   const [price, setPrice] = useState(initialData?.price || 10);
+  const [priceInput, setPriceInput] = useState(initialData?.price ? String(initialData.price) : '');
   const [durationMonths, setDurationMonths] = useState(initialData?.durationMonths || 1);
   const [availableStock, setAvailableStock] = useState(initialData?.availableStock || 15);
   const [totalAccounts, setTotalAccounts] = useState(initialData?.totalAccounts || 20);
   const [notes, setNotes] = useState(initialData?.notes || '');
   const [error, setError] = useState<string | null>(null);
+
+  // Reset the form whenever the modal opens so edit mode shows the current plan
+  // and add mode always starts fresh.
+  React.useEffect(() => {
+    if (isOpen) {
+      setName(initialData?.name || '');
+      setCategory(initialData?.category || 'Netflix');
+      setPrice(initialData?.price || 10);
+      setPriceInput(initialData?.price ? String(initialData.price) : '');
+      setDurationMonths(initialData?.durationMonths || 1);
+      setAvailableStock(initialData?.availableStock || 15);
+      setTotalAccounts(initialData?.totalAccounts || 20);
+      setNotes(initialData?.notes || '');
+      setError(null);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Accept only digits and a single decimal point typed via keyboard
+    const raw = e.target.value.replace(/[^0-9.]/g, '');
+    let cleaned = raw;
+    if (raw.includes('.')) {
+      const [intPart, ...rest] = raw.split('.');
+      cleaned = `${intPart}.${rest.join('').replace(/\./g, '')}`;
+    }
+    setPriceInput(cleaned);
+    const parsed = parseFloat(cleaned);
+    setPrice(isNaN(parsed) ? 0 : parsed);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,11 +163,12 @@ export const NewPlanModal: React.FC<NewPlanModalProps> = ({
             <div>
               <label className="block text-slate-700 font-bold mb-1">Price ({currency}) *</label>
               <input
-                type="number"
-                step="0.5"
+                type="text"
+                inputMode="decimal"
                 required
-                value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
+                placeholder="0.00"
+                value={priceInput}
+                onChange={handlePriceChange}
                 className="w-full px-3.5 py-2.5 bg-[#F5F7FA] border border-[#E8EAF0] rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-[#4A90FF]"
               />
             </div>

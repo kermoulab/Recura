@@ -40,9 +40,17 @@ CREATE TABLE IF NOT EXISTS "User" (
     "passwordHash" TEXT,
     "role" "UserRole" DEFAULT 'AGENT',
     "mfaEnabled" BOOLEAN DEFAULT FALSE,
+    "currency" VARCHAR(30) DEFAULT 'USD ($)',
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- =============================================================================
+-- MIGRATION for existing databases: add the currency preference column
+-- Run this ALTER TABLE once if the "User" table was created before this column
+-- existed (e.g. `psql -d yourdb -f scripts/migrate_add_currency.sql`).
+-- =============================================================================
+-- ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "currency" VARCHAR(30) DEFAULT 'USD ($)';
 
 -- =============================================================================
 -- TABLE: "Customer" — customer CRM
