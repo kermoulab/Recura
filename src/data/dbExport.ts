@@ -97,6 +97,7 @@ model Plan {
 
 model Order {
   id                       String             @id @default(uuid())
+  orderNumber              Int?
   customerId               String
   planId                   String
   price                    Float
@@ -133,6 +134,13 @@ model AlertLog {
   contactedAt DateTime @default(now())
 
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model WhatsAppTemplate {
+  language      String   @id
+  expiring3Days String   @default("")
+  expired       String   @default("")
+  updatedAt     DateTime @updatedAt
 }
 
 model AuditLog {

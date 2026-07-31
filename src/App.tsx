@@ -16,6 +16,7 @@ import { AlertsView } from './components/alerts/AlertsView';
 import { DatabaseView } from './components/database/DatabaseView';
 import { AuditLogsView } from './components/audit/AuditLogsView';
 import { SettingsView } from './components/settings/SettingsView';
+import { DEFAULT_WHATSAPP_TEMPLATES } from './utils/whatsapp';
 
 import { NewCustomerModal } from './components/modals/NewCustomerModal';
 import { NewPlanModal } from './components/modals/NewPlanModal';
@@ -38,7 +39,7 @@ const INITIAL_KPI_STATS: KPIStats = {
   expiredCount: 0,
   mrrGrowth: 0,
 };
-import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile, UserSession } from './types/erp';
+import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile, UserSession, Language, WhatsAppTemplate } from './types/erp';
 import { hashPasswordArgon2id, createSecureSessionToken } from './utils/security';
 import {
   fetchCustomersFromSupabase,
@@ -59,6 +60,8 @@ import {
   insertUserProfileToSupabase,
   updateUserProfileInSupabase,
   deleteUserProfileFromSupabase,
+  fetchWhatsAppTemplatesFromSupabase,
+  saveWhatsAppTemplatesToSupabase,
 } from './services/supabaseService';
 
 const LAST_VIEW_KEY = 'recura_last_view_v1';
@@ -123,6 +126,7 @@ export default function App() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [whatsAppTemplates, setWhatsAppTemplates] = useState<Record<Language, WhatsAppTemplate>>(DEFAULT_WHATSAPP_TEMPLATES);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Initial Load from Supabase (SELECT queries)
@@ -130,12 +134,13 @@ export default function App() {
     async function loadDataFromSupabase() {
       setIsLoading(true);
       try {
-        const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedLogs] = await Promise.all([
+        const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedLogs, loadedTemplates] = await Promise.all([
           fetchUserProfilesFromSupabase(),
           fetchCustomersFromSupabase(),
           fetchPlansFromSupabase(),
           fetchOrdersFromSupabase(),
           fetchAuditLogsFromSupabase(),
+          fetchWhatsAppTemplatesFromSupabase(),
         ]);
 
         setProfiles(loadedProfiles);
@@ -143,6 +148,9 @@ export default function App() {
         setPlans(loadedPlans);
         setOrders(loadedOrders);
         setAuditLogs(loadedLogs);
+        if (loadedTemplates) {
+          setWhatsAppTemplates(loadedTemplates);
+        }
       } catch (error) {
         console.error('Failed fetching data from Supabase:', error);
       } finally {
@@ -388,6 +396,12 @@ export default function App() {
     logAudit('SETTINGS_CHANGE', `Changed system currency to ${newCurrency}`);
   };
 
+  const handleSaveWhatsAppTemplates = async (templates: Record<Language, WhatsAppTemplate>) => {
+    setWhatsAppTemplates(templates);
+    await saveWhatsAppTemplatesToSupabase(templates);
+    logAudit('SETTINGS_CHANGE', 'Updated WhatsApp notification templates');
+  };
+
   // Profile Management Handlers
   const handleCreateProfile = async (profileData: Omit<UserProfile, 'id' | 'createdAt'>) => {
     const passwordHash = profileData.password ? await hashPasswordArgon2id(profileData.password) : undefined;
@@ -523,9 +537,11 @@ export default function App() {
       logAudit('ORDER_EDIT', `Updated order #${editingOrder.id} (${orderData.planName})`);
       setEditingOrder(null);
     } else {
+      const nextOrderNumber = orders.reduce((max, o) => Math.max(max, o.orderNumber || 0), 0) + 1;
       const newOrd: Order = {
         ...orderData,
         id: crypto.randomUUID(),
+        orderNumber: nextOrderNumber,
       };
       setOrders((prev) => [newOrd, ...prev]);
       await insertOrderToSupabase(newOrd);
@@ -752,6 +768,7 @@ export default function App() {
         {currentView === 'alerts' && (
           <AlertsView
             orders={orders}
+            templates={whatsAppTemplates}
             onMarkContacted={handleMarkContacted}
             onBulkMarkContacted={handleBulkMarkContacted}
           />
@@ -773,6 +790,8 @@ export default function App() {
             onSelectProfile={handleSelectProfile}
             onDeleteProfile={handleDeleteProfile}
             onOpenSessionsModal={() => setIsSessionsModalOpen(true)}
+            templates={whatsAppTemplates}
+            onSaveWhatsAppTemplates={handleSaveWhatsAppTemplates}
           />
         )}
       </main>

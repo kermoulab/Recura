@@ -13,17 +13,19 @@ import {
   ExternalLink,
   Sparkles,
 } from 'lucide-react';
-import { Order, Language } from '../../types/erp';
+import { Order, Language, WhatsAppTemplate } from '../../types/erp';
 import { renderWhatsAppMessage, createWhatsAppWebUrl, DEFAULT_WHATSAPP_TEMPLATES } from '../../utils/whatsapp';
 
 interface AlertsViewProps {
   orders: Order[];
+  templates?: Record<Language, WhatsAppTemplate>;
   onMarkContacted: (orderId: string) => void;
   onBulkMarkContacted: (orderIds: string[]) => void;
 }
 
 export const AlertsView: React.FC<AlertsViewProps> = ({
   orders,
+  templates = DEFAULT_WHATSAPP_TEMPLATES,
   onMarkContacted,
   onBulkMarkContacted,
 }) => {
@@ -204,8 +206,8 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
                   // Render template according to language & status
                   const rawTemplate =
                     activeTab === 'expired'
-                      ? DEFAULT_WHATSAPP_TEMPLATES[selectedLanguage].expired
-                      : DEFAULT_WHATSAPP_TEMPLATES[selectedLanguage].expiring3Days;
+                      ? templates[selectedLanguage].expired
+                      : templates[selectedLanguage].expiring3Days;
 
                   const compiledMessage = renderWhatsAppMessage(rawTemplate, {
                     name: ord.customerName,

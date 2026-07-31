@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS "Plan" (
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS "Order" (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "orderNumber" INTEGER,
     "customerId" UUID NOT NULL REFERENCES "Customer"("id") ON DELETE RESTRICT,
     "customerName" VARCHAR(255) NOT NULL,
     "customerWhatsApp" VARCHAR(50) NOT NULL,
@@ -125,6 +126,32 @@ CREATE INDEX IF NOT EXISTS "idx_order_customer_id" ON "Order"("customerId");
 CREATE INDEX IF NOT EXISTS "idx_order_plan_id" ON "Order"("planId");
 CREATE INDEX IF NOT EXISTS "idx_order_end_date" ON "Order"("endDate");
 CREATE INDEX IF NOT EXISTS "idx_order_status" ON "Order"("status");
+
+-- =============================================================================
+-- MIGRATION for existing databases (new columns / tables)
+-- Run the lines below once if the tables predate this schema:
+--   ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "orderNumber" INTEGER;
+--   UPDATE "Order" SET "orderNumber" = seq.rn FROM (
+--     SELECT "id", ROW_NUMBER() OVER (ORDER BY "createdAt" ASC, "id" ASC) AS rn FROM "Order"
+--   ) seq WHERE "Order"."id" = seq."id" AND "Order"."orderNumber" IS NULL;
+-- =============================================================================
+
+-- =============================================================================
+-- TABLE: "WhatsAppTemplate" — global notification templates (one row per language)
+-- Column names match fetch/saveWhatsAppTemplates in supabaseService.ts
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS "WhatsAppTemplate" (
+    "language" VARCHAR(2) PRIMARY KEY,
+    "expiring3Days" TEXT NOT NULL DEFAULT '',
+    "expired" TEXT NOT NULL DEFAULT '',
+    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO "WhatsAppTemplate" ("language", "expiring3Days", "expired") VALUES
+('AR', 'مرحباً {{name}}، نود تذكيركم بأن اشتراككم {{plan}} سينتهي بتاريخ {{date}}. يمكنكم تجديد الاشتراك أو الترقية في أي وقت. شكراً لثقتكم بنا.', 'مرحباً {{name}}، لقد انتهت صلاحية اشتراككم {{plan}} بتاريخ {{date}}. يرجى التواصل معنا لتجديد الخدمة في أقرب وقت.'),
+('FR', 'Bonjour {{name}}, votre abonnement {{plan}} expirera le {{date}}. Vous pouvez le renouveler ou passer à une offre supérieure à tout moment. Merci pour votre confiance.', 'Bonjour {{name}}, votre abonnement {{plan}} a expiré le {{date}}. Merci de nous contacter afin de renouveler votre service.'),
+('EN', 'Hello {{name}}, your {{plan}} subscription will expire on {{date}}. You may renew or upgrade your subscription at any time. Thank you for your trust.', 'Hello {{name}}, your {{plan}} subscription expired on {{date}}. Please contact us to renew your service.')
+ON CONFLICT ("language") DO NOTHING;
 
 -- =============================================================================
 -- TABLE: "AuditLog" — immutable audit trail

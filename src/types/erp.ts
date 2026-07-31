@@ -31,6 +31,7 @@ export interface Plan {
 
 export interface Order {
   id: string;
+  orderNumber?: number;
   customerId: string;
   customerName: string;
   customerWhatsApp: string;

@@ -1,5 +1,5 @@
 ﻿import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Customer, Plan, Order, AuditLog, UserProfile } from '../types/erp';
+import { Customer, Plan, Order, AuditLog, UserProfile, Language, WhatsAppTemplate } from '../types/erp';
 
 function getSupabaseClient() {
   if (!isSupabaseConfigured || !supabase) {
@@ -395,6 +395,57 @@ export async function deleteUserProfileFromSupabase(id: string): Promise<void> {
 }
 
 /* =======================================================
+   6. WHATSAPP TEMPLATES (global, one row per language)
+   ======================================================= */
+export async function fetchWhatsAppTemplatesFromSupabase(): Promise<Record<Language, WhatsAppTemplate> | null> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await client.from('WhatsAppTemplate').select('*');
+    if (error || !data || data.length === 0) {
+      return null;
+    }
+    const templates = {} as Record<Language, WhatsAppTemplate>;
+    for (const row of data) {
+      const lang = row.language as Language;
+      if (!lang) continue;
+      templates[lang] = {
+        language: lang,
+        expiring3Days: row.expiring3Days || row.expiring_3_days || '',
+        expired: row.expired || '',
+      };
+    }
+    return Object.keys(templates).length > 0 ? templates : null;
+  } catch (err) {
+    console.warn('Supabase WhatsApp templates fetch failed:', err);
+    return null;
+  }
+}
+
+export async function saveWhatsAppTemplatesToSupabase(templates: Record<Language, WhatsAppTemplate>): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return;
+  }
+
+  try {
+    const rows = (Object.keys(templates) as Language[]).map((lang) => ({
+      language: lang,
+      expiring3Days: templates[lang].expiring3Days,
+      expired: templates[lang].expired,
+      updatedAt: new Date().toISOString(),
+    }));
+
+    await client.from('WhatsAppTemplate').upsert(rows, { onConflict: 'language' });
+  } catch (e) {
+    console.warn('Supabase WhatsApp templates save error', e);
+  }
+}
+
+/* =======================================================
    DATA MAPPING UTILITIES (camelCase <-> PostgreSQL columns)
    ======================================================= */
 function formatCustomerForDb(c: Customer) {
@@ -461,6 +512,7 @@ function formatPlanFromDb(row: any): Plan {
 function formatOrderForDb(o: Order) {
   return {
     id: o.id,
+    orderNumber: o.orderNumber || null,
     customerId: o.customerId,
     customerName: o.customerName,
     customerWhatsApp: o.customerWhatsApp,
@@ -487,6 +539,7 @@ function formatOrderForDb(o: Order) {
 function formatOrderFromDb(row: any): Order {
   return {
     id: row.id,
+    orderNumber: Number(row.orderNumber || 0) || undefined,
     customerId: row.customerId || row.customer_id || '',
     customerName: row.customerName || row.customer_name || 'Customer',
     customerWhatsApp: row.customerWhatsApp || row.customer_whatsapp || '',

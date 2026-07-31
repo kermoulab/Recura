@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Order, SubscriptionStatus } from '../../types/erp';
-import { simulateDecrypt, maskString, formatCurrency } from '../../utils/crypto';
+import { simulateDecrypt, maskEmail, formatCurrency } from '../../utils/crypto';
 import { createWhatsAppWebUrl } from '../../utils/whatsapp';
 import { sanitizeInput } from '../../utils/security';
 
@@ -74,12 +74,18 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       ord.customerName.toLowerCase().includes(cleanSearch) ||
       ord.planName.toLowerCase().includes(cleanSearch) ||
       ord.accountEmail.toLowerCase().includes(cleanSearch) ||
-      ord.id.toLowerCase().includes(cleanSearch);
+      ord.id.toLowerCase().includes(cleanSearch) ||
+      String(ord.orderNumber || '').includes(cleanSearch);
 
     const matchesStatus = selectedStatus === 'ALL' || ord.status === selectedStatus;
 
     return matchesSearch && matchesStatus;
   });
+
+  const fallbackOrderNumber = (id: string): number => {
+    const idx = orders.findIndex((o) => o.id === id);
+    return idx >= 0 ? 1001 + idx : 0;
+  };
 
   const getStatusBadge = (status: SubscriptionStatus) => {
     switch (status) {
@@ -180,7 +186,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
           filteredOrders.map((ord) => {
             const decryptedPass = simulateDecrypt(ord.accountPasswordEncrypted);
             const decryptedPin = ord.pinCodeEncrypted ? simulateDecrypt(ord.pinCodeEncrypted) : null;
-            const isUnmasked = unmaskedPasswords[ord.id] !== false;
+            const isUnmasked = unmaskedPasswords[ord.id] === true;
             const isAccountExpanded = !!expandedAccounts[ord.id];
 
             return (
@@ -193,7 +199,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="font-mono text-xs font-black text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md">
-                        #{ord.id}
+                        #{ord.orderNumber || fallbackOrderNumber(ord.id)}
                       </span>
                       {getStatusBadge(ord.status)}
                       <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
@@ -287,7 +293,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       <div className="bg-[#F8FAFC] p-4 rounded-2xl border border-[#E8EAF0] space-y-2.5 shadow-xs">
                         <div className="flex items-center justify-between text-[11px] text-slate-500 pb-2 border-b border-[#E8EAF0]">
                           <span className="flex items-center gap-1 font-bold text-blue-600">
-                            <ShieldCheck className="w-3.5 h-3.5" /> AES-256 Encrypted Account
+                            <ShieldCheck className="w-3.5 h-3.5" /> Account Credentials
                           </span>
                           <button
                             onClick={() => togglePasswordVisibility(ord.id)}
@@ -309,7 +315,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         <div className="flex items-center justify-between text-xs font-mono">
                           <div className="flex items-center gap-2 text-slate-800 font-medium">
                             <Mail className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{ord.accountEmail}</span>
+                            <span>{isUnmasked ? ord.accountEmail : maskEmail(ord.accountEmail)}</span>
                           </div>
                           <button
                             onClick={() => copyToClipboard(ord.accountEmail, `email-${ord.id}`)}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import {
   Settings,
   User,
@@ -37,6 +38,8 @@ interface SettingsViewProps {
   onSelectProfile?: (user: UserProfile) => void;
   onDeleteProfile?: (userId: string) => void;
   onOpenSessionsModal?: () => void;
+  templates?: Record<Language, WhatsAppTemplate>;
+  onSaveWhatsAppTemplates?: (templates: Record<Language, WhatsAppTemplate>) => Promise<void>;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -59,6 +62,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onSelectProfile,
   onDeleteProfile,
   onOpenSessionsModal,
+  templates: loadedTemplates = DEFAULT_WHATSAPP_TEMPLATES,
+  onSaveWhatsAppTemplates,
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
 
@@ -128,8 +133,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   // WhatsApp Templates state
-  const [templates, setTemplates] = useState<Record<Language, WhatsAppTemplate>>(DEFAULT_WHATSAPP_TEMPLATES);
+  const [templates, setTemplates] = useState<Record<Language, WhatsAppTemplate>>(loadedTemplates);
   const [activeLangTemplate, setActiveLangTemplate] = useState<Language>('AR');
+  const [savingTemplates, setSavingTemplates] = useState(false);
+
+  // Keep local template edits in sync when templates load/change from the DB
+  useEffect(() => {
+    setTemplates(loadedTemplates);
+  }, [loadedTemplates]);
+
+  const handleSaveTemplates = async () => {
+    if (!onSaveWhatsAppTemplates) return;
+    setSavingTemplates(true);
+    try {
+      await onSaveWhatsAppTemplates(templates);
+      toast.success('WhatsApp templates saved successfully!');
+    } catch {
+      toast.error('Failed to save WhatsApp templates.');
+    } finally {
+      setSavingTemplates(false);
+    }
+  };
 
   const handleSaveSettings = () => {
     setProfileError(null);
@@ -815,6 +839,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   }
                   className="w-full p-3 bg-[#F5F7FA] border border-[#E8EAF0] rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-[#4A90FF]"
                 />
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[#E8EAF0]">
+                <p className="text-[11px] text-slate-400 font-medium">
+                  Templates are stored in the database and persist across logins.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSaveTemplates}
+                  disabled={savingTemplates}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold px-5 py-2.5 rounded-full shadow-xs transition-colors cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  {savingTemplates ? 'Saving...' : 'Save Templates'}
+                </button>
               </div>
             </div>
           </div>
