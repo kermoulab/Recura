@@ -702,6 +702,7 @@ export default function App() {
         {currentView === 'customers' && (
           <CustomersView
             customers={customers}
+            orders={orders}
             currency={currency}
             onAddCustomer={() => {
               setEditingCustomer(null);

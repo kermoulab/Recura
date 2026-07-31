@@ -12,14 +12,17 @@ import {
   Filter,
   Star,
   Clock,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
-import { Customer, CustomerStatus } from '../../types/erp';
+import { Customer, CustomerStatus, Order } from '../../types/erp';
 import { createWhatsAppWebUrl } from '../../utils/whatsapp';
 import { sanitizeInput } from '../../utils/security';
 import { formatCurrency } from '../../utils/crypto';
 
 interface CustomersViewProps {
   customers: Customer[];
+  orders?: Order[];
   currency?: string;
   onAddCustomer: () => void;
   onEditCustomer: (customer: Customer) => void;
@@ -29,6 +32,7 @@ interface CustomersViewProps {
 
 export const CustomersView: React.FC<CustomersViewProps> = ({
   customers,
+  orders = [],
   currency = 'USD ($)',
   onAddCustomer,
   onEditCustomer,
@@ -37,6 +41,22 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [pendingDelete, setPendingDelete] = useState<Customer | null>(null);
+  const [blockedDelete, setBlockedDelete] = useState<Customer | null>(null);
+
+  const hasActiveOrders = (customerId: string) =>
+    orders.some((o) => o.customerId === customerId && o.status !== 'EXPIRED');
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    if (hasActiveOrders(pendingDelete.id)) {
+      setBlockedDelete(pendingDelete);
+      setPendingDelete(null);
+      return;
+    }
+    onDeleteCustomer(pendingDelete.id);
+    setPendingDelete(null);
+  };
 
   const cleanSearch = sanitizeInput(searchTerm, { maxLen: 100, allowSpaces: true }).toLowerCase();
 
@@ -217,9 +237,9 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                             <Ban className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => onDeleteCustomer(cust.id)}
+                            onClick={() => setPendingDelete(cust)}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Soft Delete"
+                            title="Delete Customer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -233,6 +253,89 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {pendingDelete && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setPendingDelete(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#E8EAF0] space-y-4 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+              </div>
+              <h3 className="font-extrabold text-base text-[#111827]">Delete Customer?</h3>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Are you sure you want to delete{' '}
+              <span className="font-bold text-[#111827]">{pendingDelete.name}</span>? This action
+              cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPendingDelete(null)}
+                className="px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-2 rounded-full bg-rose-600 text-white font-bold hover:bg-rose-700 cursor-pointer transition-colors shadow-sm active:scale-95"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cannot Delete (active orders) Modal */}
+      {blockedDelete && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setBlockedDelete(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#E8EAF0] space-y-4 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                </div>
+                <h3 className="font-extrabold text-base text-[#111827]">Customer Cannot Be Deleted</h3>
+              </div>
+              <button
+                onClick={() => setBlockedDelete(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              <span className="font-bold text-[#111827]">{blockedDelete.name}</span> has active
+              orders and cannot be deleted. Please complete, remove, or wait for those orders to
+              expire before deleting this customer.
+            </p>
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setBlockedDelete(null)}
+                className="px-5 py-2 rounded-full bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 cursor-pointer transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
