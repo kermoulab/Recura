@@ -60,8 +60,29 @@ import {
   deleteUserProfileFromSupabase,
 } from './services/supabaseService';
 
+const LAST_VIEW_KEY = 'recura_last_view_v1';
+const VALID_VIEWS: ERPView[] = ['dashboard', 'customers', 'orders', 'plans', 'alerts', 'database', 'audit', 'settings'];
+
+function loadLastView(): ERPView {
+  try {
+    const saved = localStorage.getItem(LAST_VIEW_KEY);
+    return saved && (VALID_VIEWS as string[]).includes(saved) ? (saved as ERPView) : 'dashboard';
+  } catch {
+    return 'dashboard';
+  }
+}
+
 export default function App() {
-  const [currentView, setCurrentView] = useState<ERPView>('dashboard');
+  const [currentView, setCurrentView] = useState<ERPView>(loadLastView);
+
+  // Persist current view so refresh returns to the same page
+  useEffect(() => {
+    try {
+      localStorage.setItem(LAST_VIEW_KEY, currentView);
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [currentView]);
 
   // User Profile & Authentication State
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -176,6 +197,10 @@ export default function App() {
     const matchedUser = profiles.find((p) => p.id === session.userId || p.email === session.userEmail);
     if (matchedUser) {
       setCurrentUser(matchedUser);
+      // If restored view is admin-only and user is not ADMIN, fall back to dashboard
+      if (matchedUser.role !== 'ADMIN' && ['plans', 'database', 'audit'].includes(currentView)) {
+        setCurrentView('dashboard');
+      }
     }
   }, [profiles]);
 
