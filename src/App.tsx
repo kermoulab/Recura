@@ -18,6 +18,7 @@ import { DatabaseView } from './components/database/DatabaseView';
 import { AuditLogsView } from './components/audit/AuditLogsView';
 import { SettingsView } from './components/settings/SettingsView';
 import { DEFAULT_WHATSAPP_TEMPLATES } from './utils/whatsapp';
+import { getEffectiveAccountStatus, getDaysRemaining } from './utils/serviceAccounts';
 
 import { NewCustomerModal } from './components/modals/NewCustomerModal';
 import { NewPlanModal } from './components/modals/NewPlanModal';
@@ -320,6 +321,12 @@ export default function App() {
   const expiring3DaysCount = orders.filter((o) => o.status === 'EXPIRING_3D').length;
   const expiring7DaysCount = orders.filter((o) => o.status === 'EXPIRING_7D').length;
   const expiredCount = orders.filter((o) => o.status === 'EXPIRED').length;
+
+  // Account-level expiring/expired alerts (kept separate from order alerts)
+  const expiringAccountsCount = serviceAccounts.filter(
+    (a) => getEffectiveAccountStatus(a) === 'Active' && getDaysRemaining(a) >= 0 && getDaysRemaining(a) <= 3
+  ).length;
+  const expiredAccountsCount = serviceAccounts.filter((a) => getEffectiveAccountStatus(a) === 'Expired').length;
 
   const totalSales = orders.reduce((sum, o) => sum + o.price, 0);
   const totalIncome = totalSales;
@@ -894,10 +901,13 @@ export default function App() {
         currentView={currentView}
         onSelectView={handleSelectView}
         onOpenSearch={() => setIsSearchModalOpen(true)}
-        unreadNotificationsCount={expiring3DaysCount + expiredCount}
+        unreadNotificationsCount={
+          expiring3DaysCount + expiredCount + expiringAccountsCount + expiredAccountsCount
+        }
         currentUser={currentUser}
         profiles={profiles}
         orders={orders}
+        serviceAccounts={serviceAccounts}
         onSelectProfile={handleSelectProfile}
         onLogout={handleLogout}
         onOpenSessionsModal={() => setIsSessionsModalOpen(true)}

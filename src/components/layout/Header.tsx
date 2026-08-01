@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, ShieldCheck, UserCheck, ChevronDown, CheckCircle2, User, Users, Lock, LogOut } from 'lucide-react';
+import { Search, Bell, ShieldCheck, UserCheck, ChevronDown, CheckCircle2, User, Users, Lock, LogOut, Server, ShoppingBag } from 'lucide-react';
 import { ERPView } from './Sidebar';
-import { UserProfile, Order } from '../../types/erp';
+import { UserProfile, Order, ServiceAccount } from '../../types/erp';
+import { getEffectiveAccountStatus, getDaysRemaining } from '../../utils/serviceAccounts';
 
 interface HeaderProps {
   currentView: ERPView;
@@ -11,6 +12,7 @@ interface HeaderProps {
   currentUser?: UserProfile;
   profiles?: UserProfile[];
   orders?: Order[];
+  serviceAccounts?: ServiceAccount[];
   onSelectProfile?: (user: UserProfile) => void;
   onLogout?: () => void;
   onOpenSessionsModal?: () => void;
@@ -30,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   },
   profiles = [],
   orders = [],
+  serviceAccounts = [],
   onSelectProfile,
   onLogout,
   onOpenSessionsModal,
@@ -42,6 +45,13 @@ export const Header: React.FC<HeaderProps> = ({
     .filter((o) => o.status === 'EXPIRED')
     .map((o) => o.customerName)
     .slice(0, 3);
+
+  const expiring3DAccounts = serviceAccounts.filter(
+    (a) => getEffectiveAccountStatus(a) === 'Active' && getDaysRemaining(a) >= 0 && getDaysRemaining(a) <= 3
+  );
+  const expiredAccounts = serviceAccounts.filter((a) => getEffectiveAccountStatus(a) === 'Expired');
+  const hasOrderAlerts = expiring3DNames.length > 0 || expiredNames.length > 0;
+  const hasAccountAlerts = expiring3DAccounts.length > 0 || expiredAccounts.length > 0;
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -151,41 +161,96 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
                 <span className="font-bold text-xs text-slate-900">System Alerts</span>
                 <span className="text-[10px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full">
-                  2 New
+                  {expiring3DNames.length + expiredNames.length + expiring3DAccounts.length + expiredAccounts.length} Alert
+                  {expiring3DNames.length + expiredNames.length + expiring3DAccounts.length + expiredAccounts.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="space-y-2 text-xs">
-                {expiring3DNames.length > 0 && (
-                  <div
-                    onClick={() => {
-                      onSelectView('alerts');
-                      setShowNotifications(false);
-                    }}
-                    className="p-2.5 rounded-xl bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0" />
-                    <div>
-                      <p className="font-bold text-amber-900">{expiring3DNames.length} Account{expiring3DNames.length > 1 ? 's' : ''} Expiring in 3 Days</p>
-                      <p className="text-amber-700 text-[11px] mt-0.5">{expiring3DNames.join(', ')}</p>
-                    </div>
-                  </div>
+              <div className="space-y-3 text-xs max-h-80 overflow-y-auto pr-1">
+                {/* Order Alerts */}
+                {(hasOrderAlerts || hasAccountAlerts) && (
+                  <>
+                    {hasOrderAlerts && (
+                      <div>
+                        <p className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
+                          <ShoppingBag className="w-3 h-3" /> Orders
+                        </p>
+                        <div className="space-y-2">
+                          {expiring3DNames.length > 0 && (
+                            <div
+                              onClick={() => {
+                                onSelectView('alerts');
+                                setShowNotifications(false);
+                              }}
+                              className="p-2.5 rounded-xl bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
+                            >
+                              <div className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0" />
+                              <div>
+                                <p className="font-bold text-amber-900">{expiring3DNames.length} Order{expiring3DNames.length > 1 ? 's' : ''} Expiring in 3 Days</p>
+                                <p className="text-amber-700 text-[11px] mt-0.5">{expiring3DNames.join(', ')}</p>
+                              </div>
+                            </div>
+                          )}
+                          {expiredNames.length > 0 && (
+                            <div
+                              onClick={() => {
+                                onSelectView('alerts');
+                                setShowNotifications(false);
+                              }}
+                              className="p-2.5 rounded-xl bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
+                            >
+                              <div className="w-2 h-2 rounded-full bg-rose-500 mt-1 shrink-0" />
+                              <div>
+                                <p className="font-bold text-rose-900">{expiredNames.length} Expired Order{expiredNames.length > 1 ? 's' : ''} Need{expiredNames.length === 1 ? 's' : ''} Renewal</p>
+                                <p className="text-rose-700 text-[11px] mt-0.5">{expiredNames.join(', ')}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {hasAccountAlerts && (
+                      <div>
+                        <p className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
+                          <Server className="w-3 h-3" /> Accounts
+                        </p>
+                        <div className="space-y-2">
+                          {expiring3DAccounts.length > 0 && (
+                            <div
+                              onClick={() => {
+                                onSelectView('accounts');
+                                setShowNotifications(false);
+                              }}
+                              className="p-2.5 rounded-xl bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
+                            >
+                              <div className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0" />
+                              <div>
+                                <p className="font-bold text-amber-900">{expiring3DAccounts.length} Account{expiring3DAccounts.length > 1 ? 's' : ''} Expiring in 3 Days</p>
+                                <p className="text-amber-700 text-[11px] mt-0.5">{expiring3DAccounts.map((a) => a.email).join(', ')}</p>
+                              </div>
+                            </div>
+                          )}
+                          {expiredAccounts.length > 0 && (
+                            <div
+                              onClick={() => {
+                                onSelectView('accounts');
+                                setShowNotifications(false);
+                              }}
+                              className="p-2.5 rounded-xl bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
+                            >
+                              <div className="w-2 h-2 rounded-full bg-rose-500 mt-1 shrink-0" />
+                              <div>
+                                <p className="font-bold text-rose-900">{expiredAccounts.length} Expired Account{expiredAccounts.length > 1 ? 's' : ''} Need{expiredAccounts.length === 1 ? 's' : ''} Renewal</p>
+                                <p className="text-rose-700 text-[11px] mt-0.5">{expiredAccounts.map((a) => a.email).join(', ')}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
-                {expiredNames.length > 0 && (
-                  <div
-                    onClick={() => {
-                      onSelectView('alerts');
-                      setShowNotifications(false);
-                    }}
-                    className="p-2.5 rounded-xl bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-rose-500 mt-1 shrink-0" />
-                    <div>
-                      <p className="font-bold text-rose-900">{expiredNames.length} Expired Account{expiredNames.length > 1 ? 's' : ''} Need{expiredNames.length === 1 ? 's' : ''} Renewal</p>
-                      <p className="text-rose-700 text-[11px] mt-0.5">{expiredNames.join(', ')}</p>
-                    </div>
-                  </div>
-                )}
-                {expiring3DNames.length === 0 && expiredNames.length === 0 && (
+                {!hasOrderAlerts && !hasAccountAlerts && (
                   <p className="text-xs text-slate-500 text-center py-2">No pending alerts</p>
                 )}
               </div>
