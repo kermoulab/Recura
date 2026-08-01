@@ -173,9 +173,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
           <aside
             id="subly-sidebar-mobile"
-            className="md:hidden fixed left-0 top-[72px] bottom-0 w-[80px] bg-[#111111] text-white flex-col justify-between items-center py-4 z-50 rounded-r-2xl shadow-2xl select-none animate-in slide-in-from-left-2 duration-200"
+            className="md:hidden fixed left-0 top-[72px] bottom-0 w-[80px] bg-[#111111] text-white flex-col items-center py-3 z-50 rounded-r-2xl shadow-2xl select-none overflow-y-auto overscroll-contain animate-in slide-in-from-left-2 duration-200"
           >
-            <nav className="flex flex-col gap-3 my-auto">
+            <nav className="flex flex-col gap-2 items-center w-full">
               {navItems.map((item) => {
                 const isActive = currentView === item.id;
                 return (
@@ -183,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       id={`btn-nav-mobile-${item.id}`}
                       onClick={() => handleSelect(item.id)}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 relative ${
+                      className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 relative ${
                         isActive
                           ? 'bg-[#4A90FF] text-white shadow-md shadow-blue-500/30 scale-105'
                           : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
@@ -200,18 +200,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                 );
               })}
+              <div className="w-8 h-px bg-slate-700 shrink-0" />
+              <div className="relative group flex justify-center">
+                <button
+                  id="btn-sidebar-mobile-logout"
+                  onClick={onLogout}
+                  className="w-11 h-11 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-slate-800/80 transition-colors cursor-pointer"
+                  title="Log Out"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
             </nav>
-
-            <div className="relative group flex justify-center">
-              <button
-                id="btn-sidebar-mobile-logout"
-                onClick={onLogout}
-                className="w-12 h-12 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-slate-800/80 transition-colors cursor-pointer"
-                title="Log Out"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
           </aside>
         </>
       )}
