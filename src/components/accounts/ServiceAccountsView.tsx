@@ -392,12 +392,13 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="flex flex-col gap-1">
-                          <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold w-fit">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-500" /> {activeOrderCount} Active
+                        <div className="flex items-center gap-3 text-sm font-bold">
+                          <span className="flex items-center gap-1.5 text-emerald-600">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" /> {activeOrderCount}
                           </span>
-                          <span className="inline-flex items-center gap-1.5 text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold w-fit">
-                            <XCircle className="w-3 h-3 text-rose-500" /> {expiredOrderCount} Expired
+                          <span className="text-slate-300 font-black">·</span>
+                          <span className="flex items-center gap-1.5 text-rose-500">
+                            <span className="w-2 h-2 rounded-full bg-rose-500" /> {expiredOrderCount}
                           </span>
                         </div>
                       </td>

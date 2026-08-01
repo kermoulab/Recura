@@ -385,13 +385,13 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
           </div>
 
           <div className="flex items-center justify-between text-xs bg-[#F5F7FA] p-3 rounded-xl border border-[#E8EAF0]">
-            <span className="inline-flex items-center gap-1.5 font-bold text-emerald-700">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-              {linkedOrders.filter((o) => o.status === 'ACTIVE').length} Active Orders
+            <span className="flex items-center gap-1.5 font-bold text-emerald-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              {linkedOrders.filter((o) => o.status === 'ACTIVE').length}
             </span>
-            <span className="inline-flex items-center gap-1.5 font-bold text-rose-700">
-              <XCircle className="w-3.5 h-3.5 text-rose-500" />
-              {linkedOrders.filter((o) => o.status === 'EXPIRED').length} Expired Orders
+            <span className="flex items-center gap-1.5 font-bold text-rose-700">
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+              {linkedOrders.filter((o) => o.status === 'EXPIRED').length}
             </span>
           </div>
 
