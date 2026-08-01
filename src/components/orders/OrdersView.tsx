@@ -212,6 +212,17 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         #{ord.orderNumber || fallbackOrderNumber(ord.id)}
                       </span>
                       {getStatusBadge(ord.status)}
+                      {ord.status !== 'ACTIVE' && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            ord.contactedForRenewal
+                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                              : 'text-orange-700 bg-orange-50 border-orange-200'
+                          }`}
+                        >
+                          {ord.contactedForRenewal ? 'contacted' : 'not contacted'}
+                        </span>
+                      )}
                       <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
                         {ord.planName}
                       </span>
