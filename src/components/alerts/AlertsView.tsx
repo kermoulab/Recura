@@ -34,10 +34,10 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [activeMessagePreview, setActiveMessagePreview] = useState<string | null>(null);
 
-  // Filter orders according to tab
-  const expiring3DaysOrders = orders.filter((o) => o.status === 'EXPIRING_3D');
-  const expiring7DaysOrders = orders.filter((o) => o.status === 'EXPIRING_7D');
-  const expiredOrders = orders.filter((o) => o.status === 'EXPIRED');
+  // Filter orders according to tab (contacted orders no longer count as alerts)
+  const expiring3DaysOrders = orders.filter((o) => o.status === 'EXPIRING_3D' && !o.contactedForRenewal);
+  const expiring7DaysOrders = orders.filter((o) => o.status === 'EXPIRING_7D' && !o.contactedForRenewal);
+  const expiredOrders = orders.filter((o) => o.status === 'EXPIRED' && !o.contactedForRenewal);
 
   const currentTabOrders =
     activeTab === '3d'

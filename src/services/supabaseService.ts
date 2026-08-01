@@ -571,8 +571,8 @@ function formatServiceAccountFromDb(row: any): ServiceAccount {
     providerId: row.providerId || row.provider_id || undefined,
     email: row.email || '',
     passwordEncrypted: row.password || undefined,
-    subscriptionStart: row.subscriptionStart || row.subscription_start || new Date().toISOString().split('T')[0],
-    subscriptionEnd: row.subscriptionEnd || row.subscription_end || new Date().toISOString().split('T')[0],
+    subscriptionStart: toDateOnly(row.subscriptionStart || row.subscription_start),
+    subscriptionEnd: toDateOnly(row.subscriptionEnd || row.subscription_end),
     purchaseCost: Number(row.purchaseCost ?? row.purchase_cost ?? 0),
     capacity: row.capacity || 1,
     status: row.status || 'Active',
@@ -580,6 +580,17 @@ function formatServiceAccountFromDb(row: any): ServiceAccount {
     createdAt: row.createdAt || row.created_at || new Date().toISOString(),
     updatedAt: row.updatedAt || row.updated_at || undefined,
   };
+}
+
+/**
+ * Normalizes a DB timestamp/date value to YYYY-MM-DD so it can be used in
+ * <input type="date"> and date comparisons. Falls back to today when missing.
+ */
+function toDateOnly(value?: string | null): string {
+  if (!value) return new Date().toISOString().split('T')[0];
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return new Date().toISOString().split('T')[0];
+  return d.toISOString().split('T')[0];
 }
 
 function formatAuditLogForDb(a: AuditLog) {

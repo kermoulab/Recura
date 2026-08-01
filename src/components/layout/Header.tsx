@@ -35,11 +35,11 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSessionsModal,
 }) => {
   const expiring3DNames = orders
-    .filter((o) => o.status === 'EXPIRING_3D')
+    .filter((o) => o.status === 'EXPIRING_3D' && !o.contactedForRenewal)
     .map((o) => o.customerName)
     .slice(0, 3);
   const expiredNames = orders
-    .filter((o) => o.status === 'EXPIRED')
+    .filter((o) => o.status === 'EXPIRED' && !o.contactedForRenewal)
     .map((o) => o.customerName)
     .slice(0, 3);
   const [showNotifications, setShowNotifications] = useState(false);

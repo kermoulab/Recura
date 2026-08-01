@@ -313,10 +313,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Compute live KPIs
-  const expiring3DaysCount = orders.filter((o) => o.status === 'EXPIRING_3D').length;
-  const expiring7DaysCount = orders.filter((o) => o.status === 'EXPIRING_7D').length;
-  const expiredCount = orders.filter((o) => o.status === 'EXPIRED').length;
+  // Compute live KPIs (alerts count only orders not yet contacted for renewal)
+  const expiring3DaysCount = orders.filter((o) => o.status === 'EXPIRING_3D' && !o.contactedForRenewal).length;
+  const expiring7DaysCount = orders.filter((o) => o.status === 'EXPIRING_7D' && !o.contactedForRenewal).length;
+  const expiredCount = orders.filter((o) => o.status === 'EXPIRED' && !o.contactedForRenewal).length;
 
   const totalSales = orders.reduce((sum, o) => sum + o.price, 0);
   const totalIncome = totalSales;
