@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Layers,
   Wallet,
+  X,
 } from 'lucide-react';
 import { ServiceAccount, Order, Customer } from '../../types/erp';
 import { maskEmail, formatCurrency } from '../../utils/crypto';
@@ -68,6 +69,7 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
   const [page, setPage] = useState(1);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ServiceAccount | null>(null);
+  const [blockedDelete, setBlockedDelete] = useState<ServiceAccount | null>(null);
 
   const stats = useMemo(() => getServiceAccountStats(accounts, orders), [accounts, orders]);
 
@@ -411,7 +413,12 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setPendingDelete(acc);
+                              const hasLinked = orders.some((o) => o.serviceAccountId === acc.id);
+                              if (hasLinked) {
+                                setBlockedDelete(acc);
+                              } else {
+                                setPendingDelete(acc);
+                              }
                             }}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                             title="Delete Account"
@@ -476,9 +483,7 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
             <p className="text-sm text-slate-600 leading-relaxed">
               Are you sure you want to delete{' '}
               <span className="font-bold text-[#111827]">{pendingDelete.email}</span> ({pendingDelete.serviceType})?{' '}
-              {orders.filter((o) => o.serviceAccountId === pendingDelete.id).length > 0 &&
-                'Linked orders will be unlinked and their profile slots freed. '}
-              This action cannot be undone.
+              This account has no assigned profiles and the deletion cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
@@ -497,6 +502,51 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
                 className="px-4 py-2 rounded-full bg-rose-600 text-white font-bold hover:bg-rose-700 cursor-pointer transition-colors shadow-sm active:scale-95"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cannot Delete (assigned profiles) Modal */}
+      {blockedDelete && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setBlockedDelete(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#E8EAF0] space-y-4 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                </div>
+                <h3 className="font-extrabold text-base text-[#111827]">Account Cannot Be Deleted</h3>
+              </div>
+              <button
+                onClick={() => setBlockedDelete(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              <span className="font-bold text-[#111827]">{blockedDelete.email}</span> ({blockedDelete.serviceType}) has{' '}
+              <span className="font-bold text-[#111827]">
+                {orders.filter((o) => o.serviceAccountId === blockedDelete.id).length}
+              </span>{' '}
+              assigned profile(s) and cannot be deleted. First remove the customer profiles from the account
+              (unlink each order in the account details) before deleting it.
+            </p>
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setBlockedDelete(null)}
+                className="px-5 py-2 rounded-full bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 cursor-pointer transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

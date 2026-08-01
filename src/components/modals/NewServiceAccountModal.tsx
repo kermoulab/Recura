@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Server, Calendar, Layers, AlertCircle, Mail, KeyRound, User } from 'lucide-react';
 import { ServiceAccount, ServiceAccountStatus, ServiceType } from '../../types/erp';
 import { sanitizeInput, validateEmail, stripControlCharacters } from '../../utils/security';
-import { simulateEncrypt, getCurrencyRate } from '../../utils/crypto';
+import { simulateEncrypt, simulateDecrypt, getCurrencyRate } from '../../utils/crypto';
 
 interface NewServiceAccountModalProps {
   isOpen: boolean;
@@ -24,7 +24,7 @@ export const NewServiceAccountModal: React.FC<NewServiceAccountModalProps> = ({
   const [serviceType, setServiceType] = useState<ServiceType>(initialData?.serviceType || 'Netflix');
   const [providerId, setProviderId] = useState(initialData?.providerId || '');
   const [email, setEmail] = useState(initialData?.email || '');
-  const [rawPassword, setRawPassword] = useState(initialData?.passwordEncrypted ? initialData.passwordEncrypted : '');
+  const [rawPassword, setRawPassword] = useState(initialData?.passwordEncrypted ? simulateDecrypt(initialData.passwordEncrypted) : '');
   const [subscriptionStart, setSubscriptionStart] = useState(initialData?.subscriptionStart || new Date().toISOString().split('T')[0]);
   const [subscriptionEnd, setSubscriptionEnd] = useState(initialData?.subscriptionEnd || '');
   const [purchaseCost, setPurchaseCost] = useState(initialData?.purchaseCost || 0);
@@ -43,7 +43,7 @@ export const NewServiceAccountModal: React.FC<NewServiceAccountModalProps> = ({
       setServiceType(initialData?.serviceType || 'Netflix');
       setProviderId(initialData?.providerId || '');
       setEmail(initialData?.email || '');
-      setRawPassword(initialData?.passwordEncrypted ? initialData.passwordEncrypted : '');
+      setRawPassword(initialData?.passwordEncrypted ? simulateDecrypt(initialData.passwordEncrypted) : '');
       setSubscriptionStart(initialData?.subscriptionStart || new Date().toISOString().split('T')[0]);
       setSubscriptionEnd(initialData?.subscriptionEnd || '');
       setPurchaseCost(displayCost);

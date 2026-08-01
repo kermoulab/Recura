@@ -107,6 +107,21 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccountId]);
 
+  // Auto-fill Screen/Profile Name from the profile number (new orders only,
+  // so an existing stored screen name is never overwritten while editing).
+  useEffect(() => {
+    if (initialData) return;
+    if (selectedAccountId && profileNumber) {
+      const p = Number(profileNumber);
+      if (p && Number.isInteger(p)) {
+        setScreenProfileName(`Profile ${p}`);
+      }
+    } else {
+      setScreenProfileName('Profile 1');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccountId, profileNumber, initialData]);
+
   // Auto-calculate price, duration & end date when Plan or Start Date changes (only if not manually overriding or editing without plan change)
   useEffect(() => {
     if (!initialData) {
@@ -390,7 +405,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
           {/* Encrypted Credentials Section */}
           <div className="p-4 bg-[#F8FAFC] border border-[#E8EAF0] rounded-2xl space-y-3">
             <span className="font-extrabold text-blue-600 text-[11px] block flex items-center gap-1">
-              <Lock className="w-3.5 h-3.5 text-blue-600" /> Account Credentials (Encrypted with AES-256)
+              <Lock className="w-3.5 h-3.5 text-blue-600" /> Account Credentials
             </span>
 
             {selectedAccount && (

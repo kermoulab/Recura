@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   XCircle,
   BadgeCheck,
+  X,
 } from 'lucide-react';
 import { ServiceAccount, Order, SubscriptionStatus, Customer } from '../../types/erp';
 import {
@@ -72,6 +73,7 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
   const [renewEnd, setRenewEnd] = useState(account.subscriptionEnd);
   const [renewError, setRenewError] = useState<string | null>(null);
   const [showDelete, setShowDelete] = useState(false);
+  const [blockedDelete, setBlockedDelete] = useState(false);
   const [showSuspend, setShowSuspend] = useState(false);
 
   const occupancy = getOccupancy(account, orders);
@@ -192,7 +194,13 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
               <span>{account.status === 'Suspended' ? 'Reactivate' : 'Deactivate'}</span>
             </button>
             <button
-              onClick={() => setShowDelete(true)}
+              onClick={() => {
+                if (linkedOrders.length > 0) {
+                  setBlockedDelete(true);
+                } else {
+                  setShowDelete(true);
+                }
+              }}
               className="flex items-center gap-1.5 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold px-4 py-2.5 rounded-full transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -571,12 +579,8 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
               <h3 className="font-extrabold text-base text-[#111827]">Delete Service Account?</h3>
             </div>
             <p className="text-sm text-slate-600 leading-relaxed">
-              This will permanently delete <span className="font-bold text-[#111827]">{account.email}</span> and{' '}
-              {linkedOrders.length > 0 ? (
-                <>unlink <span className="font-bold text-[#111827]">{linkedOrders.length}</span> linked order(s), freeing their profile slots.</>
-              ) : (
-                'has no linked orders.'
-              )}
+              This will permanently delete <span className="font-bold text-[#111827]">{account.email}</span>.
+              It has no assigned profiles and the deletion cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
@@ -596,6 +600,48 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
                 className="px-4 py-2 rounded-full bg-rose-600 text-white font-bold hover:bg-rose-700 cursor-pointer transition-colors shadow-sm active:scale-95"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cannot Delete (assigned profiles) Modal */}
+      {blockedDelete && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setBlockedDelete(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#E8EAF0] space-y-4 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                </div>
+                <h3 className="font-extrabold text-base text-[#111827]">Account Cannot Be Deleted</h3>
+              </div>
+              <button
+                onClick={() => setBlockedDelete(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              <span className="font-bold text-[#111827]">{account.email}</span> ({account.serviceType}) has{' '}
+              <span className="font-bold text-[#111827]">{linkedOrders.length}</span> assigned profile(s) and cannot be
+              deleted. First remove each customer profile below (the Remove button) to free all slots, then delete the account.
+            </p>
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setBlockedDelete(false)}
+                className="px-5 py-2 rounded-full bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 cursor-pointer transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

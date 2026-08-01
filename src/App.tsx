@@ -829,6 +829,10 @@ export default function App() {
               setEditingPlan(null);
               setIsPlanModalOpen(true);
             }}
+            onOpenNewAccount={() => {
+              setEditingServiceAccount(null);
+              setIsAccountModalOpen(true);
+            }}
             onNavigate={handleSelectView}
             userRole={currentUser.role}
           />

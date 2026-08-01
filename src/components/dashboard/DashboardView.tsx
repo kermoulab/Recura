@@ -43,6 +43,7 @@ interface DashboardViewProps {
   onOpenNewCustomer: () => void;
   onOpenNewOrder: () => void;
   onOpenNewPlan: () => void;
+  onOpenNewAccount: () => void;
   onNavigate: (view: ERPView) => void;
   userRole?: UserRole;
 }
@@ -57,6 +58,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenNewCustomer,
   onOpenNewOrder,
   onOpenNewPlan,
+  onOpenNewAccount,
   onNavigate,
   userRole = 'ADMIN',
 }) => {
@@ -201,6 +203,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             >
               <Plus className="w-4 h-4 text-blue-500" />
               <span>Add Plan</span>
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              id="btn-quick-add-account"
+              onClick={onOpenNewAccount}
+              className="flex items-center gap-1.5 bg-white border border-[#E8EAF0] text-[#111827] hover:bg-slate-50 text-xs font-bold px-4 py-2.5 rounded-full shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4 text-cyan-500" />
+              <span>New Account</span>
             </button>
           )}
           <button

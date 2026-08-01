@@ -7,7 +7,13 @@
 --   1) service_accounts table (snake_case fields)
 --   2) Order linkage columns: service_account_id + profile_number (unique per account)
 --   3) Supporting indexes (unique partial index so legacy orders stay untouched)
+--
+-- NOTE: Includes "uuid-ossp" (required by uuid_generate_v4()) and disables RLS
+-- to match how the existing "Customer"/"Order"/"Plan" tables work with the anon key.
 -- =============================================================================
+
+-- Ensure the UUID generator extension exists (CREATE TABLE below uses uuid_generate_v4())
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1) Service accounts table
 CREATE TABLE IF NOT EXISTS service_accounts (
@@ -25,6 +31,10 @@ CREATE TABLE IF NOT EXISTS service_accounts (
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Match the existing tables' access model (RLS disabled, anon/authenticated/service_role all allowed)
+ALTER TABLE service_accounts DISABLE ROW LEVEL SECURITY;
+GRANT ALL PRIVILEGES ON TABLE service_accounts TO anon, authenticated, service_role;
 
 CREATE INDEX IF NOT EXISTS "idx_service_accounts_status" ON service_accounts ("status");
 CREATE INDEX IF NOT EXISTS "idx_service_accounts_end" ON service_accounts ("subscription_end");
