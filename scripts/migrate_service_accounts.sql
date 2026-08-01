@@ -45,6 +45,14 @@ CREATE TABLE IF NOT EXISTS service_accounts (
 ALTER TABLE service_accounts DISABLE ROW LEVEL SECURITY;
 GRANT ALL PRIVILEGES ON TABLE service_accounts TO anon, authenticated, service_role;
 
+-- Belt-and-suspenders: if RLS is ever enabled, these policies still let the app's
+-- anon key read/write the table (the app uses only the anon key).
+ALTER TABLE service_accounts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "recura_service_accounts_full_access" ON service_accounts;
+CREATE POLICY "recura_service_accounts_full_access" ON service_accounts
+    FOR ALL TO anon, authenticated
+    USING (true) WITH CHECK (true);
+
 CREATE INDEX IF NOT EXISTS "idx_service_accounts_status" ON service_accounts ("status");
 CREATE INDEX IF NOT EXISTS "idx_service_accounts_end" ON service_accounts ("subscription_end");
 
@@ -87,9 +95,18 @@ CREATE TABLE IF NOT EXISTS "WhatsAppTemplate" (
 ALTER TABLE "WhatsAppTemplate" DISABLE ROW LEVEL SECURITY;
 GRANT ALL PRIVILEGES ON TABLE "WhatsAppTemplate" TO anon, authenticated, service_role;
 
+-- Belt-and-suspenders: allow the anon key even if RLS is enabled
+ALTER TABLE "WhatsAppTemplate" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "recura_whatsapp_full_access" ON "WhatsAppTemplate";
+CREATE POLICY "recura_whatsapp_full_access" ON "WhatsAppTemplate"
+    FOR ALL TO anon, authenticated
+    USING (true) WITH CHECK (true);
+
 -- =============================================================================
 -- ROLLBACK (run in reverse):
+--   DROP POLICY IF EXISTS "recura_whatsapp_full_access" ON "WhatsAppTemplate";
 --   DROP TABLE IF EXISTS "WhatsAppTemplate";
+--   DROP POLICY IF EXISTS "recura_service_accounts_full_access" ON service_accounts;
 --   ALTER TABLE "AuditLog" DROP COLUMN IF EXISTS "userName";
 --   ALTER TABLE "AuditLog" DROP COLUMN IF EXISTS "timestamp";
 --   ALTER TABLE "Order" DROP COLUMN IF EXISTS "contactedAt";
