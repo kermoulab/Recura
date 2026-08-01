@@ -71,7 +71,11 @@ ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "screenProfileName" VARCHAR(100);
 ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "contactedForRenewal" BOOLEAN DEFAULT FALSE;
 ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "contactedAt" TIMESTAMP WITH TIME ZONE;
 
--- 4) WhatsApp templates (one row per language, upserted on language conflict)
+-- 4) AuditLog columns written by the app (id must be a UUID, generated client-side)
+ALTER TABLE "AuditLog" ADD COLUMN IF NOT EXISTS "timestamp" TIMESTAMP;
+ALTER TABLE "AuditLog" ADD COLUMN IF NOT EXISTS "userName" VARCHAR(255);
+
+-- 5) WhatsApp templates (one row per language, upserted on language conflict)
 CREATE TABLE IF NOT EXISTS "WhatsAppTemplate" (
     "language" "Language" PRIMARY KEY,
     "expiring3Days" TEXT NOT NULL DEFAULT '',
@@ -86,6 +90,8 @@ GRANT ALL PRIVILEGES ON TABLE "WhatsAppTemplate" TO anon, authenticated, service
 -- =============================================================================
 -- ROLLBACK (run in reverse):
 --   DROP TABLE IF EXISTS "WhatsAppTemplate";
+--   ALTER TABLE "AuditLog" DROP COLUMN IF EXISTS "userName";
+--   ALTER TABLE "AuditLog" DROP COLUMN IF EXISTS "timestamp";
 --   ALTER TABLE "Order" DROP COLUMN IF EXISTS "contactedAt";
 --   ALTER TABLE "Order" DROP COLUMN IF EXISTS "contactedForRenewal";
 --   ALTER TABLE "Order" DROP COLUMN IF EXISTS "screenProfileName";

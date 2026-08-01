@@ -327,7 +327,9 @@ GRANT ALL PRIVILEGES ON TABLE "WhatsAppTemplate" TO anon, authenticated, service
 CREATE TABLE "AuditLog" (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "userId" UUID REFERENCES "User"("id") ON DELETE SET NULL,
+    "timestamp" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     "userEmail" VARCHAR(255) NOT NULL,
+    "userName" VARCHAR(255),
     "action" VARCHAR(100) NOT NULL,
     "details" TEXT NOT NULL,
     "ipAddress" VARCHAR(50) NOT NULL,

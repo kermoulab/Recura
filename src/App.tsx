@@ -364,7 +364,7 @@ export default function App() {
     userName?: string
   ) => {
     const newLog: AuditLog = {
-      id: `audit_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      id: crypto.randomUUID(),
       timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
       userEmail: userEmail || currentUser?.email || 'admin@recura.io',
       userName: userName || currentUser?.fullName || 'System User',
