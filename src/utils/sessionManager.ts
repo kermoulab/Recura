@@ -187,7 +187,11 @@ export function touchSessionActivity(): void {
  * Terminates the active session and notifies other tabs
  */
 export function terminateActiveSession(reason: 'LOGOUT' | 'EXPIRED' | 'REMOTE_TERMINATION' = 'LOGOUT'): void {
-  const session = getActiveSession();
+  // Read the raw stored session directly (NOT getActiveSession) to avoid infinite
+  // recursion when terminating an already-expired session: getActiveSession() calls
+  // terminateActiveSession('EXPIRED') for expired sessions, which must not re-enter
+  // getActiveSession().
+  const session = activeMemorySession;
   if (session) {
     // Mark as terminated in all memory sessions
     allMemorySessions = allMemorySessions.map((s) => (s.id === session.id ? { ...s, status: 'TERMINATED' as const } : s));
