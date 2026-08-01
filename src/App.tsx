@@ -194,6 +194,7 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [alertTab, setAlertTab] = useState<'3d' | '7d' | 'expired'>('3d');
   const [alertFocusOrderId, setAlertFocusOrderId] = useState<string | null>(null);
+  const [ordersFocusOrderId, setOrdersFocusOrderId] = useState<string | null>(null);
 
   // On mount, immediately restore logged-in state from session (prevents login flash)
   // then sync to the correct profile once profiles load.
@@ -1001,6 +1002,7 @@ export default function App() {
               setAlertFocusOrderId(order.id);
               setCurrentView('alerts');
             }}
+            focusOrderId={ordersFocusOrderId}
           />
         )}
 
@@ -1035,6 +1037,10 @@ export default function App() {
             onBulkMarkContacted={handleBulkMarkContacted}
             initialTab={alertTab}
             focusOrderId={alertFocusOrderId}
+            onOpenOrder={(orderId) => {
+              setOrdersFocusOrderId(orderId);
+              setCurrentView('orders');
+            }}
           />
         )}
 

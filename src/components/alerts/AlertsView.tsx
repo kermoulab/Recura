@@ -21,6 +21,7 @@ interface AlertsViewProps {
   templates?: Record<Language, WhatsAppTemplate>;
   onMarkContacted: (orderId: string) => void;
   onBulkMarkContacted: (orderIds: string[]) => void;
+  onOpenOrder?: (orderId: string) => void;
   initialTab?: '3d' | '7d' | 'expired';
   focusOrderId?: string | null;
 }
@@ -30,6 +31,7 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
   templates = DEFAULT_WHATSAPP_TEMPLATES,
   onMarkContacted,
   onBulkMarkContacted,
+  onOpenOrder,
   initialTab = '3d',
   focusOrderId = null,
 }) => {
@@ -262,7 +264,15 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
                         </div>
                       </td>
 
-                      <td className="py-4 px-4 font-bold text-slate-800">{ord.planName}</td>
+                      <td className="py-4 px-4">
+                        <button
+                          onClick={() => onOpenOrder?.(ord.id)}
+                          title={`Open order #${ord.orderNumber || ord.id}`}
+                          className="font-bold text-slate-800 text-left hover:text-blue-600 hover:underline transition-colors cursor-pointer"
+                        >
+                          {ord.planName}
+                        </button>
+                      </td>
 
                       <td className="py-4 px-4 font-mono font-extrabold text-[#111827]">{ord.endDate}</td>
 

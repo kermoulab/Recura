@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ShoppingBag,
   Plus,
@@ -37,6 +37,7 @@ interface OrdersViewProps {
   onDeleteOrder: (id: string) => void;
   onOpenServiceAccount?: (accountId: string) => void;
   onOpenRenewal?: (order: Order) => void;
+  focusOrderId?: string | null;
 }
 
 export const OrdersView: React.FC<OrdersViewProps> = ({
@@ -48,12 +49,25 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   onDeleteOrder,
   onOpenServiceAccount,
   onOpenRenewal,
+  focusOrderId = null,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [unmaskedPasswords, setUnmaskedPasswords] = useState<Record<string, boolean>>({});
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>({});
+  const lastFocusedId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!focusOrderId || lastFocusedId.current === focusOrderId) return;
+    lastFocusedId.current = focusOrderId;
+    const timer = setTimeout(() => {
+      document
+        .getElementById(`order-${focusOrderId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [focusOrderId]);
 
   const togglePasswordVisibility = (orderId: string) => {
     setUnmaskedPasswords((prev) => ({
@@ -204,7 +218,12 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             return (
               <div
                 key={ord.id}
-                className="bg-white p-6 rounded-3xl shadow-xs border border-[#E8EAF0] hover:border-slate-300 transition-all flex flex-col gap-4"
+                id={`order-${ord.id}`}
+                className={`bg-white p-6 rounded-3xl shadow-xs border transition-all flex flex-col gap-4 ${
+                  ord.id === focusOrderId
+                    ? 'ring-2 ring-blue-400 border-blue-300 bg-blue-50/40'
+                    : 'border-[#E8EAF0] hover:border-slate-300'
+                }`}
               >
                 {/* Order & Customer Details */}
                 <div className="space-y-3">
