@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Bell,
   MessageSquare,
@@ -21,6 +21,8 @@ interface AlertsViewProps {
   templates?: Record<Language, WhatsAppTemplate>;
   onMarkContacted: (orderId: string) => void;
   onBulkMarkContacted: (orderIds: string[]) => void;
+  initialTab?: '3d' | '7d' | 'expired';
+  focusOrderId?: string | null;
 }
 
 export const AlertsView: React.FC<AlertsViewProps> = ({
@@ -28,11 +30,29 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
   templates = DEFAULT_WHATSAPP_TEMPLATES,
   onMarkContacted,
   onBulkMarkContacted,
+  initialTab = '3d',
+  focusOrderId = null,
 }) => {
-  const [activeTab, setActiveTab] = useState<'3d' | '7d' | 'expired'>('3d');
+  const [activeTab, setActiveTab] = useState<'3d' | '7d' | 'expired'>(initialTab);
   const [selectedLanguage, setSelectedLanguage] = useState<Language>('AR');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [activeMessagePreview, setActiveMessagePreview] = useState<string | null>(null);
+  const lastFocusedId = useRef<string | null>(null);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (!focusOrderId || lastFocusedId.current === focusOrderId) return;
+    lastFocusedId.current = focusOrderId;
+    const timer = setTimeout(() => {
+      document
+        .getElementById(`alert-order-${focusOrderId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [focusOrderId]);
 
   // Filter orders according to tab
   const expiring3DaysOrders = orders.filter((o) => o.status === 'EXPIRING_3D');
@@ -220,9 +240,10 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
                   return (
                     <tr
                       key={ord.id}
+                      id={`alert-order-${ord.id}`}
                       className={`hover:bg-slate-50/80 transition-colors ${
                         isSelected ? 'bg-blue-50/40' : ''
-                      }`}
+                      } ${ord.id === focusOrderId ? 'ring-2 ring-blue-400 ring-inset bg-blue-50/60' : ''}`}
                     >
                       <td className="py-4 px-4">
                         <button onClick={() => toggleSelectOrder(ord.id)} className="p-1">

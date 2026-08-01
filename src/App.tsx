@@ -192,6 +192,8 @@ export default function App() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [alertTab, setAlertTab] = useState<'3d' | '7d' | 'expired'>('3d');
+  const [alertFocusOrderId, setAlertFocusOrderId] = useState<string | null>(null);
 
   // On mount, immediately restore logged-in state from session (prevents login flash)
   // then sync to the correct profile once profiles load.
@@ -988,6 +990,17 @@ export default function App() {
               setOpenAccountId(accountId);
               setCurrentView('accounts');
             }}
+            onOpenRenewal={(order) => {
+              setAlertTab(
+                order.status === 'EXPIRED'
+                  ? 'expired'
+                  : order.status === 'EXPIRING_7D'
+                  ? '7d'
+                  : '3d'
+              );
+              setAlertFocusOrderId(order.id);
+              setCurrentView('alerts');
+            }}
           />
         )}
 
@@ -1020,6 +1033,8 @@ export default function App() {
             templates={whatsAppTemplates}
             onMarkContacted={handleMarkContacted}
             onBulkMarkContacted={handleBulkMarkContacted}
+            initialTab={alertTab}
+            focusOrderId={alertFocusOrderId}
           />
         )}
 

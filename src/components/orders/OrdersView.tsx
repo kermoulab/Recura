@@ -36,6 +36,7 @@ interface OrdersViewProps {
   onEditOrder?: (order: Order) => void;
   onDeleteOrder: (id: string) => void;
   onOpenServiceAccount?: (accountId: string) => void;
+  onOpenRenewal?: (order: Order) => void;
 }
 
 export const OrdersView: React.FC<OrdersViewProps> = ({
@@ -46,6 +47,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   onEditOrder,
   onDeleteOrder,
   onOpenServiceAccount,
+  onOpenRenewal,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -212,17 +214,20 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         #{ord.orderNumber || fallbackOrderNumber(ord.id)}
                       </span>
                       {getStatusBadge(ord.status)}
-                      {ord.status !== 'ACTIVE' && (
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                            ord.contactedForRenewal
-                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                              : 'text-orange-700 bg-orange-50 border-orange-200'
-                          }`}
-                        >
-                          {ord.contactedForRenewal ? 'contacted' : 'not contacted'}
-                        </span>
-                      )}
+                      {ord.status !== 'ACTIVE' &&
+                        (ord.contactedForRenewal ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-emerald-700 bg-emerald-50 border-emerald-200">
+                            contacted
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => onOpenRenewal?.(ord)}
+                            title="Open in WhatsApp renewal page"
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100 hover:border-orange-300 active:scale-95 transition-all cursor-pointer"
+                          >
+                            not contacted
+                          </button>
+                        ))}
                       <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
                         {ord.planName}
                       </span>
