@@ -12,6 +12,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { CustomersView } from './components/customers/CustomersView';
 import { PlansView } from './components/plans/PlansView';
 import { OrdersView } from './components/orders/OrdersView';
+import { ServiceAccountsView } from './components/accounts/ServiceAccountsView';
 import { AlertsView } from './components/alerts/AlertsView';
 import { DatabaseView } from './components/database/DatabaseView';
 import { AuditLogsView } from './components/audit/AuditLogsView';
@@ -21,6 +22,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES } from './utils/whatsapp';
 import { NewCustomerModal } from './components/modals/NewCustomerModal';
 import { NewPlanModal } from './components/modals/NewPlanModal';
 import { NewOrderModal } from './components/modals/NewOrderModal';
+import { NewServiceAccountModal } from './components/modals/NewServiceAccountModal';
 import { QuickSearchModal } from './components/modals/QuickSearchModal';
 import { NewProfileModal } from './components/modals/NewProfileModal';
 import { LoginView } from './components/auth/LoginView';
@@ -39,7 +41,7 @@ const INITIAL_KPI_STATS: KPIStats = {
   expiredCount: 0,
   mrrGrowth: 0,
 };
-import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile, UserSession, Language, WhatsAppTemplate } from './types/erp';
+import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile, UserSession, Language, WhatsAppTemplate, ServiceAccount, SubscriptionStatus } from './types/erp';
 import { hashPasswordArgon2id, createSecureSessionToken } from './utils/security';
 import {
   fetchCustomersFromSupabase,
@@ -54,6 +56,10 @@ import {
   insertOrderToSupabase,
   updateOrderInSupabase,
   deleteOrderFromSupabase,
+  fetchServiceAccountsFromSupabase,
+  insertServiceAccountToSupabase,
+  updateServiceAccountInSupabase,
+  deleteServiceAccountFromSupabase,
   fetchAuditLogsFromSupabase,
   insertAuditLogToSupabase,
   fetchUserProfilesFromSupabase,
@@ -63,9 +69,10 @@ import {
   fetchWhatsAppTemplatesFromSupabase,
   saveWhatsAppTemplatesToSupabase,
 } from './services/supabaseService';
+import { calculateDaysRemaining } from './utils/crypto';
 
 const LAST_VIEW_KEY = 'recura_last_view_v1';
-const VALID_VIEWS: ERPView[] = ['dashboard', 'customers', 'orders', 'plans', 'alerts', 'database', 'audit', 'settings'];
+const VALID_VIEWS: ERPView[] = ['dashboard', 'customers', 'orders', 'accounts', 'plans', 'alerts', 'database', 'audit', 'settings'];
 const CURRENCY_KEY = 'recura_currency_v1';
 
 function loadLastView(): ERPView {
@@ -125,6 +132,7 @@ export default function App() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [serviceAccounts, setServiceAccounts] = useState<ServiceAccount[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [whatsAppTemplates, setWhatsAppTemplates] = useState<Record<Language, WhatsAppTemplate>>(DEFAULT_WHATSAPP_TEMPLATES);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -134,11 +142,12 @@ export default function App() {
     async function loadDataFromSupabase() {
       setIsLoading(true);
       try {
-        const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedLogs, loadedTemplates] = await Promise.all([
+        const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedAccounts, loadedLogs, loadedTemplates] = await Promise.all([
           fetchUserProfilesFromSupabase(),
           fetchCustomersFromSupabase(),
           fetchPlansFromSupabase(),
           fetchOrdersFromSupabase(),
+          fetchServiceAccountsFromSupabase(),
           fetchAuditLogsFromSupabase(),
           fetchWhatsAppTemplatesFromSupabase(),
         ]);
@@ -147,6 +156,7 @@ export default function App() {
         setCustomers(loadedCustomers);
         setPlans(loadedPlans);
         setOrders(loadedOrders);
+        setServiceAccounts(loadedAccounts);
         setAuditLogs(loadedLogs);
         if (loadedTemplates) {
           setWhatsAppTemplates(loadedTemplates);
@@ -171,6 +181,10 @@ export default function App() {
 
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [editingServiceAccount, setEditingServiceAccount] = useState<ServiceAccount | null>(null);
+  const [assignAccountId, setAssignAccountId] = useState<string | undefined>(undefined);
+  const [openAccountId, setOpenAccountId] = useState<string | undefined>(undefined);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -229,7 +243,7 @@ export default function App() {
         setCurrency(matchedUser.currency);
       }
       // If restored view is admin-only and user is not ADMIN, fall back to dashboard
-      if (matchedUser.role !== 'ADMIN' && ['plans', 'database', 'audit'].includes(currentView)) {
+      if (matchedUser.role !== 'ADMIN' && ['plans', 'database', 'audit', 'accounts'].includes(currentView)) {
         setCurrentView('dashboard');
       }
     }
@@ -274,7 +288,7 @@ export default function App() {
       return;
     }
 
-    if (currentUser.role !== 'ADMIN' && (view === 'plans' || view === 'database' || view === 'audit')) {
+    if (currentUser.role !== 'ADMIN' && (view === 'plans' || view === 'database' || view === 'audit' || view === 'accounts')) {
       toast.error('Access Restricted: Low-level staff profiles cannot access this page.');
       setCurrentView('orders');
       return;
@@ -380,7 +394,7 @@ export default function App() {
     }
 
     toast.success(`Welcome back, ${user.fullName}!`);
-    if (user.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit')) {
+    if (user.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit' || currentView === 'accounts')) {
       setCurrentView('orders');
     }
   };
@@ -438,7 +452,7 @@ export default function App() {
     saveActiveSession(newSession);
     toast.info(`Switched active profile to ${profile.fullName} (${profile.role === 'ADMIN' ? 'System Administrator' : 'Limited Staff'})`);
     logAudit('LOGIN', `Switched active profile session to ${profile.fullName} (${profile.email})`);
-    if (profile.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit')) {
+    if (profile.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit' || currentView === 'accounts')) {
       setCurrentView('orders');
     }
   };
@@ -523,6 +537,110 @@ export default function App() {
     setPlans((prev) => prev.filter((p) => p.id !== id));
     await deletePlanFromSupabase(id);
     toast.info('Deleted plan');
+  };
+
+  // Service Account Handlers
+  const handleSaveServiceAccount = async (accountData: Omit<ServiceAccount, 'id' | 'createdAt'>) => {
+    if (editingServiceAccount) {
+      const updated: ServiceAccount = { ...editingServiceAccount, ...accountData, updatedAt: new Date().toISOString() };
+      setServiceAccounts((prev) => prev.map((a) => (a.id === editingServiceAccount.id ? updated : a)));
+      await updateServiceAccountInSupabase(updated);
+      toast.success(`Updated service account: ${accountData.email}`);
+      logAudit('ACCOUNT_EDIT', `Updated service account ${accountData.email} (${accountData.serviceType})`);
+      setEditingServiceAccount(null);
+    } else {
+      const newAccount: ServiceAccount = {
+        ...accountData,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+      };
+      setServiceAccounts((prev) => [newAccount, ...prev]);
+      await insertServiceAccountToSupabase(newAccount);
+      toast.success(`Added service account: ${accountData.email}`);
+      logAudit('ACCOUNT_CREATE', `Created new service account ${accountData.email} (${accountData.serviceType}, capacity ${accountData.capacity})`);
+    }
+  };
+
+  const handleDeleteServiceAccount = async (id: string) => {
+    const account = serviceAccounts.find((a) => a.id === id);
+    setServiceAccounts((prev) => prev.filter((a) => a.id !== id));
+
+    // Unlink any orders that referenced this account so profile slots are freed
+    const linked = orders.filter((o) => o.serviceAccountId === id);
+    for (const order of linked) {
+      const updated: Order = { ...order, serviceAccountId: undefined, profileNumber: undefined };
+      setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+      await updateOrderInSupabase(updated);
+    }
+
+    await deleteServiceAccountFromSupabase(id);
+    toast.info(`Deleted service account ${account?.email || id}`);
+    logAudit('ACCOUNT_DELETE', `Deleted service account ${account?.email || id}`);
+  };
+
+  const handleRenewServiceAccount = async (id: string, newStart: string, newEnd: string) => {
+    const account = serviceAccounts.find((a) => a.id === id);
+    if (!account) return;
+
+    const updated: ServiceAccount = {
+      ...account,
+      subscriptionStart: newStart,
+      subscriptionEnd: newEnd,
+      status: 'Active',
+      updatedAt: new Date().toISOString(),
+    };
+    setServiceAccounts((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    await updateServiceAccountInSupabase(updated);
+
+    // Cascade renewal to every order provisioned on this account.
+    // The account subscription window is the single source of truth.
+    for (const order of orders.filter((o) => o.serviceAccountId === id)) {
+      const daysLeft = calculateDaysRemaining(newEnd);
+      const status: SubscriptionStatus = daysLeft < 0 ? 'EXPIRED' : daysLeft <= 3 ? 'EXPIRING_3D' : daysLeft <= 7 ? 'EXPIRING_7D' : 'ACTIVE';
+      const updatedOrder: Order = {
+        ...order,
+        startDate: newStart,
+        endDate: newEnd,
+        status,
+      };
+      setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
+      await updateOrderInSupabase(updatedOrder);
+    }
+
+    toast.success(`Renewed service account ${account.email} until ${newEnd}`);
+    logAudit('ACCOUNT_RENEW', `Renewed service account ${account.email} (${account.serviceType}) from ${newStart} to ${newEnd} — cascaded to linked orders`);
+  };
+
+  const handleToggleSuspendAccount = async (id: string) => {
+    const account = serviceAccounts.find((a) => a.id === id);
+    if (!account) return;
+    const willSuspend = account.status !== 'Suspended';
+    const updated: ServiceAccount = { ...account, status: willSuspend ? 'Suspended' : 'Active', updatedAt: new Date().toISOString() };
+    setServiceAccounts((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    await updateServiceAccountInSupabase(updated);
+    toast.info(willSuspend ? `Suspended service account ${account.email}` : `Reactivated service account ${account.email}`);
+    logAudit('ACCOUNT_STATUS_CHANGE', `${willSuspend ? 'Suspended' : 'Reactivated'} service account ${account.email}`);
+  };
+
+  const handleUnlinkOrderFromAccount = async (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    const updated: Order = { ...order, serviceAccountId: undefined, profileNumber: undefined };
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+    await updateOrderInSupabase(updated);
+    toast.info('Removed customer profile from service account (slot freed).');
+  };
+
+  const handleOpenAssignCustomer = (accountId: string) => {
+    setAssignAccountId(accountId);
+    setEditingOrder(null);
+    setIsOrderModalOpen(true);
+  };
+
+  const handleCloseOrderModal = () => {
+    setIsOrderModalOpen(false);
+    setEditingOrder(null);
+    setAssignAccountId(undefined);
   };
 
   // Order Handlers
@@ -697,6 +815,7 @@ export default function App() {
             customers={customers}
             orders={orders}
             plans={plans}
+            serviceAccounts={serviceAccounts}
             currency={currency}
             onOpenNewCustomer={() => {
               setEditingCustomer(null);
@@ -719,6 +838,7 @@ export default function App() {
           <CustomersView
             customers={customers}
             orders={orders}
+            serviceAccounts={serviceAccounts}
             currency={currency}
             onAddCustomer={() => {
               setEditingCustomer(null);
@@ -730,6 +850,10 @@ export default function App() {
             }}
             onDeleteCustomer={handleDeleteCustomer}
             onToggleBlockCustomer={handleToggleBlockCustomer}
+            onOpenServiceAccount={(accountId) => {
+              setOpenAccountId(accountId);
+              setCurrentView('accounts');
+            }}
           />
         )}
 
@@ -752,6 +876,7 @@ export default function App() {
         {currentView === 'orders' && (
           <OrdersView
             orders={orders}
+            serviceAccounts={serviceAccounts}
             currency={currency}
             onAddOrder={() => {
               setEditingOrder(null);
@@ -762,6 +887,33 @@ export default function App() {
               setIsOrderModalOpen(true);
             }}
             onDeleteOrder={handleDeleteOrder}
+            onOpenServiceAccount={(accountId) => {
+              setOpenAccountId(accountId);
+              setCurrentView('accounts');
+            }}
+          />
+        )}
+
+        {currentView === 'accounts' && (
+          <ServiceAccountsView
+            accounts={serviceAccounts}
+            orders={orders}
+            customers={customers}
+            currency={currency}
+            initialAccountId={openAccountId}
+            onAddAccount={() => {
+              setEditingServiceAccount(null);
+              setIsAccountModalOpen(true);
+            }}
+            onEditAccount={(account) => {
+              setEditingServiceAccount(account);
+              setIsAccountModalOpen(true);
+            }}
+            onDeleteAccount={handleDeleteServiceAccount}
+            onRenewAccount={handleRenewServiceAccount}
+            onToggleSuspend={handleToggleSuspendAccount}
+            onUnlinkOrder={handleUnlinkOrderFromAccount}
+            onAssignCustomer={handleOpenAssignCustomer}
           />
         )}
 
@@ -828,15 +980,26 @@ export default function App() {
 
       <NewOrderModal
         isOpen={isOrderModalOpen}
-        onClose={() => {
-          setIsOrderModalOpen(false);
-          setEditingOrder(null);
-        }}
+        onClose={handleCloseOrderModal}
         customers={customers}
         plans={plans}
+        serviceAccounts={serviceAccounts}
+        orders={orders}
         currency={currency}
+        preselectedAccountId={assignAccountId}
         onSubmit={handleSaveOrder}
         initialData={editingOrder}
+      />
+
+      <NewServiceAccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => {
+          setIsAccountModalOpen(false);
+          setEditingServiceAccount(null);
+        }}
+        currency={currency}
+        onSubmit={handleSaveServiceAccount}
+        initialData={editingServiceAccount}
       />
 
       <QuickSearchModal
@@ -845,11 +1008,13 @@ export default function App() {
         customers={customers}
         orders={orders}
         plans={plans}
+        serviceAccounts={serviceAccounts}
         currency={currency}
         onSelectResult={(type) => {
           if (type === 'customer') setCurrentView('customers');
           else if (type === 'order') setCurrentView('orders');
           else if (type === 'plan') setCurrentView('plans');
+          else if (type === 'account') setCurrentView('accounts');
         }}
       />
 

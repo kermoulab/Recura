@@ -14,30 +14,36 @@ import {
   Clock,
   AlertTriangle,
   X,
+  Server,
 } from 'lucide-react';
-import { Customer, CustomerStatus, Order } from '../../types/erp';
+import { Customer, CustomerStatus, Order, ServiceAccount } from '../../types/erp';
 import { createWhatsAppWebUrl } from '../../utils/whatsapp';
 import { sanitizeInput } from '../../utils/security';
 import { formatCurrency } from '../../utils/crypto';
+import { getAccountById } from '../../utils/serviceAccounts';
 
 interface CustomersViewProps {
   customers: Customer[];
   orders?: Order[];
+  serviceAccounts?: ServiceAccount[];
   currency?: string;
   onAddCustomer: () => void;
   onEditCustomer: (customer: Customer) => void;
   onDeleteCustomer: (id: string) => void;
   onToggleBlockCustomer: (id: string) => void;
+  onOpenServiceAccount?: (accountId: string) => void;
 }
 
 export const CustomersView: React.FC<CustomersViewProps> = ({
   customers,
   orders = [],
+  serviceAccounts = [],
   currency = 'USD ($)',
   onAddCustomer,
   onEditCustomer,
   onDeleteCustomer,
   onToggleBlockCustomer,
+  onOpenServiceAccount,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -136,6 +142,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
               <tr className="bg-[#F5F7FA] border-b border-[#E8EAF0] text-[11px] font-extrabold uppercase tracking-wider text-[#6B7280]">
                 <th className="py-4 px-6">Customer</th>
                 <th className="py-4 px-6">WhatsApp Contact</th>
+                <th className="py-4 px-6">Service Account</th>
                 <th className="py-4 px-6">Registration</th>
                 <th className="py-4 px-6">Status</th>
                 <th className="py-4 px-6">Orders</th>
@@ -146,7 +153,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
             <tbody className="divide-y divide-[#E8EAF0] text-xs">
               {filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     <Users className="w-10 h-10 mx-auto mb-2 text-slate-300" />
                     <p className="font-semibold text-sm">No customers found</p>
                     <p className="text-xs text-slate-400 mt-1">Try resetting your filters or add a new customer.</p>
@@ -184,6 +191,45 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                           <MessageSquare className="w-3.5 h-3.5 fill-emerald-600" />
                           <span>{cust.whatsapp}</span>
                         </a>
+                      </td>
+
+                      <td className="py-4 px-6">
+                        {(() => {
+                          const linked = orders
+                            .filter((o) => o.customerId === cust.id && o.serviceAccountId)
+                            .slice(0, 3);
+                          if (linked.length === 0) {
+                            return <span className="text-slate-300 font-medium">—</span>;
+                          }
+                          return (
+                            <div className="flex flex-col gap-1">
+                              {linked.map((o) => {
+                                const acc = getAccountById(serviceAccounts, o.serviceAccountId);
+                                if (!acc) return null;
+                                return (
+                                  <button
+                                    key={o.id}
+                                    onClick={() => onOpenServiceAccount?.(acc.id)}
+                                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full transition-colors text-left cursor-pointer"
+                                    title={`${acc.serviceType} account (${acc.email})`}
+                                  >
+                                    <Server className="w-3 h-3 text-blue-500 shrink-0" />
+                                    <span>{acc.serviceType}</span>
+                                    {o.profileNumber && (
+                                      <span className="font-mono text-blue-600">#{o.profileNumber}</span>
+                                    )}
+                                    <span className="text-blue-400 font-semibold">→</span>
+                                  </button>
+                                );
+                              })}
+                              {orders.filter((o) => o.customerId === cust.id && o.serviceAccountId).length > 3 && (
+                                <span className="text-[10px] text-slate-400 font-semibold pl-1">
+                                  +{orders.filter((o) => o.customerId === cust.id && o.serviceAccountId).length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       <td className="py-4 px-6 text-[#6B7280] font-medium">{cust.registrationDate}</td>

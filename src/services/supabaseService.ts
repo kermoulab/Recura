@@ -1,5 +1,5 @@
 ﻿import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Customer, Plan, Order, AuditLog, UserProfile, Language, WhatsAppTemplate } from '../types/erp';
+import { Customer, Plan, Order, AuditLog, UserProfile, Language, WhatsAppTemplate, ServiceAccount } from '../types/erp';
 
 function getSupabaseClient() {
   if (!isSupabaseConfigured || !supabase) {
@@ -267,7 +267,95 @@ export async function deleteOrderFromSupabase(id: string): Promise<void> {
 }
 
 /* =======================================================
-   4. AUDIT LOGS CRUD
+   4. SERVICE ACCOUNTS CRUD (shared provider accounts)
+   ======================================================= */
+export async function fetchServiceAccountsFromSupabase(): Promise<ServiceAccount[]> {
+  const client = getSupabaseClient();
+  if (!client) {
+    console.warn('Supabase not configured - returning empty service accounts array.');
+    return [];
+  }
+
+  try {
+    const { data, error } = await client
+      .from('service_accounts')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error || !data) {
+      console.warn('Supabase service accounts fetch error or no data, returning empty array.', error);
+      return [];
+    }
+    return data.map(formatServiceAccountFromDb);
+  } catch (err) {
+    console.warn('Supabase service accounts fetch failed:', err);
+    return [];
+  }
+}
+
+export async function insertServiceAccountToSupabase(account: ServiceAccount): Promise<ServiceAccount> {
+  const formatted = formatServiceAccountForDb(account);
+  const client = getSupabaseClient();
+
+  if (!client) {
+    return account;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('service_accounts')
+      .insert([formatted])
+      .select()
+      .single();
+    if (!error && data) {
+      return formatServiceAccountFromDb(data);
+    }
+  } catch (e) {
+    console.warn('Supabase service account insert error', e);
+  }
+
+  return account;
+}
+
+export async function updateServiceAccountInSupabase(account: ServiceAccount): Promise<ServiceAccount> {
+  const formatted = formatServiceAccountForDb(account);
+  const client = getSupabaseClient();
+
+  if (!client) {
+    return account;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('service_accounts')
+      .update(formatted)
+      .eq('id', account.id)
+      .select()
+      .single();
+    if (!error && data) {
+      return formatServiceAccountFromDb(data);
+    }
+  } catch (e) {
+    console.warn('Supabase service account update error', e);
+  }
+
+  return account;
+}
+
+export async function deleteServiceAccountFromSupabase(id: string): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return;
+  }
+
+  try {
+    await client.from('service_accounts').delete().eq('id', id);
+  } catch (e) {
+    console.warn('Supabase service account delete error', e);
+  }
+}
+
+/* =======================================================
+   5. AUDIT LOGS CRUD
    ======================================================= */
 export async function fetchAuditLogsFromSupabase(): Promise<AuditLog[]> {
   const client = getSupabaseClient();
@@ -310,7 +398,7 @@ export async function insertAuditLogToSupabase(log: AuditLog): Promise<AuditLog>
 }
 
 /* =======================================================
-   5. USER PROFILES CRUD
+   6. USER PROFILES CRUD
    ======================================================= */
 export async function fetchUserProfilesFromSupabase(): Promise<UserProfile[]> {
   const client = getSupabaseClient();
@@ -395,7 +483,7 @@ export async function deleteUserProfileFromSupabase(id: string): Promise<void> {
 }
 
 /* =======================================================
-   6. WHATSAPP TEMPLATES (global, one row per language)
+   7. WHATSAPP TEMPLATES (global, one row per language)
    ======================================================= */
 export async function fetchWhatsAppTemplatesFromSupabase(): Promise<Record<Language, WhatsAppTemplate> | null> {
   const client = getSupabaseClient();
@@ -530,6 +618,8 @@ function formatOrderForDb(o: Order) {
     notes: o.notes || null,
     contactedForRenewal: o.contactedForRenewal || false,
     contactedAt: o.contactedAt || null,
+    service_account_id: o.serviceAccountId || null,
+    profile_number: o.profileNumber || null,
     isDeleted: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -557,6 +647,45 @@ function formatOrderFromDb(row: any): Order {
     notes: row.notes || undefined,
     contactedForRenewal: Boolean(row.contactedForRenewal ?? row.contacted_for_renewal ?? false),
     contactedAt: row.contactedAt || row.contacted_at || undefined,
+    serviceAccountId: row.serviceAccountId || row.service_account_id || undefined,
+    profileNumber: row.profileNumber || row.profile_number || undefined,
+    createdAt: row.createdAt || row.created_at || undefined,
+  };
+}
+
+function formatServiceAccountForDb(a: ServiceAccount) {
+  return {
+    id: a.id,
+    service_type: a.serviceType,
+    provider_id: a.providerId || null,
+    email: a.email,
+    password: a.passwordEncrypted || null,
+    subscription_start: a.subscriptionStart || null,
+    subscription_end: a.subscriptionEnd || null,
+    purchase_cost: a.purchaseCost || 0,
+    capacity: a.capacity,
+    status: a.status,
+    notes: a.notes || null,
+    created_at: a.createdAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function formatServiceAccountFromDb(row: any): ServiceAccount {
+  return {
+    id: row.id,
+    serviceType: row.serviceType || row.service_type || 'Other',
+    providerId: row.providerId || row.provider_id || undefined,
+    email: row.email || '',
+    passwordEncrypted: row.password || undefined,
+    subscriptionStart: row.subscriptionStart || row.subscription_start || new Date().toISOString().split('T')[0],
+    subscriptionEnd: row.subscriptionEnd || row.subscription_end || new Date().toISOString().split('T')[0],
+    purchaseCost: Number(row.purchaseCost ?? row.purchase_cost ?? 0),
+    capacity: row.capacity || 1,
+    status: row.status || 'Active',
+    notes: row.notes || undefined,
+    createdAt: row.createdAt || row.created_at || new Date().toISOString(),
+    updatedAt: row.updatedAt || row.updated_at || undefined,
   };
 }
 

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, Search, Users, ShoppingBag, Package } from 'lucide-react';
-import { Customer, Order, Plan } from '../../types/erp';
+import { X, Search, Users, ShoppingBag, Package, Server } from 'lucide-react';
+import { Customer, Order, Plan, ServiceAccount } from '../../types/erp';
 import { sanitizeInput } from '../../utils/security';
 import { formatCurrency } from '../../utils/crypto';
+import { shortId } from '../../utils/serviceAccounts';
 
 interface QuickSearchModalProps {
   isOpen: boolean;
@@ -10,8 +11,9 @@ interface QuickSearchModalProps {
   customers: Customer[];
   orders: Order[];
   plans: Plan[];
+  serviceAccounts?: ServiceAccount[];
   currency?: string;
-  onSelectResult: (type: 'customer' | 'order' | 'plan') => void;
+  onSelectResult: (type: 'customer' | 'order' | 'plan' | 'account') => void;
 }
 
 export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
@@ -20,6 +22,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
   customers,
   orders,
   plans,
+  serviceAccounts = [],
   currency = 'USD ($)',
   onSelectResult,
 }) => {
@@ -43,7 +46,9 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
         (o) =>
           o.customerName.toLowerCase().includes(cleanQuery) ||
           o.accountEmail.toLowerCase().includes(cleanQuery) ||
-          o.id.toLowerCase().includes(cleanQuery)
+          o.id.toLowerCase().includes(cleanQuery) ||
+          String(o.orderNumber || '').includes(cleanQuery) ||
+          String(o.profileNumber || '').includes(cleanQuery)
       )
     : [];
 
@@ -52,6 +57,22 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
         (p) =>
           p.name.toLowerCase().includes(cleanQuery) ||
           p.category.toLowerCase().includes(cleanQuery)
+      )
+    : [];
+
+  const matchedAccounts = cleanQuery
+    ? serviceAccounts.filter(
+        (a) =>
+          a.email.toLowerCase().includes(cleanQuery) ||
+          a.serviceType.toLowerCase().includes(cleanQuery) ||
+          (a.providerId || '').toLowerCase().includes(cleanQuery) ||
+          a.id.toLowerCase().includes(cleanQuery) ||
+          orders.some(
+            (o) =>
+              o.serviceAccountId === a.id &&
+              (o.customerName.toLowerCase().includes(cleanQuery) ||
+                o.customerWhatsApp.includes(cleanQuery))
+          )
       )
     : [];
 
@@ -87,9 +108,9 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
         <div className="space-y-4 max-h-[350px] overflow-y-auto text-xs px-2">
           {!query ? (
             <p className="text-center py-8 text-slate-400 font-medium">
-              Type to search across all orders, customers, and streaming plans...
+              Type to search across all orders, customers, service accounts, and streaming plans...
             </p>
-          ) : matchedCustomers.length === 0 && matchedOrders.length === 0 && matchedPlans.length === 0 ? (
+          ) : matchedCustomers.length === 0 && matchedOrders.length === 0 && matchedPlans.length === 0 && matchedAccounts.length === 0 ? (
             <p className="text-center py-8 text-slate-400 font-medium">
               No matching records found for "{query}".
             </p>
@@ -177,6 +198,36 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
                           <span className="font-bold text-[#111827]">{p.name}</span>
                         </div>
                         <span className="font-black text-[#111827]">{formatCurrency(p.price, currency)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Service Accounts */}
+              {matchedAccounts.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider block mb-2">
+                    Service Accounts ({matchedAccounts.length})
+                  </span>
+                  <div className="space-y-1">
+                    {matchedAccounts.map((a) => (
+                      <div
+                        key={a.id}
+                        onClick={() => {
+                          onSelectResult('account');
+                          onClose();
+                        }}
+                        className="p-2.5 rounded-xl hover:bg-slate-100 cursor-pointer flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Server className="w-4 h-4 text-cyan-500" />
+                          <span className="font-bold text-[#111827]">{a.serviceType}</span>
+                          <span className="font-mono text-[11px] text-slate-400">{a.email}</span>
+                        </div>
+                        <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded font-mono">
+                          #{shortId(a.id)}
+                        </span>
                       </div>
                     ))}
                   </div>

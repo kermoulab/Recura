@@ -49,6 +49,37 @@ export interface Order {
   notes?: string;
   contactedForRenewal?: boolean;
   contactedAt?: string;
+  serviceAccountId?: string;
+  profileNumber?: number;
+  createdAt?: string;
+}
+
+export type ServiceType =
+  | 'Netflix'
+  | 'Disney+'
+  | 'Prime Video'
+  | 'Spotify'
+  | 'IPTV'
+  | 'YouTube Premium'
+  | 'HBO Max'
+  | 'Other';
+
+export type ServiceAccountStatus = 'Active' | 'Expired' | 'Suspended';
+
+export interface ServiceAccount {
+  id: string;
+  serviceType: ServiceType;
+  providerId?: string;
+  email: string;
+  passwordEncrypted?: string;
+  subscriptionStart: string;
+  subscriptionEnd: string;
+  purchaseCost: number;
+  capacity: number;
+  status: ServiceAccountStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface WhatsAppTemplate {
@@ -62,7 +93,7 @@ export interface AuditLog {
   timestamp: string;
   userEmail: string;
   userName: string;
-  action: 'LOGIN' | 'LOGOUT' | 'FAILED_LOGIN' | 'CUSTOMER_CREATE' | 'CUSTOMER_EDIT' | 'PLAN_CREATE' | 'ORDER_CREATE' | 'ORDER_EDIT' | 'STATUS_CHANGE' | 'WHATSAPP_SENT' | 'SETTINGS_CHANGE' | 'EXPORT_DATA';
+  action: 'LOGIN' | 'LOGOUT' | 'FAILED_LOGIN' | 'CUSTOMER_CREATE' | 'CUSTOMER_EDIT' | 'PLAN_CREATE' | 'ORDER_CREATE' | 'ORDER_EDIT' | 'STATUS_CHANGE' | 'WHATSAPP_SENT' | 'SETTINGS_CHANGE' | 'EXPORT_DATA' | 'ACCOUNT_CREATE' | 'ACCOUNT_EDIT' | 'ACCOUNT_DELETE' | 'ACCOUNT_RENEW' | 'ACCOUNT_STATUS_CHANGE';
   details: string;
   ipAddress: string;
   status: 'SUCCESS' | 'WARNING' | 'FAILED';

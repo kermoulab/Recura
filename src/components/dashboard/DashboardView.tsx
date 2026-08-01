@@ -27,16 +27,18 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { KPIStats, SubscriptionStatus, Customer, Order, Plan, UserRole } from '../../types/erp';
+import { KPIStats, SubscriptionStatus, Customer, Order, Plan, UserRole, ServiceAccount } from '../../types/erp';
 import { ERPView } from '../layout/Sidebar';
 // No mock defaults — rely on data passed from parent or DB-driven queries
 import { formatCurrency } from '../../utils/crypto';
+import { getServiceAccountStats, getMostProfitableService } from '../../utils/serviceAccounts';
 
 interface DashboardViewProps {
   kpis: KPIStats;
   customers?: Customer[];
   orders?: Order[];
   plans?: Plan[];
+  serviceAccounts?: ServiceAccount[];
   currency?: string;
   onOpenNewCustomer: () => void;
   onOpenNewOrder: () => void;
@@ -50,6 +52,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   customers = [],
   orders = [],
   plans = [],
+  serviceAccounts = [],
   currency = 'USD ($)',
   onOpenNewCustomer,
   onOpenNewOrder,
@@ -164,6 +167,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   ];
   const totalStatusCount = statusDistributionData.reduce((sum, d) => sum + d.value, 0);
   const activePercent = totalStatusCount > 0 ? Math.round((activeOrdersCount / totalStatusCount) * 100) : 0;
+
+  // Service Accounts widgets (real data)
+  const accountStats = getServiceAccountStats(serviceAccounts, orders);
+  const mostProfitable = getMostProfitableService(serviceAccounts, orders);
 
   return (
     <div id="subly-dashboard-view" className="p-8 space-y-8 bg-[#F5F7FA] min-h-[calc(100vh-72px)]">
@@ -477,6 +484,66 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="text-[#6B7280]">Expired</span>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SERVICE ACCOUNTS WIDGETS */}
+      <div className="bg-white p-6 rounded-3xl shadow-xs border border-[#E8EAF0]">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="font-bold text-lg text-[#111827]">Service Accounts Overview</h2>
+            <p className="text-xs text-[#6B7280] mt-0.5">
+              Shared provider subscriptions, occupancy, and renewal health.
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('accounts')}
+            className="text-xs font-bold text-[#4A90FF] hover:underline"
+          >
+            View Accounts
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+          <div className="p-3.5 rounded-2xl bg-[#F5F7FA] border border-[#E8EAF0]">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total</span>
+            <span className="text-lg font-black text-[#111827] block mt-1">{accountStats.total}</span>
+            <span className="text-[10px] text-slate-400 font-medium">accounts</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-[#F5F7FA] border border-[#E8EAF0]">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Free Profiles</span>
+            <span className="text-lg font-black text-emerald-600 block mt-1">{accountStats.totalAvailableProfiles}</span>
+            <span className="text-[10px] text-slate-400 font-medium">available</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-[#F5F7FA] border border-[#E8EAF0]">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Avg Occupancy</span>
+            <span className="text-lg font-black text-[#111827] block mt-1">{accountStats.avgOccupancy}%</span>
+            <span className="text-[10px] text-slate-400 font-medium">across accounts</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200">
+            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block">Expiring Soon</span>
+            <span className="text-lg font-black text-amber-600 block mt-1">{accountStats.expiringSoon.length}</span>
+            <span className="text-[10px] text-amber-400 font-medium">≤ 14 days</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200">
+            <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">Expired</span>
+            <span className="text-lg font-black text-rose-600 block mt-1">{accountStats.expired.length}</span>
+            <span className="text-[10px] text-rose-400 font-medium">need renewal</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200">
+            <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider block">Recently Renewed</span>
+            <span className="text-lg font-black text-blue-600 block mt-1">{accountStats.recentlyRenewed.length}</span>
+            <span className="text-[10px] text-blue-400 font-medium">last 7 days</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200">
+            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block">Most Profitable</span>
+            <span className="text-lg font-black text-emerald-700 block mt-1 truncate">
+              {mostProfitable ? mostProfitable.serviceType : '—'}
+            </span>
+            <span className="text-[10px] text-emerald-500 font-medium">
+              {mostProfitable ? `${formatCurrency(mostProfitable.revenue, currency)} (${mostProfitable.count} orders)` : 'no linked sales'}
+            </span>
           </div>
         </div>
       </div>

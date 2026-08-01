@@ -112,17 +112,43 @@ model Order {
   notes                    String?
   contactedForRenewal      Boolean            @default(false)
   contactedAt              DateTime?
+  serviceAccountId         String?
+  profileNumber            Int?
   isDeleted                Boolean            @default(false)
   createdAt                DateTime           @default(now())
   updatedAt                DateTime           @updatedAt
 
   customer                 Customer           @relation(fields: [customerId], references: [id])
   plan                     Plan               @relation(fields: [planId], references: [id])
+  serviceAccount           ServiceAccount?    @relation(fields: [serviceAccountId], references: [id])
   alertLogs                AlertLog[]
 
   @@index([customerId])
   @@index([endDate])
   @@index([status])
+  @@index([serviceAccountId])
+  @@unique([serviceAccountId, profileNumber])
+}
+
+model ServiceAccount {
+  id               String   @id @default(uuid())
+  serviceType      String
+  providerId       String?
+  email            String
+  password         String?
+  subscriptionStart DateTime
+  subscriptionEnd  DateTime
+  purchaseCost     Float    @default(0)
+  capacity         Int      @default(1)
+  status           String   @default("Active")
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  orders           Order[]
+
+  @@index([status])
+  @@index([subscriptionEnd])
 }
 
 model AlertLog {

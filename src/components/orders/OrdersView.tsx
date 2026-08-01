@@ -19,27 +19,33 @@ import {
   Pencil,
   Trash2,
   ChevronDown,
+  Server,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Order, SubscriptionStatus } from '../../types/erp';
+import { Order, SubscriptionStatus, ServiceAccount } from '../../types/erp';
 import { simulateDecrypt, maskEmail, formatCurrency } from '../../utils/crypto';
 import { createWhatsAppWebUrl } from '../../utils/whatsapp';
 import { sanitizeInput } from '../../utils/security';
+import { getAccountById } from '../../utils/serviceAccounts';
 
 interface OrdersViewProps {
   orders: Order[];
+  serviceAccounts?: ServiceAccount[];
   currency?: string;
   onAddOrder: () => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder: (id: string) => void;
+  onOpenServiceAccount?: (accountId: string) => void;
 }
 
 export const OrdersView: React.FC<OrdersViewProps> = ({
   orders,
+  serviceAccounts = [],
   currency = 'USD ($)',
   onAddOrder,
   onEditOrder,
   onDeleteOrder,
+  onOpenServiceAccount,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -70,12 +76,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const cleanSearch = sanitizeInput(searchTerm, { maxLen: 100, allowSpaces: true }).toLowerCase();
 
   const filteredOrders = orders.filter((ord) => {
+    const account = getAccountById(serviceAccounts, ord.serviceAccountId);
     const matchesSearch =
       ord.customerName.toLowerCase().includes(cleanSearch) ||
       ord.planName.toLowerCase().includes(cleanSearch) ||
       ord.accountEmail.toLowerCase().includes(cleanSearch) ||
       ord.id.toLowerCase().includes(cleanSearch) ||
-      String(ord.orderNumber || '').includes(cleanSearch);
+      String(ord.orderNumber || '').includes(cleanSearch) ||
+      String(ord.profileNumber || '').includes(cleanSearch) ||
+      (account ? account.email.toLowerCase().includes(cleanSearch) : false);
 
     const matchesStatus = selectedStatus === 'ALL' || ord.status === selectedStatus;
 
@@ -188,6 +197,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             const decryptedPin = ord.pinCodeEncrypted ? simulateDecrypt(ord.pinCodeEncrypted) : null;
             const isUnmasked = unmaskedPasswords[ord.id] === true;
             const isAccountExpanded = !!expandedAccounts[ord.id];
+            const account = getAccountById(serviceAccounts, ord.serviceAccountId);
 
             return (
               <div
@@ -205,6 +215,19 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
                         {ord.planName}
                       </span>
+                      {account && (
+                        <button
+                          onClick={() => onOpenServiceAccount?.(account.id)}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 px-3 py-1 rounded-full transition-colors cursor-pointer"
+                          title={`Open ${account.serviceType} service account`}
+                        >
+                          <Server className="w-3 h-3 text-blue-500" />
+                          {account.serviceType}
+                          {ord.profileNumber && (
+                            <span className="font-mono text-blue-600">#{ord.profileNumber}</span>
+                          )}
+                        </button>
+                      )}
                     </div>
 
                     {/* Edit and Delete Order Actions */}

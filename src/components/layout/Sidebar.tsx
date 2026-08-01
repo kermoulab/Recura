@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Settings,
   LogOut,
+  Server,
 } from 'lucide-react';
 
 import { UserRole } from '../../types/erp';
@@ -17,6 +18,7 @@ export type ERPView =
   | 'dashboard'
   | 'customers'
   | 'orders'
+  | 'accounts'
   | 'plans'
   | 'alerts'
   | 'database'
@@ -59,6 +61,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'orders',
       label: 'Orders',
       icon: <ShoppingBag className="w-5 h-5" />,
+    },
+    {
+      id: 'accounts',
+      label: 'Service Accounts',
+      icon: <Server className="w-5 h-5" />,
+      adminOnly: true,
     },
     {
       id: 'plans',
