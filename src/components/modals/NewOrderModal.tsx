@@ -93,6 +93,20 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccountId]);
 
+  // Auto-fill Account Email + Password from the linked shared service account.
+  // PIN is intentionally left empty so the agent can enter it manually on save.
+  useEffect(() => {
+    const account = serviceAccounts.find((a) => a.id === selectedAccountId);
+    if (account) {
+      setAccountEmail(account.email);
+      setRawPassword(simulateDecrypt(account.passwordEncrypted || ''));
+    } else {
+      setAccountEmail('');
+      setRawPassword('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccountId]);
+
   // Auto-calculate price, duration & end date when Plan or Start Date changes (only if not manually overriding or editing without plan change)
   useEffect(() => {
     if (!initialData) {
@@ -378,6 +392,13 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
             <span className="font-extrabold text-blue-600 text-[11px] block flex items-center gap-1">
               <Lock className="w-3.5 h-3.5 text-blue-600" /> Account Credentials (Encrypted with AES-256)
             </span>
+
+            {selectedAccount && (
+              <p className="text-[10px] text-slate-500 font-medium -mt-1">
+                Auto-filled from <strong className="text-blue-700">{selectedAccount.serviceType}</strong> · {selectedAccount.email}.{' '}
+                Leave the PIN empty or type the customer&apos;s PIN manually.
+              </p>
+            )}
 
             <div>
               <label className="block text-slate-700 font-semibold mb-1 text-[11px]">Account Email *</label>
