@@ -331,13 +331,14 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
                 <th className="py-4 px-6">Status</th>
                 <th className="py-4 px-6">Cost</th>
                 <th className="py-4 px-6">Occupancy</th>
+                <th className="py-4 px-6">Orders</th>
                 <th className="py-4 px-6 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E8EAF0] text-xs">
               {pageAccounts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-slate-400">
                     <Server className="w-10 h-10 mx-auto mb-2 text-slate-300" />
                     <p className="font-semibold text-sm">No service accounts found</p>
                     <p className="text-xs text-slate-400 mt-1">Try resetting your filters or add a new service account.</p>
@@ -346,6 +347,8 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
               ) : (
                 pageAccounts.map((acc) => {
                   const occupancy = getOccupancy(acc, orders);
+                  const activeOrderCount = orders.filter((o) => o.serviceAccountId === acc.id && o.status === 'ACTIVE').length;
+                  const expiredOrderCount = orders.filter((o) => o.serviceAccountId === acc.id && o.status === 'EXPIRED').length;
                   return (
                     <tr
                       key={acc.id}
@@ -385,6 +388,16 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
                           </div>
                           <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
                             {occupancy.used}/{occupancy.capacity}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex flex-col gap-1">
+                          <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold w-fit">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" /> {activeOrderCount} Active
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold w-fit">
+                            <XCircle className="w-3 h-3 text-rose-500" /> {expiredOrderCount} Expired
                           </span>
                         </div>
                       </td>

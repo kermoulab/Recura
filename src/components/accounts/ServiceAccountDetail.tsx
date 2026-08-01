@@ -384,6 +384,17 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
             </div>
           </div>
 
+          <div className="flex items-center justify-between text-xs bg-[#F5F7FA] p-3 rounded-xl border border-[#E8EAF0]">
+            <span className="inline-flex items-center gap-1.5 font-bold text-emerald-700">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              {linkedOrders.filter((o) => o.status === 'ACTIVE').length} Active Orders
+            </span>
+            <span className="inline-flex items-center gap-1.5 font-bold text-rose-700">
+              <XCircle className="w-3.5 h-3.5 text-rose-500" />
+              {linkedOrders.filter((o) => o.status === 'EXPIRED').length} Expired Orders
+            </span>
+          </div>
+
           <button
             onClick={() => onAssignCustomer(account.id)}
             disabled={occupancy.available === 0 || effectiveStatus !== 'Active'}

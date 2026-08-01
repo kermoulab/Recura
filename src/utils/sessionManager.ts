@@ -204,6 +204,18 @@ export function terminateActiveSession(reason: 'LOGOUT' | 'EXPIRED' | 'REMOTE_TE
 }
 
 /**
+ * Destroys the active session AND every other stored session in the browser,
+ * clearing all persisted session data so the next login starts fresh.
+ */
+export function destroyAllSessions(): void {
+  activeMemorySession = null;
+  allMemorySessions = [];
+  persistActiveSession(null);
+  persistAllSessions([]);
+  broadcastSessionEvent('SESSION_TERMINATED', { reason: 'LOGOUT_ALL' });
+}
+
+/**
  * Gets all user sessions for active user (including remote devices)
  */
 export function getUserSessions(userId: string, currentSessionId?: string): UserSession[] {

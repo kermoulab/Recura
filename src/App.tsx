@@ -28,7 +28,7 @@ import { NewProfileModal } from './components/modals/NewProfileModal';
 import { LoginView } from './components/auth/LoginView';
 import { ActiveSessionsModal } from './components/auth/ActiveSessionsModal';
 
-import { saveActiveSession, getActiveSession, validateSession, terminateActiveSession, setupMultiTabSessionSync, touchSessionActivity } from './utils/sessionManager';
+import { saveActiveSession, getActiveSession, validateSession, destroyAllSessions, setupMultiTabSessionSync, touchSessionActivity } from './utils/sessionManager';
 
 // Replaced mock KPI defaults with an empty baseline so app relies on DB-driven data
 const INITIAL_KPI_STATS: KPIStats = {
@@ -375,11 +375,17 @@ export default function App() {
 
   // Authentication & Session Handlers
   const handleLogout = () => {
-    terminateActiveSession('LOGOUT');
-    logAudit('LOGOUT', `Logged out and expired session for ${currentUser.fullName} (${currentUser.email})`);
+    destroyAllSessions();
+    try {
+      localStorage.removeItem(LAST_VIEW_KEY);
+    } catch {
+      // ignore storage errors
+    }
+    setCurrentView('dashboard');
+    logAudit('LOGOUT', `Logged out and destroyed all sessions for ${currentUser.fullName} (${currentUser.email})`);
     setIsLoggedIn(false);
     setIsSessionsModalOpen(false);
-    toast.info('Session ended. Logged out successfully.');
+    toast.info('Session ended. All sessions destroyed. Logged out successfully.');
   };
 
   const handleLoginSuccess = (user: UserProfile, session?: UserSession) => {
