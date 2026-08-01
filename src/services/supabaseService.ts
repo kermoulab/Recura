@@ -3,7 +3,20 @@ import { Customer, Plan, Order, AuditLog, UserProfile, Language, WhatsAppTemplat
 
 function getSupabaseClient() {
   if (!isSupabaseConfigured || !supabase) {
+    console.warn('Supabase not configured.');
     return null;
+  }
+  return supabase;
+}
+
+/**
+ * Returns the Supabase client or THROWS if it is not configured.
+ * Mutations use this so a missing .env / failed write surfaces to the caller
+ * instead of silently succeeding in memory and losing data on refresh.
+ */
+function requireSupabaseClient() {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Database not connected. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env, restart the app, then try again.');
   }
   return supabase;
 }
@@ -32,64 +45,42 @@ export async function fetchCustomersFromSupabase(): Promise<Customer[]> {
 }
 
 export async function insertCustomerToSupabase(customer: Customer): Promise<Customer> {
+  const client = requireSupabaseClient();
   const formatted = formatCustomerForDb(customer);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return customer;
+  const { data, error } = await client
+    .from('Customer')
+    .insert([formatted])
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to save customer to database: ${error?.message || 'no row returned'}`);
   }
-
-  try {
-    const { data, error } = await client
-      .from('Customer')
-      .insert([formatted])
-      .select()
-      .single();
-    if (!error && data) {
-      return formatCustomerFromDb(data);
-    }
-  } catch (e) {
-    console.warn('Supabase insert failed', e);
-  }
-
-  return customer;
+  return formatCustomerFromDb(data);
 }
 
 export async function updateCustomerInSupabase(customer: Customer): Promise<Customer> {
+  const client = requireSupabaseClient();
   const formatted = formatCustomerForDb(customer);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return customer;
+  const { data, error } = await client
+    .from('Customer')
+    .update(formatted)
+    .eq('id', customer.id)
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to update customer in database: ${error?.message || 'no row returned'}`);
   }
-
-  try {
-    const { data, error } = await client
-      .from('Customer')
-      .update(formatted)
-      .eq('id', customer.id)
-      .select()
-      .single();
-    if (!error && data) {
-      return formatCustomerFromDb(data);
-    }
-  } catch (e) {
-    console.warn('Supabase update failed', e);
-  }
-
-  return customer;
+  return formatCustomerFromDb(data);
 }
 
 export async function deleteCustomerFromSupabase(id: string): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return;
-  }
+  const client = requireSupabaseClient();
 
-  try {
-    await client.from('Customer').delete().eq('id', id);
-  } catch (e) {
-    console.warn('Supabase delete failed', e);
+  const { error } = await client.from('Customer').delete().eq('id', id);
+  if (error) {
+    throw new Error(`Failed to delete customer from database: ${error.message}`);
   }
 }
 
@@ -117,64 +108,42 @@ export async function fetchPlansFromSupabase(): Promise<Plan[]> {
 }
 
 export async function insertPlanToSupabase(plan: Plan): Promise<Plan> {
+  const client = requireSupabaseClient();
   const formatted = formatPlanForDb(plan);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return plan;
+  const { data, error } = await client
+    .from('Plan')
+    .insert([formatted])
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to save plan to database: ${error?.message || 'no row returned'}`);
   }
-
-  try {
-    const { data, error } = await client
-      .from('Plan')
-      .insert([formatted])
-      .select()
-      .single();
-    if (!error && data) {
-      return formatPlanFromDb(data);
-    }
-  } catch (e) {
-    console.warn('Supabase plan insert error', e);
-  }
-
-  return plan;
+  return formatPlanFromDb(data);
 }
 
 export async function updatePlanInSupabase(plan: Plan): Promise<Plan> {
+  const client = requireSupabaseClient();
   const formatted = formatPlanForDb(plan);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return plan;
+  const { data, error } = await client
+    .from('Plan')
+    .update(formatted)
+    .eq('id', plan.id)
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to update plan in database: ${error?.message || 'no row returned'}`);
   }
-
-  try {
-    const { data, error } = await client
-      .from('Plan')
-      .update(formatted)
-      .eq('id', plan.id)
-      .select()
-      .single();
-    if (!error && data) {
-      return formatPlanFromDb(data);
-    }
-  } catch (e) {
-    console.warn('Supabase plan update error', e);
-  }
-
-  return plan;
+  return formatPlanFromDb(data);
 }
 
 export async function deletePlanFromSupabase(id: string): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return;
-  }
+  const client = requireSupabaseClient();
 
-  try {
-    await client.from('Plan').delete().eq('id', id);
-  } catch (e) {
-    console.warn('Supabase plan delete error', e);
+  const { error } = await client.from('Plan').delete().eq('id', id);
+  if (error) {
+    throw new Error(`Failed to delete plan from database: ${error.message}`);
   }
 }
 
@@ -205,64 +174,42 @@ export async function fetchOrdersFromSupabase(): Promise<Order[]> {
 }
 
 export async function insertOrderToSupabase(order: Order): Promise<Order> {
+  const client = requireSupabaseClient();
   const formatted = formatOrderForDb(order);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return order;
+  const { data, error } = await client
+    .from('Order')
+    .insert([formatted])
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to save order to database: ${error?.message || 'no row returned'}`);
   }
-
-  try {
-    const { data, error } = await client
-      .from('Order')
-      .insert([formatted])
-      .select()
-      .single();
-    if (!error && data) {
-      return formatOrderFromDb(data);
-    }
-  } catch (e) {
-    console.warn('Supabase order insert error', e);
-  }
-
-  return order;
+  return formatOrderFromDb(data);
 }
 
 export async function updateOrderInSupabase(order: Order): Promise<Order> {
+  const client = requireSupabaseClient();
   const formatted = formatOrderForDb(order);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return order;
+  const { data, error } = await client
+    .from('Order')
+    .update(formatted)
+    .eq('id', order.id)
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to update order in database: ${error?.message || 'no row returned'}`);
   }
-
-  try {
-    const { data, error } = await client
-      .from('Order')
-      .update(formatted)
-      .eq('id', order.id)
-      .select()
-      .single();
-    if (!error && data) {
-      return formatOrderFromDb(data);
-    }
-  } catch (e) {
-    console.warn('Supabase order update error', e);
-  }
-
-  return order;
+  return formatOrderFromDb(data);
 }
 
 export async function deleteOrderFromSupabase(id: string): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return;
-  }
+  const client = requireSupabaseClient();
 
-  try {
-    await client.from('Order').delete().eq('id', id);
-  } catch (e) {
-    console.warn('Supabase order delete error', e);
+  const { error } = await client.from('Order').delete().eq('id', id);
+  if (error) {
+    throw new Error(`Failed to delete order from database: ${error.message}`);
   }
 }
 
@@ -293,64 +240,42 @@ export async function fetchServiceAccountsFromSupabase(): Promise<ServiceAccount
 }
 
 export async function insertServiceAccountToSupabase(account: ServiceAccount): Promise<ServiceAccount> {
+  const client = requireSupabaseClient();
   const formatted = formatServiceAccountForDb(account);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return account;
+  const { data, error } = await client
+    .from('service_accounts')
+    .insert([formatted])
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to save service account to database: ${error?.message || 'no row returned'}`);
   }
-
-  try {
-    const { data, error } = await client
-      .from('service_accounts')
-      .insert([formatted])
-      .select()
-      .single();
-    if (!error && data) {
-      return formatServiceAccountFromDb(data);
-    }
-  } catch (e) {
-    console.warn('Supabase service account insert error', e);
-  }
-
-  return account;
+  return formatServiceAccountFromDb(data);
 }
 
 export async function updateServiceAccountInSupabase(account: ServiceAccount): Promise<ServiceAccount> {
+  const client = requireSupabaseClient();
   const formatted = formatServiceAccountForDb(account);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return account;
+  const { data, error } = await client
+    .from('service_accounts')
+    .update(formatted)
+    .eq('id', account.id)
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to update service account in database: ${error?.message || 'no row returned'}`);
   }
-
-  try {
-    const { data, error } = await client
-      .from('service_accounts')
-      .update(formatted)
-      .eq('id', account.id)
-      .select()
-      .single();
-    if (!error && data) {
-      return formatServiceAccountFromDb(data);
-    }
-  } catch (e) {
-    console.warn('Supabase service account update error', e);
-  }
-
-  return account;
+  return formatServiceAccountFromDb(data);
 }
 
 export async function deleteServiceAccountFromSupabase(id: string): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return;
-  }
+  const client = requireSupabaseClient();
 
-  try {
-    await client.from('service_accounts').delete().eq('id', id);
-  } catch (e) {
-    console.warn('Supabase service account delete error', e);
+  const { error } = await client.from('service_accounts').delete().eq('id', id);
+  if (error) {
+    throw new Error(`Failed to delete service account from database: ${error.message}`);
   }
 }
 
@@ -381,19 +306,13 @@ export async function fetchAuditLogsFromSupabase(): Promise<AuditLog[]> {
 }
 
 export async function insertAuditLogToSupabase(log: AuditLog): Promise<AuditLog> {
+  const client = requireSupabaseClient();
   const formatted = formatAuditLogForDb(log);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return log;
+  const { error } = await client.from('AuditLog').insert([formatted]);
+  if (error) {
+    throw new Error(`Failed to save audit log to database: ${error.message}`);
   }
-
-  try {
-    await client.from('AuditLog').insert([formatted]);
-  } catch (e) {
-    console.warn('Supabase audit insert error', e);
-  }
-
   return log;
 }
 
@@ -421,64 +340,42 @@ export async function fetchUserProfilesFromSupabase(): Promise<UserProfile[]> {
 }
 
 export async function insertUserProfileToSupabase(profile: UserProfile): Promise<UserProfile> {
+  const client = requireSupabaseClient();
   const formatted = formatProfileForDb(profile);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return profile;
+  const { data, error } = await client
+    .from('User')
+    .insert([formatted])
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to save user profile to database: ${error?.message || 'no row returned'}`);
   }
-
-  try {
-    const { data, error } = await client
-      .from('User')
-      .insert([formatted])
-      .select()
-      .single();
-    if (!error && data) {
-      return formatProfileFromDb(data);
-    }
-  } catch (e) {
-    console.warn('Supabase profile insert error', e);
-  }
-
-  return profile;
+  return formatProfileFromDb(data);
 }
 
 export async function updateUserProfileInSupabase(profile: UserProfile): Promise<UserProfile> {
+  const client = requireSupabaseClient();
   const formatted = formatProfileForDb(profile);
-  const client = getSupabaseClient();
 
-  if (!client) {
-    return profile;
+  const { data, error } = await client
+    .from('User')
+    .update(formatted)
+    .eq('id', profile.id)
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to update user profile in database: ${error?.message || 'no row returned'}`);
   }
-
-  try {
-    const { data, error } = await client
-      .from('User')
-      .update(formatted)
-      .eq('id', profile.id)
-      .select()
-      .single();
-    if (!error && data) {
-      return formatProfileFromDb(data);
-    }
-  } catch (e) {
-    console.warn('Supabase profile update error', e);
-  }
-
-  return profile;
+  return formatProfileFromDb(data);
 }
 
 export async function deleteUserProfileFromSupabase(id: string): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return;
-  }
+  const client = requireSupabaseClient();
 
-  try {
-    await client.from('User').delete().eq('id', id);
-  } catch (e) {
-    console.warn('Supabase profile delete error', e);
+  const { error } = await client.from('User').delete().eq('id', id);
+  if (error) {
+    throw new Error(`Failed to delete user profile from database: ${error.message}`);
   }
 }
 
@@ -514,22 +411,18 @@ export async function fetchWhatsAppTemplatesFromSupabase(): Promise<Record<Langu
 }
 
 export async function saveWhatsAppTemplatesToSupabase(templates: Record<Language, WhatsAppTemplate>): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return;
-  }
+  const client = requireSupabaseClient();
 
-  try {
-    const rows = (Object.keys(templates) as Language[]).map((lang) => ({
-      language: lang,
-      expiring3Days: templates[lang].expiring3Days,
-      expired: templates[lang].expired,
-      updatedAt: new Date().toISOString(),
-    }));
+  const rows = (Object.keys(templates) as Language[]).map((lang) => ({
+    language: lang,
+    expiring3Days: templates[lang].expiring3Days,
+    expired: templates[lang].expired,
+    updatedAt: new Date().toISOString(),
+  }));
 
-    await client.from('WhatsAppTemplate').upsert(rows, { onConflict: 'language' });
-  } catch (e) {
-    console.warn('Supabase WhatsApp templates save error', e);
+  const { error } = await client.from('WhatsAppTemplate').upsert(rows, { onConflict: 'language' });
+  if (error) {
+    throw new Error(`Failed to save WhatsApp templates to database: ${error.message}`);
   }
 }
 
@@ -621,7 +514,7 @@ function formatOrderForDb(o: Order) {
     service_account_id: o.serviceAccountId || null,
     profile_number: o.profileNumber || null,
     isDeleted: false,
-    createdAt: new Date().toISOString(),
+    createdAt: o.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 }

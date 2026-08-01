@@ -70,6 +70,7 @@ import {
   saveWhatsAppTemplatesToSupabase,
 } from './services/supabaseService';
 import { calculateDaysRemaining } from './utils/crypto';
+import { isSupabaseConfigured } from './lib/supabase';
 
 const LAST_VIEW_KEY = 'recura_last_view_v1';
 const VALID_VIEWS: ERPView[] = ['dashboard', 'customers', 'orders', 'accounts', 'plans', 'alerts', 'database', 'audit', 'settings'];
@@ -142,6 +143,9 @@ export default function App() {
     async function loadDataFromSupabase() {
       setIsLoading(true);
       try {
+        if (!isSupabaseConfigured) {
+          toast.warning('Database not connected. Create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart — changes will not be saved until then.');
+        }
         const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedAccounts, loadedLogs, loadedTemplates] = await Promise.all([
           fetchUserProfilesFromSupabase(),
           fetchCustomersFromSupabase(),
@@ -370,7 +374,11 @@ export default function App() {
       status,
     };
     setAuditLogs((prev) => [newLog, ...prev]);
-    await insertAuditLogToSupabase(newLog);
+    try {
+      await insertAuditLogToSupabase(newLog);
+    } catch (err) {
+      console.warn('Failed to persist audit log', err);
+    }
   };
 
   // Authentication & Session Handlers
@@ -410,43 +418,55 @@ export default function App() {
     if (!currentUser.id) return;
 
     const updated = { ...currentUser, currency: newCurrency };
-    setCurrentUser(updated);
-    setProfiles((prev) => prev.map((p) => (p.id === currentUser.id ? updated : p)));
-    await updateUserProfileInSupabase(updated);
-    logAudit('SETTINGS_CHANGE', `Changed system currency to ${newCurrency}`);
+    try {
+      const saved = await updateUserProfileInSupabase(updated);
+      setCurrentUser(saved);
+      setProfiles((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
+      logAudit('SETTINGS_CHANGE', `Changed system currency to ${newCurrency}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save currency change.');
+    }
   };
 
   const handleSaveWhatsAppTemplates = async (templates: Record<Language, WhatsAppTemplate>) => {
-    setWhatsAppTemplates(templates);
     await saveWhatsAppTemplatesToSupabase(templates);
+    setWhatsAppTemplates(templates);
     logAudit('SETTINGS_CHANGE', 'Updated WhatsApp notification templates');
   };
 
   // Profile Management Handlers
   const handleCreateProfile = async (profileData: Omit<UserProfile, 'id' | 'createdAt'>) => {
-    const passwordHash = profileData.password ? await hashPasswordArgon2id(profileData.password) : undefined;
-    const newProfile: UserProfile = {
-      ...profileData,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString().split('T')[0],
-      password: undefined,
-      passwordHash,
-    };
+    try {
+      const passwordHash = profileData.password ? await hashPasswordArgon2id(profileData.password) : undefined;
+      const newProfile: UserProfile = {
+        ...profileData,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString().split('T')[0],
+        password: undefined,
+        passwordHash,
+      };
 
-    setProfiles((prev) => [...prev, newProfile]);
-    await insertUserProfileToSupabase(newProfile);
-    toast.success(`Created profile: ${newProfile.fullName} (${newProfile.role === 'ADMIN' ? 'Admin' : 'Limited Staff'})`);
-    logAudit('SETTINGS_CHANGE', `Created user profile: ${newProfile.fullName} (${newProfile.email}) - Access Level: ${newProfile.role}`);
+      const saved = await insertUserProfileToSupabase(newProfile);
+      setProfiles((prev) => [...prev, saved]);
+      toast.success(`Created profile: ${saved.fullName} (${saved.role === 'ADMIN' ? 'Admin' : 'Limited Staff'})`);
+      logAudit('SETTINGS_CHANGE', `Created user profile: ${saved.fullName} (${saved.email}) - Access Level: ${saved.role}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to create profile.');
+    }
   };
 
   const handleUpdateCurrentProfile = async (data: { fullName: string; username?: string; email: string; password?: string }) => {
-    const passwordHash = data.password ? await hashPasswordArgon2id(data.password) : currentUser.passwordHash;
-    const updated = { ...currentUser, ...data, password: undefined, passwordHash };
-    setCurrentUser(updated);
-    setProfiles((prev) => prev.map((p) => (p.id === currentUser.id ? updated : p)));
-    await updateUserProfileInSupabase(updated);
-    toast.success('Updated profile credentials!');
-    logAudit('SETTINGS_CHANGE', `Updated profile credentials for ${data.fullName} (${data.email})`);
+    try {
+      const passwordHash = data.password ? await hashPasswordArgon2id(data.password) : currentUser.passwordHash;
+      const updated = { ...currentUser, ...data, password: undefined, passwordHash };
+      const saved = await updateUserProfileInSupabase(updated);
+      setCurrentUser(saved);
+      setProfiles((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
+      toast.success('Updated profile credentials!');
+      logAudit('SETTINGS_CHANGE', `Updated profile credentials for ${saved.fullName} (${saved.email})`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update profile credentials.');
+    }
   };
 
   const handleSelectProfile = (profile: UserProfile) => {
@@ -465,45 +485,55 @@ export default function App() {
 
   const handleDeleteProfile = async (userId: string) => {
     const target = profiles.find((p) => p.id === userId);
-    setProfiles((prev) => prev.filter((p) => p.id !== userId));
-    await deleteUserProfileFromSupabase(userId);
-    toast.info(`Deleted user profile ${target?.fullName || userId}`);
-    logAudit('SETTINGS_CHANGE', `Deleted user profile ${target?.fullName || userId}`);
+    try {
+      await deleteUserProfileFromSupabase(userId);
+      setProfiles((prev) => prev.filter((p) => p.id !== userId));
+      toast.info(`Deleted user profile ${target?.fullName || userId}`);
+      logAudit('SETTINGS_CHANGE', `Deleted user profile ${target?.fullName || userId}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete profile.');
+    }
   };
 
   // Customer Handlers
   const handleSaveCustomer = async (
     customerData: Omit<Customer, 'id' | 'registrationDate' | 'ordersCount' | 'totalSpent'>
   ) => {
-    if (editingCustomer) {
-      const updated: Customer = { ...editingCustomer, ...customerData };
-      setCustomers((prev) =>
-        prev.map((c) => (c.id === editingCustomer.id ? updated : c))
-      );
-      await updateCustomerInSupabase(updated);
-      toast.success(`Updated customer profile: ${customerData.name}`);
-      logAudit('CUSTOMER_EDIT', `Updated customer profile for ${customerData.name}`);
-      setEditingCustomer(null);
-    } else {
-      const newCust: Customer = {
-        ...customerData,
-        id: crypto.randomUUID(),
-        registrationDate: new Date().toISOString().split('T')[0],
-        ordersCount: 0,
-        totalSpent: 0,
-      };
-      setCustomers((prev) => [newCust, ...prev]);
-      await insertCustomerToSupabase(newCust);
-      toast.success(`Created customer: ${customerData.name}`);
-      logAudit('CUSTOMER_CREATE', `Created new customer profile for ${customerData.name}`);
+    try {
+      if (editingCustomer) {
+        const updated: Customer = { ...editingCustomer, ...customerData };
+        const saved = await updateCustomerInSupabase(updated);
+        setCustomers((prev) => prev.map((c) => (c.id === saved.id ? saved : c)));
+        toast.success(`Updated customer profile: ${customerData.name}`);
+        logAudit('CUSTOMER_EDIT', `Updated customer profile for ${customerData.name}`);
+        setEditingCustomer(null);
+      } else {
+        const newCust: Customer = {
+          ...customerData,
+          id: crypto.randomUUID(),
+          registrationDate: new Date().toISOString().split('T')[0],
+          ordersCount: 0,
+          totalSpent: 0,
+        };
+        const saved = await insertCustomerToSupabase(newCust);
+        setCustomers((prev) => [saved, ...prev]);
+        toast.success(`Created customer: ${customerData.name}`);
+        logAudit('CUSTOMER_CREATE', `Created new customer profile for ${customerData.name}`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save customer.');
     }
   };
 
   const handleDeleteCustomer = async (id: string) => {
     const cust = customers.find((c) => c.id === id);
-    setCustomers((prev) => prev.filter((c) => c.id !== id));
-    await deleteCustomerFromSupabase(id);
-    toast.info(`Deleted customer ${cust?.name || id}`);
+    try {
+      await deleteCustomerFromSupabase(id);
+      setCustomers((prev) => prev.filter((c) => c.id !== id));
+      toast.info(`Deleted customer ${cust?.name || id}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete customer.');
+    }
   };
 
   const handleToggleBlockCustomer = async (id: string) => {
@@ -512,129 +542,167 @@ export default function App() {
     const newStatus = target.status === 'BLOCKED' ? 'ACTIVE' : 'BLOCKED';
     const updated: Customer = { ...target, status: newStatus };
 
-    setCustomers((prev) => prev.map((c) => (c.id === id ? updated : c)));
-    await updateCustomerInSupabase(updated);
-    toast.info(`${newStatus === 'BLOCKED' ? 'Blocked' : 'Unblocked'} customer ${target.name}`);
-    logAudit('STATUS_CHANGE', `${newStatus === 'BLOCKED' ? 'Blocked' : 'Unblocked'} customer ${target.name}`);
+    try {
+      const saved = await updateCustomerInSupabase(updated);
+      setCustomers((prev) => prev.map((c) => (c.id === id ? saved : c)));
+      toast.info(`${newStatus === 'BLOCKED' ? 'Blocked' : 'Unblocked'} customer ${target.name}`);
+      logAudit('STATUS_CHANGE', `${newStatus === 'BLOCKED' ? 'Blocked' : 'Unblocked'} customer ${target.name}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update customer status.');
+    }
   };
 
   // Plan Handlers
   const handleSavePlan = async (planData: Omit<Plan, 'id' | 'activeOrders'>) => {
-    if (editingPlan) {
-      const updated: Plan = { ...editingPlan, ...planData };
-      setPlans((prev) => prev.map((p) => (p.id === editingPlan.id ? updated : p)));
-      await updatePlanInSupabase(updated);
-      toast.success(`Updated plan: ${planData.name}`);
-      setEditingPlan(null);
-    } else {
-      const newPlan: Plan = {
-        ...planData,
-        id: crypto.randomUUID(),
-        activeOrders: 0,
-      };
-      setPlans((prev) => [newPlan, ...prev]);
-      await insertPlanToSupabase(newPlan);
-      toast.success(`Added new plan: ${planData.name}`);
-      logAudit('PLAN_CREATE', `Created new streaming plan: ${planData.name}`);
+    try {
+      if (editingPlan) {
+        const updated: Plan = { ...editingPlan, ...planData };
+        const saved = await updatePlanInSupabase(updated);
+        setPlans((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
+        toast.success(`Updated plan: ${planData.name}`);
+        setEditingPlan(null);
+      } else {
+        const newPlan: Plan = {
+          ...planData,
+          id: crypto.randomUUID(),
+          activeOrders: 0,
+        };
+        const saved = await insertPlanToSupabase(newPlan);
+        setPlans((prev) => [saved, ...prev]);
+        toast.success(`Added new plan: ${planData.name}`);
+        logAudit('PLAN_CREATE', `Created new streaming plan: ${planData.name}`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save plan.');
     }
   };
 
   const handleDeletePlan = async (id: string) => {
-    setPlans((prev) => prev.filter((p) => p.id !== id));
-    await deletePlanFromSupabase(id);
-    toast.info('Deleted plan');
+    try {
+      await deletePlanFromSupabase(id);
+      setPlans((prev) => prev.filter((p) => p.id !== id));
+      toast.info('Deleted plan');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete plan.');
+    }
   };
 
   // Service Account Handlers
   const handleSaveServiceAccount = async (accountData: Omit<ServiceAccount, 'id' | 'createdAt'>) => {
-    if (editingServiceAccount) {
-      const updated: ServiceAccount = { ...editingServiceAccount, ...accountData, updatedAt: new Date().toISOString() };
-      setServiceAccounts((prev) => prev.map((a) => (a.id === editingServiceAccount.id ? updated : a)));
-      await updateServiceAccountInSupabase(updated);
-      toast.success(`Updated service account: ${accountData.email}`);
-      logAudit('ACCOUNT_EDIT', `Updated service account ${accountData.email} (${accountData.serviceType})`);
-      setEditingServiceAccount(null);
-    } else {
-      const newAccount: ServiceAccount = {
-        ...accountData,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-      };
-      setServiceAccounts((prev) => [newAccount, ...prev]);
-      await insertServiceAccountToSupabase(newAccount);
-      toast.success(`Added service account: ${accountData.email}`);
-      logAudit('ACCOUNT_CREATE', `Created new service account ${accountData.email} (${accountData.serviceType}, capacity ${accountData.capacity})`);
+    try {
+      if (editingServiceAccount) {
+        const updated: ServiceAccount = { ...editingServiceAccount, ...accountData, updatedAt: new Date().toISOString() };
+        const saved = await updateServiceAccountInSupabase(updated);
+        setServiceAccounts((prev) => prev.map((a) => (a.id === saved.id ? saved : a)));
+        toast.success(`Updated service account: ${accountData.email}`);
+        logAudit('ACCOUNT_EDIT', `Updated service account ${accountData.email} (${accountData.serviceType})`);
+        setEditingServiceAccount(null);
+      } else {
+        const newAccount: ServiceAccount = {
+          ...accountData,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+        };
+        const saved = await insertServiceAccountToSupabase(newAccount);
+        setServiceAccounts((prev) => [saved, ...prev]);
+        toast.success(`Added service account: ${accountData.email}`);
+        logAudit('ACCOUNT_CREATE', `Created new service account ${accountData.email} (${accountData.serviceType}, capacity ${accountData.capacity})`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save service account.');
     }
   };
 
   const handleDeleteServiceAccount = async (id: string) => {
     const account = serviceAccounts.find((a) => a.id === id);
-    setServiceAccounts((prev) => prev.filter((a) => a.id !== id));
+    try {
+      // Unlink any orders that referenced this account so profile slots are freed (DB first)
+      const linked = orders.filter((o) => o.serviceAccountId === id);
+      for (const order of linked) {
+        const updated: Order = { ...order, serviceAccountId: undefined, profileNumber: undefined };
+        await updateOrderInSupabase(updated);
+      }
 
-    // Unlink any orders that referenced this account so profile slots are freed
-    const linked = orders.filter((o) => o.serviceAccountId === id);
-    for (const order of linked) {
-      const updated: Order = { ...order, serviceAccountId: undefined, profileNumber: undefined };
-      setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
-      await updateOrderInSupabase(updated);
+      await deleteServiceAccountFromSupabase(id);
+
+      setServiceAccounts((prev) => prev.filter((a) => a.id !== id));
+      if (linked.length > 0) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.serviceAccountId === id ? { ...o, serviceAccountId: undefined, profileNumber: undefined } : o
+          )
+        );
+      }
+      toast.info(`Deleted service account ${account?.email || id}`);
+      logAudit('ACCOUNT_DELETE', `Deleted service account ${account?.email || id}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete service account.');
     }
-
-    await deleteServiceAccountFromSupabase(id);
-    toast.info(`Deleted service account ${account?.email || id}`);
-    logAudit('ACCOUNT_DELETE', `Deleted service account ${account?.email || id}`);
   };
 
   const handleRenewServiceAccount = async (id: string, newStart: string, newEnd: string) => {
     const account = serviceAccounts.find((a) => a.id === id);
     if (!account) return;
+    try {
+      const updated: ServiceAccount = {
+        ...account,
+        subscriptionStart: newStart,
+        subscriptionEnd: newEnd,
+        status: 'Active',
+        updatedAt: new Date().toISOString(),
+      };
+      const saved = await updateServiceAccountInSupabase(updated);
+      setServiceAccounts((prev) => prev.map((a) => (a.id === id ? saved : a)));
 
-    const updated: ServiceAccount = {
-      ...account,
-      subscriptionStart: newStart,
-      subscriptionEnd: newEnd,
-      status: 'Active',
-      updatedAt: new Date().toISOString(),
-    };
-    setServiceAccounts((prev) => prev.map((a) => (a.id === id ? updated : a)));
-    await updateServiceAccountInSupabase(updated);
-
-    // Cascade renewal to every order provisioned on this account.
-    // The account subscription window is the single source of truth.
-    for (const order of orders.filter((o) => o.serviceAccountId === id)) {
+      // Cascade renewal to every order provisioned on this account (DB first).
       const daysLeft = calculateDaysRemaining(newEnd);
       const status: SubscriptionStatus = daysLeft < 0 ? 'EXPIRED' : daysLeft <= 3 ? 'EXPIRING_3D' : daysLeft <= 7 ? 'EXPIRING_7D' : 'ACTIVE';
-      const updatedOrder: Order = {
-        ...order,
-        startDate: newStart,
-        endDate: newEnd,
-        status,
-      };
-      setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
-      await updateOrderInSupabase(updatedOrder);
-    }
+      const renewedOrders = orders
+        .filter((o) => o.serviceAccountId === id)
+        .map((order) => ({ ...order, startDate: newStart, endDate: newEnd, status }));
+      for (const updatedOrder of renewedOrders) {
+        await updateOrderInSupabase(updatedOrder);
+      }
+      setOrders((prev) =>
+        prev.map((o) => {
+          const match = renewedOrders.find((uo) => uo.id === o.id);
+          return match ? match : o;
+        })
+      );
 
-    toast.success(`Renewed service account ${account.email} until ${newEnd}`);
-    logAudit('ACCOUNT_RENEW', `Renewed service account ${account.email} (${account.serviceType}) from ${newStart} to ${newEnd} — cascaded to linked orders`);
+      toast.success(`Renewed service account ${account.email} until ${newEnd}`);
+      logAudit('ACCOUNT_RENEW', `Renewed service account ${account.email} (${account.serviceType}) from ${newStart} to ${newEnd} — cascaded to linked orders`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to renew service account.');
+    }
   };
 
   const handleToggleSuspendAccount = async (id: string) => {
     const account = serviceAccounts.find((a) => a.id === id);
     if (!account) return;
-    const willSuspend = account.status !== 'Suspended';
-    const updated: ServiceAccount = { ...account, status: willSuspend ? 'Suspended' : 'Active', updatedAt: new Date().toISOString() };
-    setServiceAccounts((prev) => prev.map((a) => (a.id === id ? updated : a)));
-    await updateServiceAccountInSupabase(updated);
-    toast.info(willSuspend ? `Suspended service account ${account.email}` : `Reactivated service account ${account.email}`);
-    logAudit('ACCOUNT_STATUS_CHANGE', `${willSuspend ? 'Suspended' : 'Reactivated'} service account ${account.email}`);
+    try {
+      const willSuspend = account.status !== 'Suspended';
+      const updated: ServiceAccount = { ...account, status: willSuspend ? 'Suspended' : 'Active', updatedAt: new Date().toISOString() };
+      const saved = await updateServiceAccountInSupabase(updated);
+      setServiceAccounts((prev) => prev.map((a) => (a.id === id ? saved : a)));
+      toast.info(willSuspend ? `Suspended service account ${account.email}` : `Reactivated service account ${account.email}`);
+      logAudit('ACCOUNT_STATUS_CHANGE', `${willSuspend ? 'Suspended' : 'Reactivated'} service account ${account.email}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update service account status.');
+    }
   };
 
   const handleUnlinkOrderFromAccount = async (orderId: string) => {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return;
-    const updated: Order = { ...order, serviceAccountId: undefined, profileNumber: undefined };
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
-    await updateOrderInSupabase(updated);
-    toast.info('Removed customer profile from service account (slot freed).');
+    try {
+      const updated: Order = { ...order, serviceAccountId: undefined, profileNumber: undefined };
+      const saved = await updateOrderInSupabase(updated);
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? saved : o)));
+      toast.info('Removed customer profile from service account (slot freed).');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to unlink customer profile.');
+    }
   };
 
   const handleOpenAssignCustomer = (accountId: string) => {
@@ -651,58 +719,72 @@ export default function App() {
 
   // Order Handlers
   const handleSaveOrder = async (orderData: Omit<Order, 'id'>) => {
-    if (editingOrder) {
-      const updated: Order = { ...orderData, id: editingOrder.id };
-      setOrders((prev) =>
-        prev.map((o) => (o.id === editingOrder.id ? updated : o))
-      );
-      await updateOrderInSupabase(updated);
-      toast.success(`Updated order #${editingOrder.id}`);
-      logAudit('ORDER_EDIT', `Updated order #${editingOrder.id} (${orderData.planName})`);
-      setEditingOrder(null);
-    } else {
-      const nextOrderNumber = orders.reduce((max, o) => Math.max(max, o.orderNumber || 0), 0) + 1;
-      const newOrd: Order = {
-        ...orderData,
-        id: crypto.randomUUID(),
-        orderNumber: nextOrderNumber,
-      };
-      setOrders((prev) => [newOrd, ...prev]);
-      await insertOrderToSupabase(newOrd);
-
-      // Update customer stats in Supabase
-      const customerToUpdate = customers.find((c) => c.id === orderData.customerId);
-      if (customerToUpdate) {
-        const updatedCust: Customer = {
-          ...customerToUpdate,
-          ordersCount: customerToUpdate.ordersCount + 1,
-          totalSpent: customerToUpdate.totalSpent + orderData.price,
+    try {
+      if (editingOrder) {
+        const updated: Order = { ...orderData, id: editingOrder.id };
+        const saved = await updateOrderInSupabase(updated);
+        setOrders((prev) => prev.map((o) => (o.id === editingOrder.id ? saved : o)));
+        toast.success(`Updated order #${editingOrder.id}`);
+        logAudit('ORDER_EDIT', `Updated order #${editingOrder.id} (${orderData.planName})`);
+        setEditingOrder(null);
+      } else {
+        const nextOrderNumber = orders.reduce((max, o) => Math.max(max, o.orderNumber || 0), 0) + 1;
+        const newOrd: Order = {
+          ...orderData,
+          id: crypto.randomUUID(),
+          orderNumber: nextOrderNumber,
         };
-        setCustomers((prev) => prev.map((c) => (c.id === updatedCust.id ? updatedCust : c)));
-        await updateCustomerInSupabase(updatedCust);
-      }
+        const savedOrder = await insertOrderToSupabase(newOrd);
+        setOrders((prev) => [savedOrder, ...prev]);
 
-      // Update plan stock & active orders in Supabase
-      const planToUpdate = plans.find((p) => p.id === orderData.planId);
-      if (planToUpdate) {
-        const updatedPlan: Plan = {
-          ...planToUpdate,
-          activeOrders: planToUpdate.activeOrders + 1,
-          availableStock: Math.max(0, planToUpdate.availableStock - 1),
-        };
-        setPlans((prev) => prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p)));
-        await updatePlanInSupabase(updatedPlan);
-      }
+        // Update customer stats in Supabase (best-effort, non-fatal)
+        try {
+          const customerToUpdate = customers.find((c) => c.id === orderData.customerId);
+          if (customerToUpdate) {
+            const updatedCust: Customer = {
+              ...customerToUpdate,
+              ordersCount: customerToUpdate.ordersCount + 1,
+              totalSpent: customerToUpdate.totalSpent + orderData.price,
+            };
+            const savedCust = await updateCustomerInSupabase(updatedCust);
+            setCustomers((prev) => prev.map((c) => (c.id === savedCust.id ? savedCust : c)));
+          }
+        } catch (e) {
+          console.warn('Failed to update customer stats after order create', e);
+        }
 
-      toast.success(`Order provisioned for ${orderData.customerName}!`);
-      logAudit('ORDER_CREATE', `Provisioned order #${newOrd.id} (${orderData.planName}) for ${orderData.customerName}`);
+        // Update plan stock & active orders in Supabase (best-effort, non-fatal)
+        try {
+          const planToUpdate = plans.find((p) => p.id === orderData.planId);
+          if (planToUpdate) {
+            const updatedPlan: Plan = {
+              ...planToUpdate,
+              activeOrders: planToUpdate.activeOrders + 1,
+              availableStock: Math.max(0, planToUpdate.availableStock - 1),
+            };
+            const savedPlan = await updatePlanInSupabase(updatedPlan);
+            setPlans((prev) => prev.map((p) => (p.id === savedPlan.id ? savedPlan : p)));
+          }
+        } catch (e) {
+          console.warn('Failed to update plan stock after order create', e);
+        }
+
+        toast.success(`Order provisioned for ${orderData.customerName}!`);
+        logAudit('ORDER_CREATE', `Provisioned order #${newOrd.id} (${orderData.planName}) for ${orderData.customerName}`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save order.');
     }
   };
 
   const handleDeleteOrder = async (id: string) => {
-    setOrders((prev) => prev.filter((o) => o.id !== id));
-    await deleteOrderFromSupabase(id);
-    toast.info('Order removed');
+    try {
+      await deleteOrderFromSupabase(id);
+      setOrders((prev) => prev.filter((o) => o.id !== id));
+      toast.info('Order removed');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete order.');
+    }
   };
 
   // Alert renewal status handler
@@ -712,31 +794,36 @@ export default function App() {
     if (!targetOrder) return;
 
     const updated: Order = { ...targetOrder, contactedForRenewal: true, contactedAt: nowStr };
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
-    await updateOrderInSupabase(updated);
-
-    toast.success('Marked as contacted via WhatsApp!');
-    logAudit('WHATSAPP_SENT', `Sent renewal notice for order #${orderId}`);
+    try {
+      const saved = await updateOrderInSupabase(updated);
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? saved : o)));
+      toast.success('Marked as contacted via WhatsApp!');
+      logAudit('WHATSAPP_SENT', `Sent renewal notice for order #${orderId}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to mark order as contacted.');
+    }
   };
 
   const handleBulkMarkContacted = async (orderIds: string[]) => {
     const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 16);
-    setOrders((prev) =>
-      prev.map((o) =>
-        orderIds.includes(o.id)
-          ? { ...o, contactedForRenewal: true, contactedAt: nowStr }
-          : o
-      )
-    );
+    const updatedOrders = orderIds
+      .map((orderId) => orders.find((o) => o.id === orderId))
+      .filter((o): o is Order => Boolean(o))
+      .map((o) => ({ ...o, contactedForRenewal: true, contactedAt: nowStr }));
 
-    for (const orderId of orderIds) {
-      const targetOrder = orders.find((o) => o.id === orderId);
-      if (targetOrder) {
-        await updateOrderInSupabase({ ...targetOrder, contactedForRenewal: true, contactedAt: nowStr });
+    try {
+      for (const updatedOrder of updatedOrders) {
+        await updateOrderInSupabase(updatedOrder);
       }
+      setOrders((prev) =>
+        prev.map((o) =>
+          updatedOrders.some((uo) => uo.id === o.id) ? { ...o, contactedForRenewal: true, contactedAt: nowStr } : o
+        )
+      );
+      toast.success(`Marked ${orderIds.length} orders as contacted!`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update orders.');
     }
-
-    toast.success(`Marked ${orderIds.length} orders as contacted!`);
   };
 
 

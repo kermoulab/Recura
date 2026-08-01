@@ -251,21 +251,53 @@ CREATE TABLE "Plan" (
 -- Table: Orders
 CREATE TABLE "Order" (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "orderNumber" INTEGER,
     "customerId" UUID NOT NULL REFERENCES "Customer"("id") ON DELETE RESTRICT,
+    "customerName" VARCHAR(255),
+    "customerWhatsApp" VARCHAR(50),
     "planId" UUID NOT NULL REFERENCES "Plan"("id") ON DELETE RESTRICT,
+    "planName" VARCHAR(255),
     "price" DECIMAL(10,2) NOT NULL,
     "durationMonths" INT NOT NULL,
     "startDate" TIMESTAMP WITH TIME ZONE NOT NULL,
     "endDate" TIMESTAMP WITH TIME ZONE NOT NULL,
     "status" "SubscriptionStatus" DEFAULT 'ACTIVE',
-    "accountEmail" VARCHAR(255) NOT NULL,
-    "accountPasswordEncrypted" TEXT NOT NULL,
+    "accountEmail" VARCHAR(255),
+    "accountPasswordEncrypted" TEXT,
     "pinCodeEncrypted" VARCHAR(20),
     "screenProfileName" VARCHAR(100),
     "notes" TEXT,
     "contactedForRenewal" BOOLEAN DEFAULT FALSE,
     "contactedAt" TIMESTAMP WITH TIME ZONE,
+    "service_account_id" UUID REFERENCES service_accounts("id"),
+    "profile_number" INTEGER,
     "isDeleted" BOOLEAN DEFAULT FALSE,
+    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table: Service Accounts (shared provider accounts with profile slots)
+CREATE TABLE service_accounts (
+    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "service_type" VARCHAR(100) NOT NULL DEFAULT 'Other',
+    "provider_id" VARCHAR(100),
+    "email" VARCHAR(255) NOT NULL,
+    "password" TEXT,
+    "subscription_start" TIMESTAMP WITH TIME ZONE,
+    "subscription_end" TIMESTAMP WITH TIME ZONE,
+    "purchase_cost" DECIMAL(10,2) DEFAULT 0,
+    "capacity" INTEGER NOT NULL DEFAULT 1,
+    "status" VARCHAR(20) DEFAULT 'Active',
+    "notes" TEXT,
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table: WhatsApp Templates (one row per language)
+CREATE TABLE "WhatsAppTemplate" (
+    "language" "Language" PRIMARY KEY,
+    "expiring3Days" TEXT NOT NULL DEFAULT '',
+    "expired" TEXT NOT NULL DEFAULT '',
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -276,6 +308,20 @@ CREATE INDEX "idx_customer_status" ON "Customer"("status");
 CREATE INDEX "idx_order_customer_id" ON "Order"("customerId");
 CREATE INDEX "idx_order_end_date" ON "Order"("endDate");
 CREATE INDEX "idx_order_status" ON "Order"("status");
+CREATE INDEX "idx_service_accounts_status" ON service_accounts ("status");
+CREATE INDEX "idx_service_accounts_end" ON service_accounts ("subscription_end");
+CREATE INDEX "idx_order_service_account_id" ON "Order"("service_account_id");
+
+-- Profile numbers are unique per service account (legacy rows keep NULLs untouched)
+CREATE UNIQUE INDEX "uq_order_account_profile"
+    ON "Order"("service_account_id", "profile_number")
+    WHERE "service_account_id" IS NOT NULL AND "profile_number" IS NOT NULL;
+
+-- Match the anon-key access model used by the app (RLS disabled, all roles allowed)
+ALTER TABLE service_accounts DISABLE ROW LEVEL SECURITY;
+GRANT ALL PRIVILEGES ON TABLE service_accounts TO anon, authenticated, service_role;
+ALTER TABLE "WhatsAppTemplate" DISABLE ROW LEVEL SECURITY;
+GRANT ALL PRIVILEGES ON TABLE "WhatsAppTemplate" TO anon, authenticated, service_role;
 
 -- Table: AuditLogs
 CREATE TABLE "AuditLog" (
