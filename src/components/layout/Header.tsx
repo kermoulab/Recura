@@ -16,6 +16,7 @@ interface HeaderProps {
   onSelectProfile?: (user: UserProfile) => void;
   onLogout?: () => void;
   onOpenSessionsModal?: () => void;
+  onOpenRenewalTab?: (tab: '3d' | '7d' | 'expired', orderIds: string[]) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,21 +37,20 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectProfile,
   onLogout,
   onOpenSessionsModal,
+  onOpenRenewalTab,
 }) => {
-  const expiring3DNames = orders
-    .filter((o) => o.status === 'EXPIRING_3D')
-    .map((o) => o.customerName)
-    .slice(0, 3);
-  const expiredNames = orders
-    .filter((o) => o.status === 'EXPIRED')
-    .map((o) => o.customerName)
-    .slice(0, 3);
+  const expiring3DOrders = orders.filter((o) => o.status === 'EXPIRING_3D');
+  const expiring7DOrders = orders.filter((o) => o.status === 'EXPIRING_7D');
+  const expiredOrders = orders.filter((o) => o.status === 'EXPIRED');
+  const expiring3DNames = expiring3DOrders.map((o) => o.customerName).slice(0, 3);
+  const expiring7DNames = expiring7DOrders.map((o) => o.customerName).slice(0, 3);
+  const expiredNames = expiredOrders.map((o) => o.customerName).slice(0, 3);
 
   const expiring3DAccounts = serviceAccounts.filter(
     (a) => getEffectiveAccountStatus(a) === 'Active' && getDaysRemaining(a) >= 0 && getDaysRemaining(a) <= 3
   );
   const expiredAccounts = serviceAccounts.filter((a) => getEffectiveAccountStatus(a) === 'Expired');
-  const hasOrderAlerts = expiring3DNames.length > 0 || expiredNames.length > 0;
+  const hasOrderAlerts = expiring3DOrders.length > 0 || expiring7DOrders.length > 0 || expiredOrders.length > 0;
   const hasAccountAlerts = expiring3DAccounts.length > 0 || expiredAccounts.length > 0;
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -161,8 +161,8 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
                 <span className="font-bold text-xs text-slate-900">System Alerts</span>
                 <span className="text-[10px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full">
-                  {expiring3DNames.length + expiredNames.length + expiring3DAccounts.length + expiredAccounts.length} Alert
-                  {expiring3DNames.length + expiredNames.length + expiring3DAccounts.length + expiredAccounts.length !== 1 ? 's' : ''}
+                  {expiring3DOrders.length + expiring7DOrders.length + expiredOrders.length + expiring3DAccounts.length + expiredAccounts.length} Alert
+                  {expiring3DOrders.length + expiring7DOrders.length + expiredOrders.length + expiring3DAccounts.length + expiredAccounts.length !== 1 ? 's' : ''}
                 </span>
               </div>
               <div className="space-y-3 text-xs max-h-80 overflow-y-auto pr-1">
@@ -175,32 +175,47 @@ export const Header: React.FC<HeaderProps> = ({
                           <ShoppingBag className="w-3 h-3" /> Orders
                         </p>
                         <div className="space-y-2">
-                          {expiring3DNames.length > 0 && (
+                          {expiring3DOrders.length > 0 && (
                             <div
                               onClick={() => {
-                                onSelectView('alerts');
+                                onOpenRenewalTab?.('3d', expiring3DOrders.map((o) => o.id));
                                 setShowNotifications(false);
                               }}
                               className="p-2.5 rounded-xl bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
                             >
                               <div className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0" />
                               <div>
-                                <p className="font-bold text-amber-900">{expiring3DNames.length} Order{expiring3DNames.length > 1 ? 's' : ''} Expiring in 3 Days</p>
+                                <p className="font-bold text-amber-900">{expiring3DOrders.length} Order{expiring3DOrders.length > 1 ? 's' : ''} Expiring in 3 Days</p>
                                 <p className="text-amber-700 text-[11px] mt-0.5">{expiring3DNames.join(', ')}</p>
                               </div>
                             </div>
                           )}
-                          {expiredNames.length > 0 && (
+                          {expiring7DOrders.length > 0 && (
                             <div
                               onClick={() => {
-                                onSelectView('alerts');
+                                onOpenRenewalTab?.('7d', expiring7DOrders.map((o) => o.id));
+                                setShowNotifications(false);
+                              }}
+                              className="p-2.5 rounded-xl bg-yellow-50/80 hover:bg-yellow-100/80 border border-yellow-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
+                            >
+                              <div className="w-2 h-2 rounded-full bg-yellow-500 mt-1 shrink-0" />
+                              <div>
+                                <p className="font-bold text-yellow-900">{expiring7DOrders.length} Order{expiring7DOrders.length > 1 ? 's' : ''} Expiring in 7 Days</p>
+                                <p className="text-yellow-700 text-[11px] mt-0.5">{expiring7DNames.join(', ')}</p>
+                              </div>
+                            </div>
+                          )}
+                          {expiredOrders.length > 0 && (
+                            <div
+                              onClick={() => {
+                                onOpenRenewalTab?.('expired', expiredOrders.map((o) => o.id));
                                 setShowNotifications(false);
                               }}
                               className="p-2.5 rounded-xl bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
                             >
                               <div className="w-2 h-2 rounded-full bg-rose-500 mt-1 shrink-0" />
                               <div>
-                                <p className="font-bold text-rose-900">{expiredNames.length} Expired Order{expiredNames.length > 1 ? 's' : ''} Need{expiredNames.length === 1 ? 's' : ''} Renewal</p>
+                                <p className="font-bold text-rose-900">{expiredOrders.length} Expired Order{expiredOrders.length > 1 ? 's' : ''} Need{expiredOrders.length === 1 ? 's' : ''} Renewal</p>
                                 <p className="text-rose-700 text-[11px] mt-0.5">{expiredNames.join(', ')}</p>
                               </div>
                             </div>

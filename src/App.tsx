@@ -911,6 +911,11 @@ export default function App() {
         onSelectProfile={handleSelectProfile}
         onLogout={handleLogout}
         onOpenSessionsModal={() => setIsSessionsModalOpen(true)}
+        onOpenRenewalTab={(tab, orderIds) => {
+          setAlertTab(tab);
+          setAlertFocusOrderId(orderIds.length === 1 ? orderIds[0] : null);
+          setCurrentView('alerts');
+        }}
       />
 
       {/* Main View Area */}
