@@ -17,6 +17,7 @@ interface HeaderProps {
   onLogout?: () => void;
   onOpenSessionsModal?: () => void;
   onOpenRenewalTab?: (tab: '3d' | '7d' | 'expired', orderIds: string[]) => void;
+  onOpenAccounts?: (accountId: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -38,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   onOpenSessionsModal,
   onOpenRenewalTab,
+  onOpenAccounts,
 }) => {
   const expiring3DOrders = orders.filter((o) => o.status === 'EXPIRING_3D');
   const expiring7DOrders = orders.filter((o) => o.status === 'EXPIRING_7D');
@@ -49,9 +51,12 @@ export const Header: React.FC<HeaderProps> = ({
   const expiring3DAccounts = serviceAccounts.filter(
     (a) => getEffectiveAccountStatus(a) === 'Active' && getDaysRemaining(a) >= 0 && getDaysRemaining(a) <= 3
   );
+  const expiring7DAccounts = serviceAccounts.filter(
+    (a) => getEffectiveAccountStatus(a) === 'Active' && getDaysRemaining(a) > 3 && getDaysRemaining(a) <= 7
+  );
   const expiredAccounts = serviceAccounts.filter((a) => getEffectiveAccountStatus(a) === 'Expired');
   const hasOrderAlerts = expiring3DOrders.length > 0 || expiring7DOrders.length > 0 || expiredOrders.length > 0;
-  const hasAccountAlerts = expiring3DAccounts.length > 0 || expiredAccounts.length > 0;
+  const hasAccountAlerts = expiring3DAccounts.length > 0 || expiring7DAccounts.length > 0 || expiredAccounts.length > 0;
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -161,8 +166,8 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
                 <span className="font-bold text-xs text-slate-900">System Alerts</span>
                 <span className="text-[10px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full">
-                  {expiring3DOrders.length + expiring7DOrders.length + expiredOrders.length + expiring3DAccounts.length + expiredAccounts.length} Alert
-                  {expiring3DOrders.length + expiring7DOrders.length + expiredOrders.length + expiring3DAccounts.length + expiredAccounts.length !== 1 ? 's' : ''}
+                  {expiring3DOrders.length + expiring7DOrders.length + expiredOrders.length + expiring3DAccounts.length + expiring7DAccounts.length + expiredAccounts.length} Alert
+                  {expiring3DOrders.length + expiring7DOrders.length + expiredOrders.length + expiring3DAccounts.length + expiring7DAccounts.length + expiredAccounts.length !== 1 ? 's' : ''}
                 </span>
               </div>
               <div className="space-y-3 text-xs max-h-80 overflow-y-auto pr-1">
@@ -230,36 +235,57 @@ export const Header: React.FC<HeaderProps> = ({
                           <Server className="w-3 h-3" /> Accounts
                         </p>
                         <div className="space-y-2">
-                          {expiring3DAccounts.length > 0 && (
+                          {expiring3DAccounts.slice(0, 3).map((a) => (
                             <div
+                              key={a.id}
                               onClick={() => {
-                                onSelectView('accounts');
+                                onOpenAccounts?.(a.id);
                                 setShowNotifications(false);
                               }}
+                              title="Open this account"
                               className="p-2.5 rounded-xl bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
                             >
                               <div className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0" />
-                              <div>
-                                <p className="font-bold text-amber-900">{expiring3DAccounts.length} Account{expiring3DAccounts.length > 1 ? 's' : ''} Expiring in 3 Days</p>
-                                <p className="text-amber-700 text-[11px] mt-0.5">{expiring3DAccounts.map((a) => a.email).join(', ')}</p>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-amber-900">Account Expiring in 3 Days</p>
+                                <p className="text-amber-700 text-[11px] mt-0.5 truncate">{a.email}</p>
                               </div>
                             </div>
-                          )}
-                          {expiredAccounts.length > 0 && (
+                          ))}
+                          {expiring7DAccounts.slice(0, 3).map((a) => (
                             <div
+                              key={a.id}
                               onClick={() => {
-                                onSelectView('accounts');
+                                onOpenAccounts?.(a.id);
                                 setShowNotifications(false);
                               }}
+                              title="Open this account"
+                              className="p-2.5 rounded-xl bg-yellow-50/80 hover:bg-yellow-100/80 border border-yellow-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
+                            >
+                              <div className="w-2 h-2 rounded-full bg-yellow-500 mt-1 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-yellow-900">Account Expiring in 7 Days</p>
+                                <p className="text-yellow-700 text-[11px] mt-0.5 truncate">{a.email}</p>
+                              </div>
+                            </div>
+                          ))}
+                          {expiredAccounts.slice(0, 3).map((a) => (
+                            <div
+                              key={a.id}
+                              onClick={() => {
+                                onOpenAccounts?.(a.id);
+                                setShowNotifications(false);
+                              }}
+                              title="Open this account"
                               className="p-2.5 rounded-xl bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200/60 cursor-pointer transition-colors flex items-start gap-2.5"
                             >
                               <div className="w-2 h-2 rounded-full bg-rose-500 mt-1 shrink-0" />
-                              <div>
-                                <p className="font-bold text-rose-900">{expiredAccounts.length} Expired Account{expiredAccounts.length > 1 ? 's' : ''} Need{expiredAccounts.length === 1 ? 's' : ''} Renewal</p>
-                                <p className="text-rose-700 text-[11px] mt-0.5">{expiredAccounts.map((a) => a.email).join(', ')}</p>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-rose-900">Expired Account</p>
+                                <p className="text-rose-700 text-[11px] mt-0.5 truncate">{a.email}</p>
                               </div>
                             </div>
-                          )}
+                          ))}
                         </div>
                       </div>
                     )}

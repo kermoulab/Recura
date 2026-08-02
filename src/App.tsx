@@ -916,6 +916,10 @@ export default function App() {
           setAlertFocusOrderId(orderIds.length === 1 ? orderIds[0] : null);
           setCurrentView('alerts');
         }}
+        onOpenAccounts={(accountId) => {
+          setOpenAccountId(accountId);
+          setCurrentView('accounts');
+        }}
       />
 
       {/* Main View Area */}
