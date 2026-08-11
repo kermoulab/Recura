@@ -622,6 +622,13 @@ export default function App() {
   };
 
   const handleDeletePlan = async (id: string) => {
+    const linkedOrders = orders.filter((o) => o.planId === id);
+    if (linkedOrders.length > 0) {
+      toast.error(
+        `This plan has ${linkedOrders.length} linked order${linkedOrders.length === 1 ? '' : 's'} and cannot be deleted. Delete the linked orders first.`
+      );
+      return;
+    }
     try {
       await deletePlanFromSupabase(id);
       setPlans((prev) => prev.filter((p) => p.id !== id));
