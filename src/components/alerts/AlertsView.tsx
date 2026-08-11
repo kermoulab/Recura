@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
-  Globe,
   Send,
   CheckSquare,
   Square,
@@ -46,7 +45,6 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
   focusOrderId = null,
 }) => {
   const [activeTab, setActiveTab] = useState<'3d' | '7d' | 'expired'>(initialTab);
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>('AR');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [activeMessagePreview, setActiveMessagePreview] = useState<string | null>(null);
   const lastFocusedId = useRef<string | null>(null);
@@ -111,27 +109,8 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
             </span>
           </div>
           <p className="text-xs text-[#6B7280] mt-1">
-            Each message uses the customer's saved communication language. The selector below is the
-            fallback for customers without a language.
+            Each message uses the customer's saved communication language.
           </p>
-        </div>
-
-        {/* Global Language Selector */}
-        <div className="flex items-center gap-2 bg-[#F5F7FA] p-1.5 rounded-full border border-[#E8EAF0]">
-          <Globe className="w-4 h-4 text-slate-400 ml-2" />
-          {(['AR', 'FR', 'EN'] as Language[]).map((lang) => (
-            <button
-              key={lang}
-              onClick={() => setSelectedLanguage(lang)}
-              className={`px-3 py-1 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
-                selectedLanguage === lang
-                  ? 'bg-[#4A90FF] text-white shadow-xs'
-                  : 'text-[#6B7280] hover:text-[#111827]'
-              }`}
-            >
-              {lang === 'AR' ? 'العربية (AR)' : lang === 'FR' ? 'Français (FR)' : 'English (EN)'}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -250,7 +229,7 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
                       orderCustomer.preferredLanguage === 'FR' ||
                       orderCustomer.preferredLanguage === 'EN')
                       ? orderCustomer.preferredLanguage
-                      : selectedLanguage;
+                      : 'AR';
 
                   // Render template according to language & status
                   const rawTemplate =
@@ -340,8 +319,8 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
                         </div>
                       </td>
 
-                      <td className="py-4 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-4 px-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
                           <a
                             href={waUrl}
                             target="_blank"
