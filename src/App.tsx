@@ -1041,6 +1041,7 @@ export default function App() {
             serviceAccounts={serviceAccounts}
             customers={customers}
             plans={plans}
+            templates={whatsAppTemplates}
             currency={currency}
             onAddOrder={() => {
               setEditingOrder(null);

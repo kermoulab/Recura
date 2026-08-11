@@ -20,11 +20,16 @@ import {
   Trash2,
   ChevronDown,
   Server,
+  Send,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Order, SubscriptionStatus, ServiceAccount, Customer, Plan } from '../../types/erp';
+import { Order, SubscriptionStatus, ServiceAccount, Customer, Plan, Language, WhatsAppTemplate } from '../../types/erp';
 import { simulateDecrypt, maskEmail, formatCurrency } from '../../utils/crypto';
-import { createWhatsAppWebUrl } from '../../utils/whatsapp';
+import {
+  createWhatsAppWebUrl,
+  renderThanksClientMessage,
+  DEFAULT_WHATSAPP_TEMPLATES,
+} from '../../utils/whatsapp';
 import { sanitizeInput } from '../../utils/security';
 import {
   getAccountById,
@@ -39,6 +44,7 @@ interface OrdersViewProps {
   serviceAccounts?: ServiceAccount[];
   customers?: Customer[];
   plans?: Plan[];
+  templates?: Record<Language, WhatsAppTemplate>;
   currency?: string;
   onAddOrder: () => void;
   onEditOrder?: (order: Order) => void;
@@ -53,6 +59,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   serviceAccounts = [],
   customers = [],
   plans = [],
+  templates = DEFAULT_WHATSAPP_TEMPLATES,
   currency = 'USD ($)',
   onAddOrder,
   onEditOrder,
@@ -229,6 +236,26 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             const currentCustomerWhatsApp = resolveOrderCustomerWhatsApp(ord, customers);
             const currentPlanName = resolveOrderPlanName(ord, plans);
 
+            // Thanks message uses the customer's communication language.
+            const orderCustomer = customers.find((c) => c.id === ord.customerId);
+            const thanksLang: Language =
+              orderCustomer?.preferredLanguage === 'AR' ||
+              orderCustomer?.preferredLanguage === 'FR' ||
+              orderCustomer?.preferredLanguage === 'EN'
+                ? orderCustomer.preferredLanguage
+                : 'EN';
+            const thanksTemplate =
+              templates[thanksLang]?.thanksClient ||
+              DEFAULT_WHATSAPP_TEMPLATES[thanksLang].thanksClient;
+            const thanksMessage = renderThanksClientMessage(thanksTemplate, {
+              storeName: 'Recura',
+              email: ord.accountEmail,
+              password: decryptedPass,
+              profileNumber: ord.profileNumber || ord.screenProfileName || '',
+              pinCode: decryptedPin || '',
+            });
+            const thanksWaUrl = createWhatsAppWebUrl(currentCustomerWhatsApp, thanksMessage);
+
             return (
               <div
                 key={ord.id}
@@ -279,8 +306,17 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       )}
                     </div>
 
-                    {/* Edit and Delete Order Actions */}
+                    {/* Edit, Send Thanks and Delete Order Actions */}
                     <div className="flex items-center gap-1">
+                      <a
+                        href={thanksWaUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 text-[#25D366] hover:bg-[#25D366]/10 rounded-lg transition-colors"
+                        title={`Send "Thanks" WhatsApp message (${thanksLang})`}
+                      >
+                        <Send className="w-4 h-4" />
+                      </a>
                       {onEditOrder && (
                         <button
                           onClick={() => onEditOrder(ord)}
