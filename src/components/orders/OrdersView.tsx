@@ -23,16 +23,19 @@ import {
   Send,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 import { Order, SubscriptionStatus, ServiceAccount, Customer, Plan, Language, WhatsAppTemplate } from '../../types/erp';
 import { simulateDecrypt, maskEmail, formatCurrency } from '../../utils/crypto';
 import {
   createWhatsAppWebUrl,
+  cleanWhatsAppNumber,
   renderThanksClientMessage,
   DEFAULT_WHATSAPP_TEMPLATES,
 } from '../../utils/whatsapp';
 import { sanitizeInput } from '../../utils/security';
 import {
   getAccountById,
+  getOrderCustomer,
   isOrderCustomerMissing,
   resolveOrderCustomerName,
   resolveOrderCustomerWhatsApp,
@@ -237,7 +240,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             const currentPlanName = resolveOrderPlanName(ord, plans);
 
             // Thanks message uses the customer's communication language.
-            const orderCustomer = customers.find((c) => c.id === ord.customerId);
+            // Customer name/WhatsApp resolve from the CURRENT customer record
+            // (not the order snapshot) so edited customers stay in sync.
+            const orderCustomer = getOrderCustomer(ord, customers);
             const thanksLang: Language =
               orderCustomer?.preferredLanguage === 'AR' ||
               orderCustomer?.preferredLanguage === 'FR' ||
@@ -253,10 +258,25 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
               email: ord.accountEmail,
               password: decryptedPass,
               profileNumber: ord.profileNumber || ord.screenProfileName || '',
+              profileName: ord.screenProfileName || '',
               pinCode: decryptedPin || '',
               notes: ord.notes || '',
+              plan: currentPlanName,
+              serviceAccount: account ? `${account.serviceType} · ${account.email}` : '',
+              expiryDate: ord.endDate || '',
             });
             const thanksWaUrl = createWhatsAppWebUrl(currentCustomerWhatsApp, thanksMessage);
+
+            const handleSendThanks = () => {
+              // Validate the CURRENT customer WhatsApp number before opening.
+              if (!cleanWhatsAppNumber(currentCustomerWhatsApp)) {
+                toast.error('Customer WhatsApp number is missing.');
+                return;
+              }
+              window.open(thanksWaUrl, '_blank', 'noopener,noreferrer');
+              // Only opened — never claims the message was delivered.
+              toast.success('WhatsApp opened with pre-filled message.');
+            };
 
             return (
               <div
@@ -310,15 +330,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
                     {/* Edit, Send Thanks and Delete Order Actions */}
                     <div className="flex items-center gap-1">
-                      <a
-                        href={thanksWaUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 text-[#25D366] hover:bg-[#25D366]/10 rounded-lg transition-colors"
+                      <button
+                        onClick={handleSendThanks}
+                        className="p-1.5 text-[#25D366] hover:bg-[#25D366]/10 rounded-lg transition-colors cursor-pointer"
                         title={`Send "Thanks" WhatsApp message (${thanksLang})`}
                       >
                         <Send className="w-4 h-4" />
-                      </a>
+                      </button>
                       {onEditOrder && (
                         <button
                           onClick={() => onEditOrder(ord)}

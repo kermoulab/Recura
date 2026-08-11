@@ -90,15 +90,23 @@ export function renderThanksClientMessage(
     email: string;
     password: string;
     profileNumber: string | number;
+    profileName: string;
     pinCode: string;
     notes: string;
+    plan: string;
+    serviceAccount: string;
+    expiryDate: string;
   }
 ): string {
   let text = templateText
     .replace(/\{STORE_NAME\}/g, variables.storeName)
     .replace(/\{NAME\}/g, variables.name)
     .replace(/\{EMAIL\}/g, variables.email)
-    .replace(/\{PASSWORD\}/g, variables.password);
+    .replace(/\{PASSWORD\}/g, variables.password)
+    .replace(/\{PLAN\}/g, variables.plan)
+    .replace(/\{PROFILE_NAME\}/g, variables.profileName)
+    .replace(/\{SERVICE_ACCOUNT\}/g, variables.serviceAccount)
+    .replace(/\{EXPIRY_DATE\}/g, variables.expiryDate);
 
   const profileValue = String(variables.profileNumber);
   if (profileValue) {
