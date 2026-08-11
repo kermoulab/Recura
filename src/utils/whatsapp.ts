@@ -7,13 +7,15 @@ export const DEFAULT_WHATSAPP_TEMPLATES: Record<Language, WhatsAppTemplate> = {
     expired: 'مرحباً {{name}}، لقد انتهت صلاحية اشتراككم {{plan}} بتاريخ {{date}}. يرجى التواصل معنا لتجديد الخدمة في أقرب وقت.',
     thanksClient:
       '🎉 مرحباً بك في {STORE_NAME}!\n\n' +
+      'عزيزي {NAME}،\n\n' +
       'تم تفعيل اشتراكك بنجاح.\n\n' +
       '━━━━━━━━━━━━━━━━━━\n' +
       '📧 البريد الإلكتروني: {EMAIL}\n' +
       '🔑 كلمة المرور: {PASSWORD}\n' +
       '👤 الملف الشخصي: الملف {PROFILE_NUMBER}\n' +
       '🔐 رمز PIN: {PIN_CODE}\n' +
-      '━━━━━━━━━━━━━━━━━━\n\n' +
+      '━━━━━━━━━━━━━━━━━━\n' +
+      '📝 ملاحظات: {NOTES}\n\n' +
       '⚠️ إرشادات مهمة\n\n' +
       '• يرجى استخدام الملف الشخصي المخصص لك فقط.\n' +
       '• لا تقم بتغيير البريد الإلكتروني أو كلمة المرور.\n' +
@@ -28,13 +30,15 @@ export const DEFAULT_WHATSAPP_TEMPLATES: Record<Language, WhatsAppTemplate> = {
     expired: 'Bonjour {{name}}, votre abonnement {{plan}} a expiré le {{date}}. Merci de nous contacter afin de renouveler votre service.',
     thanksClient:
       '🎉 Bienvenue chez {STORE_NAME} !\n\n' +
+      'Cher/Chère {NAME},\n\n' +
       'Votre abonnement a été activé avec succès.\n\n' +
       '━━━━━━━━━━━━━━━━━━\n' +
       '📧 Email : {EMAIL}\n' +
       '🔑 Mot de passe : {PASSWORD}\n' +
       '👤 Profil : Profil {PROFILE_NUMBER}\n' +
       '🔐 PIN : {PIN_CODE}\n' +
-      '━━━━━━━━━━━━━━━━━━\n\n' +
+      '━━━━━━━━━━━━━━━━━━\n' +
+      '📝 Notes : {NOTES}\n\n' +
       '⚠️ Consignes importantes\n\n' +
       '• Utilisez UNIQUEMENT le profil qui vous a été attribué.\n' +
       '• Ne modifiez PAS l\u0027adresse e-mail ni le mot de passe.\n' +
@@ -49,13 +53,15 @@ export const DEFAULT_WHATSAPP_TEMPLATES: Record<Language, WhatsAppTemplate> = {
     expired: 'Hello {{name}}, your {{plan}} subscription expired on {{date}}. Please contact us to renew your service.',
     thanksClient:
       '🎉 Welcome to {STORE_NAME}!\n\n' +
+      'Hello {NAME},\n\n' +
       'Your subscription has been successfully activated.\n\n' +
       '━━━━━━━━━━━━━━━━━━\n' +
       '📧 Email: {EMAIL}\n' +
       '🔑 Password: {PASSWORD}\n' +
       '👤 Profile: Profile {PROFILE_NUMBER}\n' +
       '🔐 PIN: {PIN_CODE}\n' +
-      '━━━━━━━━━━━━━━━━━━\n\n' +
+      '━━━━━━━━━━━━━━━━━━\n' +
+      '📝 Notes: {NOTES}\n\n' +
       '⚠️ Important Guidelines\n\n' +
       '• Please use ONLY your assigned profile.\n' +
       '• Do NOT change the email or password.\n' +
@@ -80,18 +86,28 @@ export function renderThanksClientMessage(
   templateText: string,
   variables: {
     storeName: string;
+    name: string;
     email: string;
     password: string;
     profileNumber: string | number;
     pinCode: string;
+    notes: string;
   }
 ): string {
-  return templateText
+  let text = templateText
     .replace(/\{STORE_NAME\}/g, variables.storeName)
+    .replace(/\{NAME\}/g, variables.name)
     .replace(/\{EMAIL\}/g, variables.email)
     .replace(/\{PASSWORD\}/g, variables.password)
     .replace(/\{PROFILE_NUMBER\}/g, String(variables.profileNumber))
     .replace(/\{PIN_CODE\}/g, variables.pinCode);
+  if (variables.notes) {
+    text = text.replace(/\{NOTES\}/g, variables.notes);
+  } else {
+    // Drop the whole "Notes" line when the order has no notes.
+    text = text.replace(/^.*\{NOTES\}.*\n?/gm, '');
+  }
+  return text;
 }
 
 export function cleanWhatsAppNumber(phone: string): string {

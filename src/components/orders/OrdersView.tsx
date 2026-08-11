@@ -249,10 +249,12 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
               DEFAULT_WHATSAPP_TEMPLATES[thanksLang].thanksClient;
             const thanksMessage = renderThanksClientMessage(thanksTemplate, {
               storeName: 'Recura',
+              name: currentCustomerName,
               email: ord.accountEmail,
               password: decryptedPass,
               profileNumber: ord.profileNumber || ord.screenProfileName || '',
               pinCode: decryptedPin || '',
+              notes: ord.notes || '',
             });
             const thanksWaUrl = createWhatsAppWebUrl(currentCustomerWhatsApp, thanksMessage);
 
