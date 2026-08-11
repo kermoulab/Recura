@@ -166,6 +166,7 @@ model WhatsAppTemplate {
   language      String   @id
   expiring3Days String   @default("")
   expired       String   @default("")
+  thanksClient  String   @default("")
   updatedAt     DateTime @updatedAt
 }
 
@@ -298,6 +299,7 @@ CREATE TABLE "WhatsAppTemplate" (
     "language" "Language" PRIMARY KEY,
     "expiring3Days" TEXT NOT NULL DEFAULT '',
     "expired" TEXT NOT NULL DEFAULT '',
+    "thanksClient" TEXT NOT NULL DEFAULT '',
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

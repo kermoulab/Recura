@@ -1,5 +1,6 @@
 ﻿import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Customer, Plan, Order, AuditLog, UserProfile, Language, WhatsAppTemplate, ServiceAccount } from '../types/erp';
+import { DEFAULT_WHATSAPP_TEMPLATES } from '../utils/whatsapp';
 
 function getSupabaseClient() {
   if (!isSupabaseConfigured || !supabase) {
@@ -436,9 +437,17 @@ export async function fetchWhatsAppTemplatesFromSupabase(): Promise<Record<Langu
         language: lang,
         expiring3Days: row.expiring3Days || row.expiring_3_days || '',
         expired: row.expired || '',
+        thanksClient:
+          row.thanksClient || row.thanks_client || DEFAULT_WHATSAPP_TEMPLATES[lang]?.thanksClient || '',
       };
     }
-    return Object.keys(templates).length > 0 ? templates : null;
+    // Always return a complete set so all languages are available even if a
+    // database row is missing (defaults are used as a safe fallback).
+    const merged = {} as Record<Language, WhatsAppTemplate>;
+    (['AR', 'FR', 'EN'] as Language[]).forEach((lang) => {
+      merged[lang] = templates[lang] || { ...DEFAULT_WHATSAPP_TEMPLATES[lang] };
+    });
+    return merged;
   } catch (err) {
     console.warn('Supabase WhatsApp templates fetch failed:', err);
     return null;
@@ -452,6 +461,7 @@ export async function saveWhatsAppTemplatesToSupabase(templates: Record<Language
     language: lang,
     expiring3Days: templates[lang].expiring3Days,
     expired: templates[lang].expired,
+    thanksClient: templates[lang].thanksClient,
     updatedAt: new Date().toISOString(),
   }));
 

@@ -86,6 +86,7 @@ export interface WhatsAppTemplate {
   language: Language;
   expiring3Days: string;
   expired: string;
+  thanksClient: string;
 }
 
 export interface AuditLog {

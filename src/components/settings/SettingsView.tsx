@@ -841,6 +841,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 />
               </div>
 
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Thanks Client Message Template ({activeLangTemplate})
+                </label>
+                <textarea
+                  rows={6}
+                  dir={activeLangTemplate === 'AR' ? 'rtl' : 'ltr'}
+                  value={templates[activeLangTemplate].thanksClient}
+                  onChange={(e) =>
+                    setTemplates({
+                      ...templates,
+                      [activeLangTemplate]: {
+                        ...templates[activeLangTemplate],
+                        thanksClient: e.target.value,
+                      },
+                    })
+                  }
+                  className="w-full p-3 bg-[#F5F7FA] border border-[#E8EAF0] rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-[#4A90FF]"
+                />
+              </div>
+
               <div className="flex items-center justify-between pt-2 border-t border-[#E8EAF0]">
                 <p className="text-[11px] text-slate-400 font-medium">
                   Templates are stored in the database and persist across logins.
