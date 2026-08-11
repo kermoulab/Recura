@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Package, Plus, Edit2, Trash2, ShieldAlert, CheckCircle2, Layers } from 'lucide-react';
-import { Plan } from '../../types/erp';
+import { Plan, Order } from '../../types/erp';
 import { formatCurrency } from '../../utils/crypto';
 
 interface PlansViewProps {
   plans: Plan[];
+  orders?: Order[];
   currency?: string;
   onAddPlan: () => void;
   onEditPlan: (plan: Plan) => void;
@@ -13,6 +14,7 @@ interface PlansViewProps {
 
 export const PlansView: React.FC<PlansViewProps> = ({
   plans,
+  orders = [],
   currency = 'USD ($)',
   onAddPlan,
   onEditPlan,
@@ -73,6 +75,9 @@ export const PlansView: React.FC<PlansViewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredPlans.map((plan) => {
           const isLowStock = plan.availableStock <= 5;
+          const realActiveOrders = orders.filter(
+            (o) => o.planId === plan.id && o.status !== 'EXPIRED'
+          ).length;
 
           return (
             <div
@@ -137,7 +142,7 @@ export const PlansView: React.FC<PlansViewProps> = ({
 
                   <div className="flex justify-between items-center text-slate-500 text-[11px]">
                     <span>Active Orders</span>
-                    <span className="font-bold text-[#111827]">{plan.activeOrders}</span>
+                    <span className="font-bold text-[#111827]">{realActiveOrders}</span>
                   </div>
 
                   {/* Stock Bar */}

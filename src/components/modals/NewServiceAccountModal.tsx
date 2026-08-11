@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Server, Calendar, Layers, AlertCircle, Mail, KeyRound, User } from 'lucide-react';
+import { X, Server, Calendar, Layers, AlertCircle, Mail, KeyRound, User, Eye, EyeOff } from 'lucide-react';
 import { ServiceAccount, ServiceAccountStatus, ServiceType } from '../../types/erp';
 import { sanitizeInput, validateEmail, stripControlCharacters } from '../../utils/security';
 import { simulateEncrypt, simulateDecrypt, getCurrencyRate } from '../../utils/crypto';
@@ -25,6 +25,7 @@ export const NewServiceAccountModal: React.FC<NewServiceAccountModalProps> = ({
   const [providerId, setProviderId] = useState(initialData?.providerId || '');
   const [email, setEmail] = useState(initialData?.email || '');
   const [rawPassword, setRawPassword] = useState(initialData?.passwordEncrypted ? simulateDecrypt(initialData.passwordEncrypted) : '');
+  const [showPassword, setShowPassword] = useState(false);
   const [subscriptionStart, setSubscriptionStart] = useState(initialData?.subscriptionStart || new Date().toISOString().split('T')[0]);
   const [subscriptionEnd, setSubscriptionEnd] = useState(initialData?.subscriptionEnd || '');
   const [purchaseCost, setPurchaseCost] = useState(initialData?.purchaseCost || 0);
@@ -44,6 +45,7 @@ export const NewServiceAccountModal: React.FC<NewServiceAccountModalProps> = ({
       setProviderId(initialData?.providerId || '');
       setEmail(initialData?.email || '');
       setRawPassword(initialData?.passwordEncrypted ? simulateDecrypt(initialData.passwordEncrypted) : '');
+      setShowPassword(false);
       setSubscriptionStart(initialData?.subscriptionStart || new Date().toISOString().split('T')[0]);
       setSubscriptionEnd(initialData?.subscriptionEnd || '');
       setPurchaseCost(displayCost);
@@ -199,17 +201,25 @@ export const NewServiceAccountModal: React.FC<NewServiceAccountModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-slate-700 font-bold mb-1">Account Password * (stored encrypted)</label>
+            <label className="block text-slate-700 font-bold mb-1">Account Password *</label>
             <div className="relative">
               <KeyRound className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 placeholder="Password"
                 value={rawPassword}
                 onChange={(e) => setRawPassword(e.target.value)}
-                className="w-full pl-8 pr-3.5 py-2.5 bg-[#F5F7FA] border border-[#E8EAF0] text-[#111827] rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-[#4A90FF]"
+                className="w-full pl-8 pr-10 py-2.5 bg-[#F5F7FA] border border-[#E8EAF0] text-[#111827] rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-[#4A90FF]"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 

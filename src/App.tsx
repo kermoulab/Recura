@@ -1014,6 +1014,7 @@ export default function App() {
         {currentView === 'plans' && (
           <PlansView
             plans={plans}
+            orders={orders}
             currency={currency}
             onAddPlan={() => {
               setEditingPlan(null);
