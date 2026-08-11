@@ -16,7 +16,7 @@ import { ServiceAccountsView } from './components/accounts/ServiceAccountsView';
 import { AlertsView } from './components/alerts/AlertsView';
 import { DatabaseView } from './components/database/DatabaseView';
 import { AuditLogsView } from './components/audit/AuditLogsView';
-import { SettingsView } from './components/settings/SettingsView';
+import { SettingsView, SettingsTab } from './components/settings/SettingsView';
 import { DEFAULT_WHATSAPP_TEMPLATES } from './utils/whatsapp';
 import { getEffectiveAccountStatus, getDaysRemaining } from './utils/serviceAccounts';
 
@@ -98,6 +98,19 @@ function loadCurrency(): string {
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ERPView>(loadLastView);
+
+  // Settings tab navigation request (increments on each request so repeat
+  // clicks on the same tab still force SettingsView to react).
+  const [settingsNav, setSettingsNav] = useState<{ tab: SettingsTab; seq: number }>({
+    tab: 'profile',
+    seq: 0,
+  });
+
+  const handleOpenProfileSettings = () => {
+    setSettingsNav((prev) => ({ tab: 'profile', seq: prev.seq + 1 }));
+    setCurrentView('settings');
+    setIsMobileSidebarOpen(false);
+  };
 
   // Persist current view so refresh returns to the same page
   useEffect(() => {
@@ -953,6 +966,7 @@ export default function App() {
         onSelectProfile={handleSelectProfile}
         onLogout={handleLogout}
         onOpenSessionsModal={() => setIsSessionsModalOpen(true)}
+        onOpenProfileSettings={handleOpenProfileSettings}
         onOpenRenewalTab={(tab, orderIds) => {
           setAlertTab(tab);
           setAlertFocusOrderId(orderIds.length === 1 ? orderIds[0] : null);
@@ -1121,6 +1135,8 @@ export default function App() {
             currentUser={currentUser}
             profiles={profiles}
             currency={currency}
+            initialTab={settingsNav.tab}
+            navSignal={settingsNav.seq}
             onCurrencyChange={handleCurrencyChange}
             onExportAllData={handleExportAllData}
             onOpenNewProfileModal={() => setIsNewProfileModalOpen(true)}

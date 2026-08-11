@@ -17,6 +17,7 @@ interface HeaderProps {
   onSelectProfile?: (user: UserProfile) => void;
   onLogout?: () => void;
   onOpenSessionsModal?: () => void;
+  onOpenProfileSettings?: () => void;
   onOpenRenewalTab?: (tab: '3d' | '7d' | 'expired', orderIds: string[]) => void;
   onOpenAccounts?: (accountId: string) => void;
 }
@@ -40,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectProfile,
   onLogout,
   onOpenSessionsModal,
+  onOpenProfileSettings,
   onOpenRenewalTab,
   onOpenAccounts,
 }) => {
@@ -350,7 +352,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="space-y-1 text-xs">
                 <button
                   onClick={() => {
-                    onSelectView('settings');
+                    onOpenProfileSettings?.();
                     setShowProfileMenu(false);
                   }}
                   className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-bold flex items-center gap-2 cursor-pointer transition-colors"

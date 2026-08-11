@@ -27,10 +27,14 @@ import { Language, WhatsAppTemplate, UserProfile } from '../../types/erp';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../utils/whatsapp';
 import { sanitizeInput, sanitizeUsername, validateEmail, stripControlCharacters, verifyArgon2idPassword } from '../../utils/security';
 
+export type SettingsTab = 'profile' | 'sessions' | 'system' | 'security' | 'whatsapp' | 'export';
+
 interface SettingsViewProps {
   currentUser?: UserProfile;
   profiles?: UserProfile[];
   currency?: string;
+  initialTab?: SettingsTab;
+  navSignal?: number;
   onCurrencyChange?: (currency: string) => void;
   onExportAllData: () => void;
   onOpenNewProfileModal?: () => void;
@@ -55,6 +59,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   },
   profiles = [],
   currency: currentGlobalCurrency = 'USD ($)',
+  initialTab,
+  navSignal = 0,
   onCurrencyChange,
   onExportAllData,
   onOpenNewProfileModal,
@@ -67,7 +73,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
 
-  type SettingsTab = 'profile' | 'sessions' | 'system' | 'security' | 'whatsapp' | 'export';
   const ALL_SETTINGS_TABS: SettingsTab[] = ['profile', 'sessions', 'system', 'security', 'whatsapp', 'export'];
   const SETTINGS_TAB_KEY = 'recura_settings_active_tab_v1';
 
@@ -82,6 +87,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(loadSettingsTab);
   const [currency, setCurrency] = useState(currentGlobalCurrency);
+
+  // Jump to a specific tab when the app requests navigation (e.g. profile menu)
+  useEffect(() => {
+    if (navSignal > 0 && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [navSignal, initialTab]);
 
   useEffect(() => {
     setCurrency(currentGlobalCurrency);
