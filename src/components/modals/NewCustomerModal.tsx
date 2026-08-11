@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, UserPlus, Phone, Mail, Globe, FileText, ShieldCheck, AlertCircle } from 'lucide-react';
-import { Customer, CustomerStatus } from '../../types/erp';
+import { Customer, CustomerStatus, Language } from '../../types/erp';
 import { sanitizeInput, validateEmail, stripControlCharacters } from '../../utils/security';
 import { cleanWhatsAppNumber } from '../../utils/whatsapp';
 
@@ -17,14 +17,28 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
   onSubmit,
   initialData,
 }) => {
-  if (!isOpen) return null;
-
   const [name, setName] = useState(initialData?.name || '');
   const [whatsapp, setWhatsapp] = useState(initialData?.whatsapp || '');
   const [email, setEmail] = useState(initialData?.email || '');
   const [status, setStatus] = useState<CustomerStatus>(initialData?.status || 'ACTIVE');
+  const [preferredLanguage, setPreferredLanguage] = useState<Language>(
+    initialData?.preferredLanguage || 'AR'
+  );
   const [notes, setNotes] = useState(initialData?.notes || '');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setName(initialData?.name || '');
+    setWhatsapp(initialData?.whatsapp || '');
+    setEmail(initialData?.email || '');
+    setStatus(initialData?.status || 'ACTIVE');
+    setPreferredLanguage(initialData?.preferredLanguage || 'AR');
+    setNotes(initialData?.notes || '');
+    setError(null);
+  }, [isOpen, initialData]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +72,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
       name: cleanName,
       whatsapp: `+${cleanPhone}`,
       email: cleanEmailAddress || undefined,
-      preferredLanguage: initialData?.preferredLanguage || 'AR',
+      preferredLanguage,
       status,
       notes: cleanNotes,
     });
@@ -130,6 +144,22 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-[#F5F7FA] border border-[#E8EAF0] text-[#111827] rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-[#4A90FF]"
             />
+          </div>
+
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">Communication Language</label>
+            <select
+              value={preferredLanguage}
+              onChange={(e) => setPreferredLanguage(e.target.value as Language)}
+              className="w-full px-3.5 py-2.5 bg-[#F5F7FA] border border-[#E8EAF0] text-[#111827] rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-[#4A90FF]"
+            >
+              <option value="AR">العربية (AR)</option>
+              <option value="FR">Français (FR)</option>
+              <option value="EN">English (EN)</option>
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Used for the WhatsApp renewal &amp; thanks messages sent to this customer.
+            </p>
           </div>
 
           <div>

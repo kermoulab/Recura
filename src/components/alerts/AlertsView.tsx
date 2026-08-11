@@ -111,7 +111,8 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
             </span>
           </div>
           <p className="text-xs text-[#6B7280] mt-1">
-            Automated multi-language renewal message generator (Arabic, French, English) with 1-click wa.me web links.
+            Each message uses the customer's saved communication language. The selector below is the
+            fallback for customers without a language.
           </p>
         </div>
 
@@ -239,11 +240,23 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
                   const currentCustomerWhatsApp = resolveOrderCustomerWhatsApp(ord, customers);
                   const currentPlanName = resolveOrderPlanName(ord, plans);
 
+                  // Use the customer's saved communication language for the
+                  // template; fall back to the header language selector when
+                  // the customer or their language is unknown.
+                  const orderCustomer = customers.find((c) => c.id === ord.customerId);
+                  const customerLang: Language =
+                    orderCustomer?.preferredLanguage &&
+                    (orderCustomer.preferredLanguage === 'AR' ||
+                      orderCustomer.preferredLanguage === 'FR' ||
+                      orderCustomer.preferredLanguage === 'EN')
+                      ? orderCustomer.preferredLanguage
+                      : selectedLanguage;
+
                   // Render template according to language & status
                   const rawTemplate =
                     activeTab === 'expired'
-                      ? templates[selectedLanguage].expired
-                      : templates[selectedLanguage].expiring3Days;
+                      ? templates[customerLang].expired
+                      : templates[customerLang].expiring3Days;
 
                   const compiledMessage = renderWhatsAppMessage(rawTemplate, {
                     name: currentCustomerName,
@@ -310,8 +323,16 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
                       </td>
 
                       <td className="py-4 px-4 max-w-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[9px] font-extrabold text-slate-400 tracking-wide">
+                            WhatsApp Preview
+                          </span>
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                            {customerLang}
+                          </span>
+                        </div>
                         <div
-                          dir={selectedLanguage === 'AR' ? 'rtl' : 'ltr'}
+                          dir={customerLang === 'AR' ? 'rtl' : 'ltr'}
                           className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-[11px] text-slate-700 line-clamp-2 leading-relaxed"
                           title={compiledMessage}
                         >
