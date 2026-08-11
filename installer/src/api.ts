@@ -52,13 +52,44 @@ export interface VerifyResult {
 
 let csrfToken: string | null = null;
 
+/** Content-type sniff: is this an API JSON response or an HTML page (SPA
+ *  fallback from a static server / vite preview / dev server)? */
+function isHtmlResponse(text: string, contentType: string | null): boolean {
+  const trimmed = text.trimStart();
+  return (
+    (contentType ?? '').includes('text/html') ||
+    trimmed.startsWith('<!doctype') ||
+    trimmed.startsWith('<html')
+  );
+}
+
+const STATIC_SERVER_HINT =
+  'This page is not being served by the Recura server — the /api/install/* endpoints returned an HTML page instead of JSON. ' +
+  'The installer must run on the Recura server. Start it with "npm run start" (or "npm run dev:server") and open /install.';
+
+async function parseJsonOrThrow(res: Response, context: string): Promise<unknown> {
+  const text = await res.text();
+  if (!text) return {};
+  if (isHtmlResponse(text, res.headers.get('content-type'))) {
+    throw new Error(`${STATIC_SERVER_HINT} (${context} returned HTML with status ${res.status}.)`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Unexpected server response (${res.status}). Reload the page and try again.`);
+  }
+}
+
 async function ensureCsrf(): Promise<string> {
   if (csrfToken) return csrfToken;
   const res = await fetch('/api/csrf', { method: 'GET' });
   if (!res.ok) throw new Error('Could not reach the Recura server. Is it running?');
-  const body = await res.json();
-  csrfToken = body.csrfToken;
-  return csrfToken!;
+  const body = await parseJsonOrThrow(res, '/api/csrf');
+  csrfToken = (body as { csrfToken?: string })?.csrfToken || null;
+  if (!csrfToken) {
+    throw new Error('The Recura server did not issue a security token. Reload the page and try again.');
+  }
+  return csrfToken;
 }
 
 async function post<T>(path: string, body: unknown, token?: string): Promise<T> {
@@ -73,12 +104,7 @@ async function post<T>(path: string, body: unknown, token?: string): Promise<T> 
     headers,
     body: JSON.stringify(body ?? {}),
   });
-  let data: T;
-  try {
-    data = (await res.json()) as T;
-  } catch {
-    throw new Error(`Unexpected server response (${res.status}). Please reload and try again.`);
-  }
+  const data = (await parseJsonOrThrow(res, path)) as T;
   const maybeErr = data as { ok?: boolean; code?: string; message?: string };
   if (!res.ok || maybeErr.ok === false) {
     if (maybeErr.code === 'CSRF') {
@@ -93,7 +119,7 @@ export const api = {
   getStatus: async (): Promise<InstallStatus> => {
     const res = await fetch('/api/install/status');
     if (!res.ok) throw new Error('Could not reach the Recura server. Is it running?');
-    return res.json();
+    return (await parseJsonOrThrow(res, '/api/install/status')) as InstallStatus;
   },
 
   testConnection: (db: DbConnectionInput): Promise<TestConnectionResult> =>

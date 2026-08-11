@@ -78,6 +78,13 @@ export function InstallApp() {
           <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto" />
           <h1 className="text-lg font-extrabold text-[#111827] text-center">Cannot reach the installer service</h1>
           <p className="text-xs text-slate-500 text-center">{statusError}</p>
+          <p className="text-xs text-slate-400 text-center leading-relaxed">
+            The installer is served by the Recura server. If you opened this page from a static server
+            (e.g. <code className="font-mono">npm run preview</code>, <code className="font-mono">npx serve</code>, or a
+            hosting provider), start the server with <code className="font-mono">npm run start</code> and open{' '}
+            <code className="font-mono">/install</code> instead.
+          </p>
+          <a href="/install" className="btn-secondary w-full">Reload /install</a>
         </ScreenCard>
       </Shell>
     );
