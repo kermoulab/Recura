@@ -72,14 +72,40 @@ export const DEFAULT_WHATSAPP_TEMPLATES: Record<Language, WhatsAppTemplate> = {
   },
 };
 
+/**
+ * Centralized placeholder engine shared by every WhatsApp template renderer.
+ *
+ * - Replaces both `{KEY}` and `{{key}}` forms, case-insensitively, using the
+ *   values map. Only placeholders with a matching key are touched — unknown
+ *   placeholders are preserved untouched.
+ * - Missing values (undefined/null) render as ''.
+ * - When a key is listed in `dropLineOnEmpty` and its value is empty, the
+ *   WHOLE line containing that placeholder is removed instead of showing an
+ *   empty value.
+ */
+export function renderTemplate(
+  templateText: string,
+  variables: Record<string, string | number | undefined | null>,
+  dropLineOnEmpty?: string[]
+): string {
+  let text = templateText;
+  for (const [key, raw] of Object.entries(variables)) {
+    const value = raw === undefined || raw === null ? '' : String(raw);
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (value === '' && dropLineOnEmpty && dropLineOnEmpty.includes(key)) {
+      text = text.replace(new RegExp(`^.*\\{\\{?${escaped}\\}?\\}.*$\\n?`, 'gim'), '');
+    } else {
+      text = text.replace(new RegExp(`\\{\\{?${escaped}\\}?\\}`, 'gi'), value);
+    }
+  }
+  return text;
+}
+
 export function renderWhatsAppMessage(
   templateText: string,
   variables: { name: string; plan: string; date: string }
 ): string {
-  return templateText
-    .replace(/\{\{name\}\}/g, variables.name)
-    .replace(/\{\{plan\}\}/g, variables.plan)
-    .replace(/\{\{date\}\}/g, variables.date);
+  return renderTemplate(templateText, { ...variables });
 }
 
 export function renderThanksClientMessage(
@@ -98,38 +124,7 @@ export function renderThanksClientMessage(
     expiryDate: string;
   }
 ): string {
-  let text = templateText
-    .replace(/\{STORE_NAME\}/g, variables.storeName)
-    .replace(/\{NAME\}/g, variables.name)
-    .replace(/\{EMAIL\}/g, variables.email)
-    .replace(/\{PASSWORD\}/g, variables.password)
-    .replace(/\{PLAN\}/g, variables.plan)
-    .replace(/\{PROFILE_NAME\}/g, variables.profileName)
-    .replace(/\{SERVICE_ACCOUNT\}/g, variables.serviceAccount)
-    .replace(/\{EXPIRY_DATE\}/g, variables.expiryDate);
-
-  const profileValue = String(variables.profileNumber);
-  if (profileValue) {
-    text = text.replace(/\{PROFILE_NUMBER\}/g, profileValue);
-  } else {
-    // Drop the whole "Profile" line when the order has no profile number.
-    text = text.replace(/^.*\{PROFILE_NUMBER\}.*\n?/gm, '');
-  }
-
-  if (variables.pinCode) {
-    text = text.replace(/\{PIN_CODE\}/g, variables.pinCode);
-  } else {
-    // Drop the whole "PIN" line when the order has no PIN code.
-    text = text.replace(/^.*\{PIN_CODE\}.*\n?/gm, '');
-  }
-
-  if (variables.notes) {
-    text = text.replace(/\{NOTES\}/g, variables.notes);
-  } else {
-    // Drop the whole "Notes" line when the order has no notes.
-    text = text.replace(/^.*\{NOTES\}.*\n?/gm, '');
-  }
-  return text;
+  return renderTemplate(templateText, { ...variables }, ['PROFILE_NUMBER', 'PIN_CODE', 'NOTES']);
 }
 
 export function cleanWhatsAppNumber(phone: string): string {

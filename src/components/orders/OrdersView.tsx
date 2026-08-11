@@ -21,6 +21,7 @@ import {
   ChevronDown,
   Server,
   Send,
+  Loader2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -76,6 +77,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [unmaskedPasswords, setUnmaskedPasswords] = useState<Record<string, boolean>>({});
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>({});
+  const [sendingOrderIds, setSendingOrderIds] = useState<Record<string, boolean>>({});
   const lastFocusedId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -267,15 +269,28 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             });
             const thanksWaUrl = createWhatsAppWebUrl(currentCustomerWhatsApp, thanksMessage);
 
-            const handleSendThanks = () => {
-              // Validate the CURRENT customer WhatsApp number before opening.
-              if (!cleanWhatsAppNumber(currentCustomerWhatsApp)) {
-                toast.error('Customer WhatsApp number is missing.');
-                return;
+            const handleSendThanks = (orderId: string) => {
+              // Prevent rapid double clicks from opening multiple windows.
+              if (sendingOrderIds[orderId]) return;
+              setSendingOrderIds((prev) => ({ ...prev, [orderId]: true }));
+              try {
+                // Validate the CURRENT customer WhatsApp number before opening.
+                if (!cleanWhatsAppNumber(currentCustomerWhatsApp)) {
+                  toast.error('Customer WhatsApp number is missing.');
+                  return;
+                }
+                if (!ord.accountEmail || !decryptedPass) {
+                  toast.error('Order account credentials are missing (email/password).');
+                  return;
+                }
+                window.open(thanksWaUrl, '_blank', 'noopener,noreferrer');
+                // Only opened — never claims the message was delivered.
+                toast.success('WhatsApp opened with pre-filled message.');
+              } finally {
+                window.setTimeout(() => {
+                  setSendingOrderIds((prev) => ({ ...prev, [orderId]: false }));
+                }, 600);
               }
-              window.open(thanksWaUrl, '_blank', 'noopener,noreferrer');
-              // Only opened — never claims the message was delivered.
-              toast.success('WhatsApp opened with pre-filled message.');
             };
 
             return (
@@ -331,11 +346,20 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     {/* Edit, Send Thanks and Delete Order Actions */}
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={handleSendThanks}
-                        className="p-1.5 text-[#25D366] hover:bg-[#25D366]/10 rounded-lg transition-colors cursor-pointer"
-                        title={`Send "Thanks" WhatsApp message (${thanksLang})`}
+                        onClick={() => handleSendThanks(ord.id)}
+                        disabled={!!sendingOrderIds[ord.id]}
+                        className="p-1.5 text-[#25D366] hover:bg-[#25D366]/10 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={
+                          sendingOrderIds[ord.id]
+                            ? 'Preparing WhatsApp message...'
+                            : `Send "Thanks" WhatsApp message (${thanksLang})`
+                        }
                       >
-                        <Send className="w-4 h-4" />
+                        {sendingOrderIds[ord.id] ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
                       </button>
                       {onEditOrder && (
                         <button
