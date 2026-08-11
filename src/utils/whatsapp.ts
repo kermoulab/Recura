@@ -98,9 +98,23 @@ export function renderThanksClientMessage(
     .replace(/\{STORE_NAME\}/g, variables.storeName)
     .replace(/\{NAME\}/g, variables.name)
     .replace(/\{EMAIL\}/g, variables.email)
-    .replace(/\{PASSWORD\}/g, variables.password)
-    .replace(/\{PROFILE_NUMBER\}/g, String(variables.profileNumber))
-    .replace(/\{PIN_CODE\}/g, variables.pinCode);
+    .replace(/\{PASSWORD\}/g, variables.password);
+
+  const profileValue = String(variables.profileNumber);
+  if (profileValue) {
+    text = text.replace(/\{PROFILE_NUMBER\}/g, profileValue);
+  } else {
+    // Drop the whole "Profile" line when the order has no profile number.
+    text = text.replace(/^.*\{PROFILE_NUMBER\}.*\n?/gm, '');
+  }
+
+  if (variables.pinCode) {
+    text = text.replace(/\{PIN_CODE\}/g, variables.pinCode);
+  } else {
+    // Drop the whole "PIN" line when the order has no PIN code.
+    text = text.replace(/^.*\{PIN_CODE\}.*\n?/gm, '');
+  }
+
   if (variables.notes) {
     text = text.replace(/\{NOTES\}/g, variables.notes);
   } else {
