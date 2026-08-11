@@ -158,18 +158,19 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       return;
     }
 
-    let cleanAccountEmail = '';
-    if (accountEmail) {
-      const emailCheck = validateEmail(accountEmail);
-      if (!emailCheck.isValid) {
-        setError(emailCheck.error || 'Account Email address is invalid.');
-        return;
-      }
-      cleanAccountEmail = emailCheck.clean;
+    if (!accountEmail) {
+      setError('Account Email is required.');
+      return;
     }
+    const emailCheck = validateEmail(accountEmail);
+    if (!emailCheck.isValid) {
+      setError(emailCheck.error || 'Account Email address is invalid.');
+      return;
+    }
+    const cleanAccountEmail = emailCheck.clean;
 
     const cleanRawPassword = stripControlCharacters(rawPassword);
-    if (accountEmail && !cleanRawPassword) {
+    if (!cleanRawPassword) {
       setError('Account Password is required.');
       return;
     }
@@ -421,32 +422,36 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
             )}
             {!selectedAccount && (
               <p className="text-[10px] text-slate-500 font-medium -mt-1">
-                Link a shared service account above to auto-fill and enable the credentials.
+                No service account linked — enter the account credentials manually below. Email and password are required.
               </p>
             )}
 
             <div>
-              <label className="block text-slate-700 font-semibold mb-1 text-[11px]">Account Email</label>
+              <label className="block text-slate-700 font-semibold mb-1 text-[11px]">
+                Account Email <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="email"
+                required
                 placeholder="netflix_user_01@recura.com"
                 value={accountEmail}
                 onChange={(e) => setAccountEmail(e.target.value)}
-                disabled={!selectedAccountId}
-                className="w-full px-3 py-2 bg-white border border-[#E8EAF0] text-[#111827] rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-[#F1F5F9] disabled:text-slate-400 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 bg-white border border-[#E8EAF0] text-[#111827] rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1 text-[11px]">Account Password</label>
+                <label className="block text-slate-700 font-semibold mb-1 text-[11px]">
+                  Account Password <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="password"
+                  required
                   placeholder="Password"
                   value={rawPassword}
                   onChange={(e) => setRawPassword(e.target.value)}
-                  disabled={!selectedAccountId}
-                  className="w-full px-3 py-2 bg-white border border-[#E8EAF0] text-[#111827] rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-[#F1F5F9] disabled:text-slate-400 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 bg-white border border-[#E8EAF0] text-[#111827] rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -457,8 +462,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                   placeholder="1428"
                   value={rawPin}
                   onChange={(e) => setRawPin(e.target.value)}
-                  disabled={!selectedAccountId}
-                  className="w-full px-3 py-2 bg-white border border-[#E8EAF0] text-[#111827] rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-[#F1F5F9] disabled:text-slate-400 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 bg-white border border-[#E8EAF0] text-[#111827] rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -470,8 +474,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                 placeholder="e.g. Screen 2 - Karim"
                 value={screenProfileName}
                 onChange={(e) => setScreenProfileName(e.target.value)}
-                disabled={!selectedAccountId}
-                className="w-full px-3 py-2 bg-white border border-[#E8EAF0] text-[#111827] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-[#F1F5F9] disabled:text-slate-400 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 bg-white border border-[#E8EAF0] text-[#111827] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
