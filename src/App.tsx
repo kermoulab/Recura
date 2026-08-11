@@ -44,36 +44,8 @@ const INITIAL_KPI_STATS: KPIStats = {
 };
 import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile, UserSession, Language, WhatsAppTemplate, ServiceAccount, SubscriptionStatus } from './types/erp';
 import { hashPasswordArgon2id, createSecureSessionToken } from './utils/security';
-import {
-  fetchCustomersFromSupabase,
-  insertCustomerToSupabase,
-  updateCustomerInSupabase,
-  deleteCustomerFromSupabase,
-  fetchPlansFromSupabase,
-  insertPlanToSupabase,
-  updatePlanInSupabase,
-  deletePlanFromSupabase,
-  fetchOrdersFromSupabase,
-  insertOrderToSupabase,
-  updateOrderInSupabase,
-  deleteOrderFromSupabase,
-  syncOrderCustomerSnapshot,
-  syncOrderPlanSnapshot,
-  fetchServiceAccountsFromSupabase,
-  insertServiceAccountToSupabase,
-  updateServiceAccountInSupabase,
-  deleteServiceAccountFromSupabase,
-  fetchAuditLogsFromSupabase,
-  insertAuditLogToSupabase,
-  fetchUserProfilesFromSupabase,
-  insertUserProfileToSupabase,
-  updateUserProfileInSupabase,
-  deleteUserProfileFromSupabase,
-  fetchWhatsAppTemplatesFromSupabase,
-  saveWhatsAppTemplatesToSupabase,
-} from './services/supabaseService';
+import { getDatabase } from './db';
 import { calculateDaysRemaining } from './utils/crypto';
-import { isSupabaseConfigured } from './lib/supabase';
 
 const LAST_VIEW_KEY = 'recura_last_view_v1';
 const VALID_VIEWS: ERPView[] = ['dashboard', 'customers', 'orders', 'accounts', 'plans', 'alerts', 'database', 'audit', 'settings'];
@@ -97,6 +69,7 @@ function loadCurrency(): string {
 }
 
 export default function App() {
+  const db = getDatabase();
   const [currentView, setCurrentView] = useState<ERPView>(loadLastView);
 
   // Settings tab navigation request (increments on each request so repeat
@@ -145,7 +118,7 @@ export default function App() {
   });
   const [isNewProfileModalOpen, setIsNewProfileModalOpen] = useState(false);
 
-  // State collections connected to Supabase
+  // State collections connected to the database
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -154,22 +127,22 @@ export default function App() {
   const [whatsAppTemplates, setWhatsAppTemplates] = useState<Record<Language, WhatsAppTemplate>>(DEFAULT_WHATSAPP_TEMPLATES);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Initial Load from Supabase (SELECT queries)
+  // Initial Load from the database (SELECT queries)
   useEffect(() => {
-    async function loadDataFromSupabase() {
+    async function loadDataFromDatabase() {
       setIsLoading(true);
       try {
-        if (!isSupabaseConfigured) {
+        if (!db.isConnected()) {
           toast.warning('Database not connected. Create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart — changes will not be saved until then.');
         }
         const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedAccounts, loadedLogs, loadedTemplates] = await Promise.all([
-          fetchUserProfilesFromSupabase(),
-          fetchCustomersFromSupabase(),
-          fetchPlansFromSupabase(),
-          fetchOrdersFromSupabase(),
-          fetchServiceAccountsFromSupabase(),
-          fetchAuditLogsFromSupabase(),
-          fetchWhatsAppTemplatesFromSupabase(),
+          db.userProfiles.fetchAll(),
+          db.customers.fetchAll(),
+          db.plans.fetchAll(),
+          db.orders.fetchAll(),
+          db.serviceAccounts.fetchAll(),
+          db.auditLogs.fetchAll(),
+          db.whatsAppTemplates.fetchAll(),
         ]);
 
         setProfiles(loadedProfiles);
@@ -182,13 +155,13 @@ export default function App() {
           setWhatsAppTemplates(loadedTemplates);
         }
       } catch (error) {
-        console.error('Failed fetching data from Supabase:', error);
+        console.error('Failed fetching data from database:', error);
       } finally {
         setIsLoading(false);
       }
     }
 
-    loadDataFromSupabase();
+    loadDataFromDatabase();
   }, []);
 
 
@@ -400,7 +373,7 @@ export default function App() {
     };
     setAuditLogs((prev) => [newLog, ...prev]);
     try {
-      await insertAuditLogToSupabase(newLog);
+      await db.auditLogs.insert(newLog);
     } catch (err) {
       console.warn('Failed to persist audit log', err);
     }
@@ -444,7 +417,7 @@ export default function App() {
 
     const updated = { ...currentUser, currency: newCurrency };
     try {
-      const saved = await updateUserProfileInSupabase(updated);
+      const saved = await db.userProfiles.update(updated);
       setCurrentUser(saved);
       setProfiles((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
       logAudit('SETTINGS_CHANGE', `Changed system currency to ${newCurrency}`);
@@ -454,7 +427,7 @@ export default function App() {
   };
 
   const handleSaveWhatsAppTemplates = async (templates: Record<Language, WhatsAppTemplate>) => {
-    await saveWhatsAppTemplatesToSupabase(templates);
+    await db.whatsAppTemplates.save(templates);
     setWhatsAppTemplates(templates);
     logAudit('SETTINGS_CHANGE', 'Updated WhatsApp notification templates');
   };
@@ -471,7 +444,7 @@ export default function App() {
         passwordHash,
       };
 
-      const saved = await insertUserProfileToSupabase(newProfile);
+      const saved = await db.userProfiles.insert(newProfile);
       setProfiles((prev) => [...prev, saved]);
       toast.success(`Created profile: ${saved.fullName} (${saved.role === 'ADMIN' ? 'Admin' : 'Limited Staff'})`);
       logAudit('SETTINGS_CHANGE', `Created user profile: ${saved.fullName} (${saved.email}) - Access Level: ${saved.role}`);
@@ -484,7 +457,7 @@ export default function App() {
     try {
       const passwordHash = data.password ? await hashPasswordArgon2id(data.password) : currentUser.passwordHash;
       const updated = { ...currentUser, ...data, password: undefined, passwordHash };
-      const saved = await updateUserProfileInSupabase(updated);
+      const saved = await db.userProfiles.update(updated);
       setCurrentUser(saved);
       setProfiles((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
       toast.success('Updated profile credentials!');
@@ -511,7 +484,7 @@ export default function App() {
   const handleDeleteProfile = async (userId: string) => {
     const target = profiles.find((p) => p.id === userId);
     try {
-      await deleteUserProfileFromSupabase(userId);
+      await db.userProfiles.delete(userId);
       setProfiles((prev) => prev.filter((p) => p.id !== userId));
       toast.info(`Deleted user profile ${target?.fullName || userId}`);
       logAudit('SETTINGS_CHANGE', `Deleted user profile ${target?.fullName || userId}`);
@@ -527,7 +500,7 @@ export default function App() {
     try {
       if (editingCustomer) {
         const updated: Customer = { ...editingCustomer, ...customerData };
-        const saved = await updateCustomerInSupabase(updated);
+        const saved = await db.customers.update(updated);
         setCustomers((prev) => prev.map((c) => (c.id === saved.id ? saved : c)));
         toast.success(`Updated customer profile: ${customerData.name}`);
         logAudit('CUSTOMER_EDIT', `Updated customer profile for ${customerData.name}`);
@@ -538,7 +511,7 @@ export default function App() {
         // consumer, incl. the mobile app) reflects the change. Best-effort.
         if (saved.name !== editingCustomer.name || saved.whatsapp !== editingCustomer.whatsapp) {
           try {
-            await syncOrderCustomerSnapshot(saved.id, saved.name, saved.whatsapp);
+            await db.orders.syncCustomerSnapshot(saved.id, saved.name, saved.whatsapp);
             setOrders((prev) =>
               prev.map((o) =>
                 o.customerId === saved.id ? { ...o, customerName: saved.name, customerWhatsApp: saved.whatsapp } : o
@@ -557,7 +530,7 @@ export default function App() {
           ordersCount: 0,
           totalSpent: 0,
         };
-        const saved = await insertCustomerToSupabase(newCust);
+        const saved = await db.customers.insert(newCust);
         setCustomers((prev) => [saved, ...prev]);
         toast.success(`Created customer: ${customerData.name}`);
         logAudit('CUSTOMER_CREATE', `Created new customer profile for ${customerData.name}`);
@@ -570,7 +543,7 @@ export default function App() {
   const handleDeleteCustomer = async (id: string) => {
     const cust = customers.find((c) => c.id === id);
     try {
-      await deleteCustomerFromSupabase(id);
+      await db.customers.delete(id);
       setCustomers((prev) => prev.filter((c) => c.id !== id));
       toast.info(`Deleted customer ${cust?.name || id}`);
     } catch (err: any) {
@@ -585,7 +558,7 @@ export default function App() {
     const updated: Customer = { ...target, status: newStatus };
 
     try {
-      const saved = await updateCustomerInSupabase(updated);
+      const saved = await db.customers.update(updated);
       setCustomers((prev) => prev.map((c) => (c.id === id ? saved : c)));
       toast.info(`${newStatus === 'BLOCKED' ? 'Blocked' : 'Unblocked'} customer ${target.name}`);
       logAudit('STATUS_CHANGE', `${newStatus === 'BLOCKED' ? 'Blocked' : 'Unblocked'} customer ${target.name}`);
@@ -599,7 +572,7 @@ export default function App() {
     try {
       if (editingPlan) {
         const updated: Plan = { ...editingPlan, ...planData };
-        const saved = await updatePlanInSupabase(updated);
+        const saved = await db.plans.update(updated);
         setPlans((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
         toast.success(`Updated plan: ${planData.name}`);
         setEditingPlan(null);
@@ -609,7 +582,7 @@ export default function App() {
         // duration remain the historical sale values. Best-effort.
         if (saved.name !== editingPlan.name) {
           try {
-            await syncOrderPlanSnapshot(saved.id, saved.name);
+            await db.orders.syncPlanSnapshot(saved.id, saved.name);
             setOrders((prev) =>
               prev.map((o) => (o.planId === saved.id ? { ...o, planName: saved.name } : o))
             );
@@ -624,7 +597,7 @@ export default function App() {
           id: crypto.randomUUID(),
           activeOrders: 0,
         };
-        const saved = await insertPlanToSupabase(newPlan);
+        const saved = await db.plans.insert(newPlan);
         setPlans((prev) => [saved, ...prev]);
         toast.success(`Added new plan: ${planData.name}`);
         logAudit('PLAN_CREATE', `Created new streaming plan: ${planData.name}`);
@@ -643,7 +616,7 @@ export default function App() {
       return;
     }
     try {
-      await deletePlanFromSupabase(id);
+      await db.plans.delete(id);
       setPlans((prev) => prev.filter((p) => p.id !== id));
       toast.info('Deleted plan');
     } catch (err: any) {
@@ -656,7 +629,7 @@ export default function App() {
     try {
       if (editingServiceAccount) {
         const updated: ServiceAccount = { ...editingServiceAccount, ...accountData, updatedAt: new Date().toISOString() };
-        const saved = await updateServiceAccountInSupabase(updated);
+        const saved = await db.serviceAccounts.update(updated);
         setServiceAccounts((prev) => prev.map((a) => (a.id === saved.id ? saved : a)));
         toast.success(`Updated service account: ${accountData.email}`);
         logAudit('ACCOUNT_EDIT', `Updated service account ${accountData.email} (${accountData.serviceType})`);
@@ -667,7 +640,7 @@ export default function App() {
           id: crypto.randomUUID(),
           createdAt: new Date().toISOString(),
         };
-        const saved = await insertServiceAccountToSupabase(newAccount);
+        const saved = await db.serviceAccounts.insert(newAccount);
         setServiceAccounts((prev) => [saved, ...prev]);
         toast.success(`Added service account: ${accountData.email}`);
         logAudit('ACCOUNT_CREATE', `Created new service account ${accountData.email} (${accountData.serviceType}, capacity ${accountData.capacity})`);
@@ -684,10 +657,10 @@ export default function App() {
       const linked = orders.filter((o) => o.serviceAccountId === id);
       for (const order of linked) {
         const updated: Order = { ...order, serviceAccountId: undefined, profileNumber: undefined };
-        await updateOrderInSupabase(updated);
+        await db.orders.update(updated);
       }
 
-      await deleteServiceAccountFromSupabase(id);
+      await db.serviceAccounts.delete(id);
 
       setServiceAccounts((prev) => prev.filter((a) => a.id !== id));
       if (linked.length > 0) {
@@ -715,7 +688,7 @@ export default function App() {
         status: 'Active',
         updatedAt: new Date().toISOString(),
       };
-      const saved = await updateServiceAccountInSupabase(updated);
+      const saved = await db.serviceAccounts.update(updated);
       setServiceAccounts((prev) => prev.map((a) => (a.id === id ? saved : a)));
 
       // Cascade renewal to every order provisioned on this account (DB first).
@@ -725,7 +698,7 @@ export default function App() {
         .filter((o) => o.serviceAccountId === id)
         .map((order) => ({ ...order, startDate: newStart, endDate: newEnd, status }));
       for (const updatedOrder of renewedOrders) {
-        await updateOrderInSupabase(updatedOrder);
+        await db.orders.update(updatedOrder);
       }
       setOrders((prev) =>
         prev.map((o) => {
@@ -747,7 +720,7 @@ export default function App() {
     try {
       const willSuspend = account.status !== 'Suspended';
       const updated: ServiceAccount = { ...account, status: willSuspend ? 'Suspended' : 'Active', updatedAt: new Date().toISOString() };
-      const saved = await updateServiceAccountInSupabase(updated);
+      const saved = await db.serviceAccounts.update(updated);
       setServiceAccounts((prev) => prev.map((a) => (a.id === id ? saved : a)));
       toast.info(willSuspend ? `Suspended service account ${account.email}` : `Reactivated service account ${account.email}`);
       logAudit('ACCOUNT_STATUS_CHANGE', `${willSuspend ? 'Suspended' : 'Reactivated'} service account ${account.email}`);
@@ -761,7 +734,7 @@ export default function App() {
     if (!order) return;
     try {
       const updated: Order = { ...order, serviceAccountId: undefined, profileNumber: undefined };
-      const saved = await updateOrderInSupabase(updated);
+      const saved = await db.orders.update(updated);
       setOrders((prev) => prev.map((o) => (o.id === orderId ? saved : o)));
       toast.info('Removed customer profile from service account (slot freed).');
     } catch (err: any) {
@@ -786,7 +759,7 @@ export default function App() {
     try {
       if (editingOrder) {
         const updated: Order = { ...orderData, id: editingOrder.id };
-        const saved = await updateOrderInSupabase(updated);
+        const saved = await db.orders.update(updated);
         setOrders((prev) => prev.map((o) => (o.id === editingOrder.id ? saved : o)));
         toast.success(`Updated order #${editingOrder.id}`);
         logAudit('ORDER_EDIT', `Updated order #${editingOrder.id} (${orderData.planName})`);
@@ -798,10 +771,10 @@ export default function App() {
           id: crypto.randomUUID(),
           orderNumber: nextOrderNumber,
         };
-        const savedOrder = await insertOrderToSupabase(newOrd);
+        const savedOrder = await db.orders.insert(newOrd);
         setOrders((prev) => [savedOrder, ...prev]);
 
-        // Update customer stats in Supabase (best-effort, non-fatal)
+        // Update customer stats in the database (best-effort, non-fatal)
         try {
           const customerToUpdate = customers.find((c) => c.id === orderData.customerId);
           if (customerToUpdate) {
@@ -810,14 +783,14 @@ export default function App() {
               ordersCount: customerToUpdate.ordersCount + 1,
               totalSpent: customerToUpdate.totalSpent + orderData.price,
             };
-            const savedCust = await updateCustomerInSupabase(updatedCust);
+            const savedCust = await db.customers.update(updatedCust);
             setCustomers((prev) => prev.map((c) => (c.id === savedCust.id ? savedCust : c)));
           }
         } catch (e) {
           console.warn('Failed to update customer stats after order create', e);
         }
 
-        // Update plan stock & active orders in Supabase (best-effort, non-fatal)
+        // Update plan stock & active orders in the database (best-effort, non-fatal)
         try {
           const planToUpdate = plans.find((p) => p.id === orderData.planId);
           if (planToUpdate) {
@@ -826,7 +799,7 @@ export default function App() {
               activeOrders: planToUpdate.activeOrders + 1,
               availableStock: Math.max(0, planToUpdate.availableStock - 1),
             };
-            const savedPlan = await updatePlanInSupabase(updatedPlan);
+            const savedPlan = await db.plans.update(updatedPlan);
             setPlans((prev) => prev.map((p) => (p.id === savedPlan.id ? savedPlan : p)));
           }
         } catch (e) {
@@ -843,7 +816,7 @@ export default function App() {
 
   const handleDeleteOrder = async (id: string) => {
     try {
-      await deleteOrderFromSupabase(id);
+      await db.orders.delete(id);
       setOrders((prev) => prev.filter((o) => o.id !== id));
       toast.info('Order removed');
     } catch (err: any) {
@@ -859,7 +832,7 @@ export default function App() {
 
     const updated: Order = { ...targetOrder, contactedForRenewal: true, contactedAt: nowStr };
     try {
-      const saved = await updateOrderInSupabase(updated);
+      const saved = await db.orders.update(updated);
       setOrders((prev) => prev.map((o) => (o.id === orderId ? saved : o)));
       toast.success('Marked as contacted via WhatsApp!');
       logAudit('WHATSAPP_SENT', `Sent renewal notice for order #${orderId}`);
@@ -877,7 +850,7 @@ export default function App() {
 
     try {
       for (const updatedOrder of updatedOrders) {
-        await updateOrderInSupabase(updatedOrder);
+        await db.orders.update(updatedOrder);
       }
       setOrders((prev) =>
         prev.map((o) =>
