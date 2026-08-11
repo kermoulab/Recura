@@ -66,6 +66,8 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
 
   const cleanSearch = sanitizeInput(searchTerm, { maxLen: 100, allowSpaces: true }).toLowerCase();
 
+  const formatDateOnly = (value?: string) => (value ? value.split('T')[0] : '—');
+
   const filteredCustomers = customers.filter((cust) => {
     const matchesSearch =
       cust.name.toLowerCase().includes(cleanSearch) ||
@@ -161,6 +163,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                 </tr>
               ) : (
                 filteredCustomers.map((cust) => {
+                  const customerOrderCount = orders.filter((o) => o.customerId === cust.id).length;
                   const waUrl = createWhatsAppWebUrl(
                     cust.whatsapp,
                     `Hello ${cust.name}, contacting you from Recura ERP regarding your subscription.`
@@ -232,7 +235,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                         })()}
                       </td>
 
-                      <td className="py-4 px-6 text-[#6B7280] font-medium">{cust.registrationDate}</td>
+                      <td className="py-4 px-6 text-[#6B7280] font-medium">{formatDateOnly(cust.registrationDate)}</td>
 
                       <td className="py-4 px-6">
                         {cust.status === 'ACTIVE' ? (
@@ -258,7 +261,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                         )}
                       </td>
 
-                      <td className="py-4 px-6 font-bold text-[#111827]">{cust.ordersCount} orders</td>
+                      <td className="py-4 px-6 font-bold text-[#111827]">{customerOrderCount} orders</td>
 
                       <td className="py-4 px-6 font-extrabold text-[#111827]">{formatCurrency(cust.totalSpent, currency)}</td>
 
