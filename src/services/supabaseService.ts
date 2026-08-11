@@ -213,6 +213,41 @@ export async function deleteOrderFromSupabase(id: string): Promise<void> {
   }
 }
 
+/**
+ * Keeps the denormalized Order.customerName / Order.customerWhatsApp columns
+ * in sync with the CURRENT Customer record after a customer edit. The shared
+ * database schema requires these columns, so they are treated as a cache of
+ * the live relationship instead of being removed.
+ */
+export async function syncOrderCustomerSnapshot(customerId: string, name: string, whatsapp: string): Promise<void> {
+  const client = requireSupabaseClient();
+
+  const { error } = await client
+    .from('Order')
+    .update({ customerName: name, customerWhatsApp: whatsapp })
+    .eq('customerId', customerId);
+  if (error) {
+    throw new Error(`Failed to sync customer name into linked orders: ${error.message}`);
+  }
+}
+
+/**
+ * Keeps the denormalized Order.planName column in sync with the CURRENT Plan
+ * record after a plan edit (name changes only; price/duration remain the
+ * historical sale values captured on the order).
+ */
+export async function syncOrderPlanSnapshot(planId: string, name: string): Promise<void> {
+  const client = requireSupabaseClient();
+
+  const { error } = await client
+    .from('Order')
+    .update({ planName: name })
+    .eq('planId', planId);
+  if (error) {
+    throw new Error(`Failed to sync plan name into linked orders: ${error.message}`);
+  }
+}
+
 /* =======================================================
    4. SERVICE ACCOUNTS CRUD (shared provider accounts)
    ======================================================= */

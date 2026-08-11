@@ -1,4 +1,4 @@
-import { ServiceAccount, Order, ServiceAccountStatus, ServiceType } from '../types/erp';
+import { ServiceAccount, Order, ServiceAccountStatus, ServiceType, Customer, Plan } from '../types/erp';
 import { calculateDaysRemaining } from './crypto';
 
 export function getLinkedOrders(accountId: string, orders: Order[]): Order[] {
@@ -25,6 +25,42 @@ export function getEffectiveAccountStatus(account: ServiceAccount): ServiceAccou
 
 export function getAccountById(accounts: ServiceAccount[], id?: string): ServiceAccount | undefined {
   return accounts.find((a) => a.id === id);
+}
+
+/* =======================================================
+   ORDER → RELATED ENTITY RESOLUTION
+   Orders store denormalized snapshot columns (customerName,
+   customerWhatsApp, planName) required by the shared DB schema.
+   These helpers resolve the CURRENT related record from live
+   state so every screen reflects the current remote data.
+   The snapshot is only used as a fallback for legacy orders
+   that have no relationship ID.
+   ======================================================= */
+
+export function getOrderCustomer(order: Order, customers: Customer[]): Customer | undefined {
+  if (!order.customerId) return undefined;
+  return customers.find((c) => c.id === order.customerId);
+}
+
+export function getOrderPlan(order: Order, plans: Plan[]): Plan | undefined {
+  if (!order.planId) return undefined;
+  return plans.find((p) => p.id === order.planId);
+}
+
+export function isOrderCustomerMissing(order: Order, customers: Customer[]): boolean {
+  return Boolean(order.customerId) && !getOrderCustomer(order, customers);
+}
+
+export function resolveOrderCustomerName(order: Order, customers: Customer[]): string {
+  return getOrderCustomer(order, customers)?.name ?? order.customerName;
+}
+
+export function resolveOrderCustomerWhatsApp(order: Order, customers: Customer[]): string {
+  return getOrderCustomer(order, customers)?.whatsapp ?? order.customerWhatsApp;
+}
+
+export function resolveOrderPlanName(order: Order, plans: Plan[]): string {
+  return getOrderPlan(order, plans)?.name ?? order.planName;
 }
 
 export function getNextFreeProfileNumber(accountId: string, orders: Order[]): number {

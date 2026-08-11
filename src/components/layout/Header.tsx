@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Bell, ShieldCheck, UserCheck, ChevronDown, CheckCircle2, User, Users, Lock, LogOut, Server, ShoppingBag } from 'lucide-react';
 import { ERPView } from './Sidebar';
-import { UserProfile, Order, ServiceAccount } from '../../types/erp';
-import { getEffectiveAccountStatus, getDaysRemaining } from '../../utils/serviceAccounts';
+import { UserProfile, Order, ServiceAccount, Customer } from '../../types/erp';
+import { getEffectiveAccountStatus, getDaysRemaining, resolveOrderCustomerName } from '../../utils/serviceAccounts';
 
 interface HeaderProps {
   currentView: ERPView;
@@ -12,6 +12,7 @@ interface HeaderProps {
   currentUser?: UserProfile;
   profiles?: UserProfile[];
   orders?: Order[];
+  customers?: Customer[];
   serviceAccounts?: ServiceAccount[];
   onSelectProfile?: (user: UserProfile) => void;
   onLogout?: () => void;
@@ -34,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   },
   profiles = [],
   orders = [],
+  customers = [],
   serviceAccounts = [],
   onSelectProfile,
   onLogout,
@@ -44,9 +46,9 @@ export const Header: React.FC<HeaderProps> = ({
   const expiring3DOrders = orders.filter((o) => o.status === 'EXPIRING_3D');
   const expiring7DOrders = orders.filter((o) => o.status === 'EXPIRING_7D');
   const expiredOrders = orders.filter((o) => o.status === 'EXPIRED');
-  const expiring3DNames = expiring3DOrders.map((o) => o.customerName).slice(0, 3);
-  const expiring7DNames = expiring7DOrders.map((o) => o.customerName).slice(0, 3);
-  const expiredNames = expiredOrders.map((o) => o.customerName).slice(0, 3);
+  const expiring3DNames = expiring3DOrders.map((o) => resolveOrderCustomerName(o, customers)).slice(0, 3);
+  const expiring7DNames = expiring7DOrders.map((o) => resolveOrderCustomerName(o, customers)).slice(0, 3);
+  const expiredNames = expiredOrders.map((o) => resolveOrderCustomerName(o, customers)).slice(0, 3);
 
   const expiring3DAccounts = serviceAccounts.filter(
     (a) => getEffectiveAccountStatus(a) === 'Active' && getDaysRemaining(a) >= 0 && getDaysRemaining(a) <= 3

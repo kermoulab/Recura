@@ -22,15 +22,23 @@ import {
   Server,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Order, SubscriptionStatus, ServiceAccount } from '../../types/erp';
+import { Order, SubscriptionStatus, ServiceAccount, Customer, Plan } from '../../types/erp';
 import { simulateDecrypt, maskEmail, formatCurrency } from '../../utils/crypto';
 import { createWhatsAppWebUrl } from '../../utils/whatsapp';
 import { sanitizeInput } from '../../utils/security';
-import { getAccountById } from '../../utils/serviceAccounts';
+import {
+  getAccountById,
+  isOrderCustomerMissing,
+  resolveOrderCustomerName,
+  resolveOrderCustomerWhatsApp,
+  resolveOrderPlanName,
+} from '../../utils/serviceAccounts';
 
 interface OrdersViewProps {
   orders: Order[];
   serviceAccounts?: ServiceAccount[];
+  customers?: Customer[];
+  plans?: Plan[];
   currency?: string;
   onAddOrder: () => void;
   onEditOrder?: (order: Order) => void;
@@ -43,6 +51,8 @@ interface OrdersViewProps {
 export const OrdersView: React.FC<OrdersViewProps> = ({
   orders,
   serviceAccounts = [],
+  customers = [],
+  plans = [],
   currency = 'USD ($)',
   onAddOrder,
   onEditOrder,
@@ -94,8 +104,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const filteredOrders = orders.filter((ord) => {
     const account = getAccountById(serviceAccounts, ord.serviceAccountId);
     const matchesSearch =
-      ord.customerName.toLowerCase().includes(cleanSearch) ||
-      ord.planName.toLowerCase().includes(cleanSearch) ||
+      resolveOrderCustomerName(ord, customers).toLowerCase().includes(cleanSearch) ||
+      resolveOrderPlanName(ord, plans).toLowerCase().includes(cleanSearch) ||
       ord.accountEmail.toLowerCase().includes(cleanSearch) ||
       ord.id.toLowerCase().includes(cleanSearch) ||
       String(ord.orderNumber || '').includes(cleanSearch) ||
@@ -214,6 +224,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             const isUnmasked = unmaskedPasswords[ord.id] === true;
             const isAccountExpanded = !!expandedAccounts[ord.id];
             const account = getAccountById(serviceAccounts, ord.serviceAccountId);
+            const customerMissing = isOrderCustomerMissing(ord, customers);
+            const currentCustomerName = resolveOrderCustomerName(ord, customers);
+            const currentCustomerWhatsApp = resolveOrderCustomerWhatsApp(ord, customers);
+            const currentPlanName = resolveOrderPlanName(ord, plans);
 
             return (
               <div
@@ -248,7 +262,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                           </button>
                         ))}
                       <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                        {ord.planName}
+                        {currentPlanName}
                       </span>
                       {account && (
                         <button
@@ -289,18 +303,25 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   <div className="flex items-center gap-4 text-xs flex-wrap">
                     <div>
                       <span className="text-slate-400 block font-medium">Customer</span>
-                      <span className="font-extrabold text-[#111827]">{ord.customerName}</span>
+                      <span className="font-extrabold text-[#111827] flex items-center gap-2">
+                        {currentCustomerName}
+                        {customerMissing && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border text-rose-700 bg-rose-50 border-rose-200">
+                            deleted
+                          </span>
+                        )}
+                      </span>
                     </div>
                     <div className="h-4 w-px bg-slate-200 hidden sm:block" />
                     <div>
                       <span className="text-slate-400 block font-medium">WhatsApp</span>
                       <a
-                        href={createWhatsAppWebUrl(ord.customerWhatsApp, `Hello ${ord.customerName}`)}
+                        href={createWhatsAppWebUrl(currentCustomerWhatsApp, `Hello ${currentCustomerName}`)}
                         target="_blank"
                         rel="noreferrer"
                         className="font-bold text-emerald-600 hover:underline"
                       >
-                        {ord.customerWhatsApp}
+                        {currentCustomerWhatsApp}
                       </a>
                     </div>
                     <div className="h-4 w-px bg-slate-200 hidden sm:block" />

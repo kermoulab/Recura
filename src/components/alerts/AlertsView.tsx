@@ -13,11 +13,19 @@ import {
   ExternalLink,
   Sparkles,
 } from 'lucide-react';
-import { Order, Language, WhatsAppTemplate } from '../../types/erp';
+import { Order, Language, WhatsAppTemplate, Customer, Plan } from '../../types/erp';
 import { renderWhatsAppMessage, createWhatsAppWebUrl, DEFAULT_WHATSAPP_TEMPLATES } from '../../utils/whatsapp';
+import {
+  isOrderCustomerMissing,
+  resolveOrderCustomerName,
+  resolveOrderCustomerWhatsApp,
+  resolveOrderPlanName,
+} from '../../utils/serviceAccounts';
 
 interface AlertsViewProps {
   orders: Order[];
+  customers?: Customer[];
+  plans?: Plan[];
   templates?: Record<Language, WhatsAppTemplate>;
   onMarkContacted: (orderId: string) => void;
   onBulkMarkContacted: (orderIds: string[]) => void;
@@ -28,6 +36,8 @@ interface AlertsViewProps {
 
 export const AlertsView: React.FC<AlertsViewProps> = ({
   orders,
+  customers = [],
+  plans = [],
   templates = DEFAULT_WHATSAPP_TEMPLATES,
   onMarkContacted,
   onBulkMarkContacted,
@@ -224,6 +234,10 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
               ) : (
                 currentTabOrders.map((ord) => {
                   const isSelected = selectedOrderIds.includes(ord.id);
+                  const customerMissing = isOrderCustomerMissing(ord, customers);
+                  const currentCustomerName = resolveOrderCustomerName(ord, customers);
+                  const currentCustomerWhatsApp = resolveOrderCustomerWhatsApp(ord, customers);
+                  const currentPlanName = resolveOrderPlanName(ord, plans);
 
                   // Render template according to language & status
                   const rawTemplate =
@@ -232,12 +246,12 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
                       : templates[selectedLanguage].expiring3Days;
 
                   const compiledMessage = renderWhatsAppMessage(rawTemplate, {
-                    name: ord.customerName,
-                    plan: ord.planName,
+                    name: currentCustomerName,
+                    plan: currentPlanName,
                     date: ord.endDate,
                   });
 
-                  const waUrl = createWhatsAppWebUrl(ord.customerWhatsApp, compiledMessage);
+                  const waUrl = createWhatsAppWebUrl(currentCustomerWhatsApp, compiledMessage);
 
                   return (
                     <tr
@@ -259,8 +273,15 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
 
                       <td className="py-4 px-4">
                         <div>
-                          <span className="font-extrabold text-[#111827] block">{ord.customerName}</span>
-                          <span className="text-[11px] text-emerald-600 font-bold">{ord.customerWhatsApp}</span>
+                          <span className="font-extrabold text-[#111827] block">
+                            {currentCustomerName}
+                            {customerMissing && (
+                              <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full border text-rose-700 bg-rose-50 border-rose-200">
+                                deleted
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-[11px] text-emerald-600 font-bold">{currentCustomerWhatsApp}</span>
                         </div>
                       </td>
 
@@ -270,7 +291,7 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
                           title={`Open order #${ord.orderNumber || ord.id}`}
                           className="font-bold text-slate-800 text-left hover:text-blue-600 hover:underline transition-colors cursor-pointer"
                         >
-                          {ord.planName}
+                          {currentPlanName}
                         </button>
                       </td>
 

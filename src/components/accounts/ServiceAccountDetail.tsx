@@ -24,7 +24,7 @@ import {
   BadgeCheck,
   X,
 } from 'lucide-react';
-import { ServiceAccount, Order, SubscriptionStatus, Customer } from '../../types/erp';
+import { ServiceAccount, Order, SubscriptionStatus, Customer, Plan } from '../../types/erp';
 import {
   maskEmail,
   simulateDecrypt,
@@ -36,6 +36,8 @@ import {
   getOccupancy,
   getEffectiveAccountStatus,
   getDaysRemaining,
+  isOrderCustomerMissing,
+  resolveOrderPlanName,
 } from '../../utils/serviceAccounts';
 import { createWhatsAppWebUrl } from '../../utils/whatsapp';
 
@@ -43,6 +45,7 @@ interface ServiceAccountDetailProps {
   account: ServiceAccount;
   orders: Order[];
   customers: Customer[];
+  plans?: Plan[];
   currency?: string;
   onBack: () => void;
   onEditAccount: (account: ServiceAccount) => void;
@@ -57,6 +60,7 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
   account,
   orders,
   customers,
+  plans = [],
   currency = 'USD ($)',
   onBack,
   onEditAccount,
@@ -464,6 +468,10 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
                 }
 
                 const customer = customers.find((c) => c.id === order.customerId);
+                const customerMissing = isOrderCustomerMissing(order, customers);
+                const currentCustomerName = customer?.name ?? order.customerName;
+                const currentCustomerWhatsApp = customer?.whatsapp ?? order.customerWhatsApp;
+                const currentPlanName = resolveOrderPlanName(order, plans);
                 return (
                   <tr key={profileNumber} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-6">
@@ -474,23 +482,30 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
                     <td className="py-3.5 px-6">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 font-extrabold flex items-center justify-center text-[10px]">
-                          {order.customerName.slice(0, 2).toUpperCase()}
+                          {currentCustomerName.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <span className="font-bold text-[#111827] block">{order.customerName}</span>
-                          <span className="text-[10px] text-slate-400">{order.planName}</span>
+                          <span className="font-bold text-[#111827] block">
+                            {currentCustomerName}
+                            {customerMissing && (
+                              <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full border text-rose-700 bg-rose-50 border-rose-200">
+                                deleted
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-[10px] text-slate-400">{currentPlanName}</span>
                         </div>
                       </div>
                     </td>
                     <td className="py-3.5 px-6">
                       <a
-                        href={createWhatsAppWebUrl(order.customerWhatsApp, `Hello ${order.customerName}`)}
+                        href={createWhatsAppWebUrl(currentCustomerWhatsApp, `Hello ${currentCustomerName}`)}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1.5 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 font-bold px-2.5 py-1 rounded-full border border-emerald-200 text-[11px] transition-colors"
                       >
                         <Phone className="w-3 h-3" />
-                        {order.customerWhatsApp}
+                        {currentCustomerWhatsApp}
                       </a>
                     </td>
                     <td className="py-3.5 px-6">{getStatusBadge(order.status)}</td>

@@ -3,7 +3,12 @@ import { X, Search, Users, ShoppingBag, Package, Server } from 'lucide-react';
 import { Customer, Order, Plan, ServiceAccount } from '../../types/erp';
 import { sanitizeInput } from '../../utils/security';
 import { formatCurrency } from '../../utils/crypto';
-import { shortId } from '../../utils/serviceAccounts';
+import {
+  shortId,
+  resolveOrderCustomerName,
+  resolveOrderCustomerWhatsApp,
+  resolveOrderPlanName,
+} from '../../utils/serviceAccounts';
 
 interface QuickSearchModalProps {
   isOpen: boolean;
@@ -44,7 +49,8 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
   const matchedOrders = cleanQuery
     ? orders.filter(
         (o) =>
-          o.customerName.toLowerCase().includes(cleanQuery) ||
+          resolveOrderCustomerName(o, customers).toLowerCase().includes(cleanQuery) ||
+          resolveOrderPlanName(o, plans).toLowerCase().includes(cleanQuery) ||
           o.accountEmail.toLowerCase().includes(cleanQuery) ||
           o.id.toLowerCase().includes(cleanQuery) ||
           String(o.orderNumber || '').includes(cleanQuery) ||
@@ -70,8 +76,8 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
           orders.some(
             (o) =>
               o.serviceAccountId === a.id &&
-              (o.customerName.toLowerCase().includes(cleanQuery) ||
-                o.customerWhatsApp.includes(cleanQuery))
+              (resolveOrderCustomerName(o, customers).toLowerCase().includes(cleanQuery) ||
+                resolveOrderCustomerWhatsApp(o, customers).includes(cleanQuery))
           )
       )
     : [];
@@ -165,8 +171,8 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
                         <div className="flex items-center gap-2">
                           <ShoppingBag className="w-4 h-4 text-emerald-500" />
                           <span className="font-mono text-slate-400">#{o.id}</span>
-                          <span className="font-bold text-[#111827]">{o.customerName}</span>
-                          <span className="text-blue-600 font-semibold">{o.planName}</span>
+                          <span className="font-bold text-[#111827]">{resolveOrderCustomerName(o, customers)}</span>
+                          <span className="text-blue-600 font-semibold">{resolveOrderPlanName(o, plans)}</span>
                         </div>
                         <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded">
                           {o.status}

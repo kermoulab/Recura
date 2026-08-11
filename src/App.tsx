@@ -57,6 +57,8 @@ import {
   insertOrderToSupabase,
   updateOrderInSupabase,
   deleteOrderFromSupabase,
+  syncOrderCustomerSnapshot,
+  syncOrderPlanSnapshot,
   fetchServiceAccountsFromSupabase,
   insertServiceAccountToSupabase,
   updateServiceAccountInSupabase,
@@ -517,6 +519,23 @@ export default function App() {
         toast.success(`Updated customer profile: ${customerData.name}`);
         logAudit('CUSTOMER_EDIT', `Updated customer profile for ${customerData.name}`);
         setEditingCustomer(null);
+
+        // Keep the denormalized Order.customerName / customerWhatsApp columns
+        // in sync with the current Customer so the shared database (and every
+        // consumer, incl. the mobile app) reflects the change. Best-effort.
+        if (saved.name !== editingCustomer.name || saved.whatsapp !== editingCustomer.whatsapp) {
+          try {
+            await syncOrderCustomerSnapshot(saved.id, saved.name, saved.whatsapp);
+            setOrders((prev) =>
+              prev.map((o) =>
+                o.customerId === saved.id ? { ...o, customerName: saved.name, customerWhatsApp: saved.whatsapp } : o
+              )
+            );
+          } catch (syncErr: any) {
+            console.warn('Failed to sync customer name into linked orders', syncErr);
+            toast.warning('Customer updated, but linked orders could not be refreshed in the database.');
+          }
+        }
       } else {
         const newCust: Customer = {
           ...customerData,
@@ -571,6 +590,21 @@ export default function App() {
         setPlans((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
         toast.success(`Updated plan: ${planData.name}`);
         setEditingPlan(null);
+
+        // Keep the denormalized Order.planName column in sync with the current
+        // Plan name so the shared database reflects the rename. Order price and
+        // duration remain the historical sale values. Best-effort.
+        if (saved.name !== editingPlan.name) {
+          try {
+            await syncOrderPlanSnapshot(saved.id, saved.name);
+            setOrders((prev) =>
+              prev.map((o) => (o.planId === saved.id ? { ...o, planName: saved.name } : o))
+            );
+          } catch (syncErr: any) {
+            console.warn('Failed to sync plan name into linked orders', syncErr);
+            toast.warning('Plan updated, but linked orders could not be refreshed in the database.');
+          }
+        }
       } else {
         const newPlan: Plan = {
           ...planData,
@@ -907,6 +941,7 @@ export default function App() {
         currentUser={currentUser}
         profiles={profiles}
         orders={orders}
+        customers={customers}
         serviceAccounts={serviceAccounts}
         onSelectProfile={handleSelectProfile}
         onLogout={handleLogout}
@@ -996,6 +1031,8 @@ export default function App() {
           <OrdersView
             orders={orders}
             serviceAccounts={serviceAccounts}
+            customers={customers}
+            plans={plans}
             currency={currency}
             onAddOrder={() => {
               setEditingOrder(null);
@@ -1030,6 +1067,7 @@ export default function App() {
             accounts={serviceAccounts}
             orders={orders}
             customers={customers}
+            plans={plans}
             currency={currency}
             initialAccountId={openAccountId}
             onAddAccount={() => {
@@ -1051,6 +1089,8 @@ export default function App() {
         {currentView === 'alerts' && (
           <AlertsView
             orders={orders}
+            customers={customers}
+            plans={plans}
             templates={whatsAppTemplates}
             onMarkContacted={handleMarkContacted}
             onBulkMarkContacted={handleBulkMarkContacted}

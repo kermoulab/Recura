@@ -17,7 +17,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { ServiceAccount, Order, Customer } from '../../types/erp';
+import { ServiceAccount, Order, Customer, Plan } from '../../types/erp';
 import { maskEmail, formatCurrency } from '../../utils/crypto';
 import { sanitizeInput } from '../../utils/security';
 import {
@@ -26,6 +26,8 @@ import {
   getDaysRemaining,
   getServiceAccountStats,
   shortId,
+  resolveOrderCustomerName,
+  resolveOrderCustomerWhatsApp,
 } from '../../utils/serviceAccounts';
 import { ServiceAccountDetail } from './ServiceAccountDetail';
 
@@ -33,6 +35,7 @@ interface ServiceAccountsViewProps {
   accounts: ServiceAccount[];
   orders: Order[];
   customers: Customer[];
+  plans?: Plan[];
   currency?: string;
   initialAccountId?: string;
   onAddAccount: () => void;
@@ -51,6 +54,7 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
   accounts,
   orders,
   customers,
+  plans = [],
   currency = 'USD ($)',
   initialAccountId,
   onAddAccount,
@@ -97,8 +101,8 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
       orders.some(
         (o) =>
           o.serviceAccountId === acc.id &&
-          (o.customerName.toLowerCase().includes(cleanSearch) ||
-            o.customerWhatsApp.includes(cleanSearch) ||
+          (resolveOrderCustomerName(o, customers).toLowerCase().includes(cleanSearch) ||
+            resolveOrderCustomerWhatsApp(o, customers).includes(cleanSearch) ||
             String(o.profileNumber || '').includes(cleanSearch))
       );
 
@@ -171,6 +175,7 @@ export const ServiceAccountsView: React.FC<ServiceAccountsViewProps> = ({
           account={selectedAccount}
           orders={orders}
           customers={customers}
+          plans={plans}
           currency={currency}
           onBack={() => setSelectedAccountId(null)}
           onEditAccount={onEditAccount}
