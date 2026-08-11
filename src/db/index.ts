@@ -4,8 +4,16 @@
  * `getDatabase()` is the single entry point the UI uses. It exposes the
  * DatabaseAdapter plus a set of domain repositories. The UI must never import
  * a provider SDK or a provider client directly — everything goes through here.
+ *
+ * Provider selection is automatic and resolves before first render:
+ *   * When the SPA is served by the Recura server and the install status is
+ *     INSTALLED, the ApiAdapter is used (persistence over /api/db).
+ *   * When the install has not completed, the app redirects to /install.
+ *   * When the Recura server is unreachable (e.g. Vite dev / static hosting),
+ *     it falls back to the Supabase adapter exactly as before.
  */
 import { SupabaseAdapter } from './SupabaseAdapter';
+import { ApiAdapter } from './ApiAdapter';
 import { DatabaseAdapter, DbStatus } from './types';
 import { CustomerRepository, createCustomerRepository } from './repositories/customerRepository';
 import { PlanRepository, createPlanRepository } from './repositories/planRepository';
@@ -35,11 +43,44 @@ export interface Database {
   getStatus(): DbStatus;
 }
 
+export type DatabaseMode = 'server' | 'supabase';
+
 let database: Database | null = null;
+let mode: DatabaseMode | null = null;
+let needsInstall = false;
+
+/**
+ * Probes the Recura server once to decide which adapter to use. Call before
+ * the first render (see src/main.tsx). Never throws — unreachable server
+ * falls back to Supabase mode.
+ */
+export async function detectDatabaseMode(): Promise<DatabaseMode> {
+  if (mode) return mode;
+  try {
+    const res = await fetch('/api/install/status', { method: 'GET' });
+    if (!res.ok) throw new Error('server unreachable');
+    const body = (await res.json()) as { status?: string };
+    mode = 'server';
+    needsInstall = body?.status !== 'INSTALLED';
+  } catch {
+    mode = 'supabase';
+    needsInstall = false;
+  }
+  return mode;
+}
+
+/** Non-null when the app must route the user to the installer first. */
+export function getInstallRedirectTarget(): string | null {
+  return needsInstall ? '/install' : null;
+}
+
+export function getDatabaseMode(): DatabaseMode {
+  return mode ?? 'supabase';
+}
 
 export function getDatabase(): Database {
   if (!database) {
-    const adapter = new SupabaseAdapter();
+    const adapter = getDatabaseMode() === 'server' ? new ApiAdapter() : new SupabaseAdapter();
     database = {
       adapter,
       customers: createCustomerRepository(adapter),

@@ -124,4 +124,14 @@ export interface DatabaseAdapter {
 
   /** Inserts or updates rows keyed by `conflictKey`. */
   upsert(table: string, rows: Record<string, unknown>[], conflictKey: string): Promise<void>;
+
+  /**
+   * Optional: server-backed providers register a server-side session after the
+   * client-side login succeeds, so mutating queries carry a bearer token.
+   * Local providers (e.g. Supabase anon-key) do not implement this.
+   */
+  registerSession?(user: { email: string; userName: string }): Promise<void>;
+
+  /** Optional: revokes the server-side session on logout. Best effort. */
+  unregisterSession?(): Promise<void>;
 }

@@ -203,6 +203,9 @@ export default function App() {
     setIsLoggedIn(true);
     sessionRestoredRef.current = true;
 
+    // Ensure a server-side bearer token exists after a refresh (server mode).
+    db.adapter.registerSession?.({ email: session.userEmail, userName: session.userName }).catch(() => {});
+
     // If profiles already loaded, use the real profile
     if (profiles.length > 0) {
       const matchedUser = profiles.find((p) => p.id === session.userId || p.email === session.userEmail);
@@ -382,6 +385,9 @@ export default function App() {
   // Authentication & Session Handlers
   const handleLogout = () => {
     destroyAllSessions();
+    // Revoke the server-side session (server mode). Best effort — never block
+    // logout on an unreachable server.
+    db.adapter.unregisterSession?.().catch(() => {});
     try {
       localStorage.removeItem(LAST_VIEW_KEY);
     } catch {
@@ -394,7 +400,7 @@ export default function App() {
     toast.info('Session ended. All sessions destroyed. Logged out successfully.');
   };
 
-  const handleLoginSuccess = (user: UserProfile, session?: UserSession) => {
+  const handleLoginSuccess = async (user: UserProfile, session?: UserSession) => {
     setCurrentUser(user);
     setIsLoggedIn(true);
     if (user.currency) {
@@ -403,6 +409,13 @@ export default function App() {
 
     if (session) {
       saveActiveSession(session);
+    }
+
+    // Register a server-side session so /api/db mutations carry a bearer token.
+    try {
+      await db.adapter.registerSession?.({ email: user.email, userName: user.fullName });
+    } catch (err: any) {
+      console.warn('Failed to register server session', err);
     }
 
     toast.success(`Welcome back, ${user.fullName}!`);
