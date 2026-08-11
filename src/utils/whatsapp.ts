@@ -124,7 +124,7 @@ export function renderThanksClientMessage(
     expiryDate: string;
   }
 ): string {
-  return renderTemplate(templateText, { ...variables }, ['PROFILE_NUMBER', 'PIN_CODE', 'NOTES']);
+  return renderTemplate(templateText, { ...variables }, Object.keys(variables));
 }
 
 export function cleanWhatsAppNumber(phone: string): string {
