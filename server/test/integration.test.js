@@ -73,6 +73,24 @@ test('installer rejects POSTs without a valid CSRF token', async () => {
   assert.equal(body.code, 'CSRF');
 });
 
+test('installer: detect endpoint classifies Supabase and Nhost inputs without leaking secrets', async () => {
+  const supabase = await json('POST', '/api/install/detect', { url: 'https://abcdefgh.supabase.co' });
+  assert.equal(supabase.status, 200);
+  assert.equal(supabase.body.ok, true);
+  assert.equal(supabase.body.protocol, 'postgrest');
+  assert.equal(supabase.body.provider, 'supabase');
+
+  const nhost = await json('POST', '/api/install/detect', { url: 'https://abcdefgh.graphql.eu-central-1.nhost.run/v1' });
+  assert.equal(nhost.body.ok, true);
+  assert.equal(nhost.body.protocol, 'graphql');
+  assert.equal(nhost.body.provider, 'nhost');
+
+  const connString = await json('POST', '/api/install/detect', { url: 'postgresql://user:SuperSecret@db.example.com:5432/recura' });
+  assert.equal(connString.body.ok, true);
+  assert.equal(connString.body.protocol, 'postgres');
+  assert.ok(!JSON.stringify(connString.body).includes('SuperSecret'));
+});
+
 test('installer: test connection sees an empty database', async () => {
   const { status, body } = await json('POST', '/api/install/test-connection', asBody(VALID_DB));
   assert.equal(status, 200);

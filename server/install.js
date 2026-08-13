@@ -17,6 +17,7 @@
 
 import { INSTALL_STATUS, getInstallStatus, readState, writeState, writeConfig } from './config.js';
 import { buildConnConfig, connectClient, disconnectClient, sanitizeError, queryOne, queryAll } from './db.js';
+import { detect } from './detect.js';
 import { runMigrations, getAppliedMigrations } from './migrate.js';
 import { createInstallSession, verifyInstallSession, destroyInstallSession } from './auth.js';
 import { hashPassword, validatePasswordPolicy } from './hash.js';
@@ -170,6 +171,16 @@ export function getDbPresets() {
     });
   }
   return { ok: true, presets };
+}
+
+/**
+ * Classifies whatever database input the user provided (connection string,
+ * API URL, or manual fields). SECURITY: the returned object never contains the
+ * password or the raw connection string.
+ */
+export function detectDatabaseInput(body) {
+  const result = detect(body?.database ?? body);
+  return result.ok ? { ok: true, ...result } : result;
 }
 
 export async function testConnection(body) {

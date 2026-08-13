@@ -32,6 +32,15 @@ export function buildConnConfig(input) {
     }
     return envUrlConfig(envUrl);
   }
+  // A single connection string (postgres://...) can be supplied instead of
+  // separate host/port/database/user/password fields. This is what lets a
+  // non-technical user paste the string their provider gave them.
+  const url =
+    (typeof input.url === 'string' && input.url.trim()) ||
+    (typeof input.connectionString === 'string' && input.connectionString.trim()) ||
+    '';
+  if (url) return postgresConfig(parsePostgresUrl(url));
+
   const host = typeof input.host === 'string' ? input.host.trim() : '';
   if (!host) throw validationError('Host is required.');
   if (host.length > 255) throw validationError('Host is too long.');
@@ -71,41 +80,73 @@ export function buildConnConfig(input) {
 }
 
 /**
- * Resolves a postgres:// connection string (DATABASE_URL) into a pg config.
- * The SSL setting is derived from the URL (sslmode=require etc.).
+ * Parses and validates a postgres:// connection string.
+ *
+ * Returns normalized, NON-SECRET fields plus the password. Callers must never
+ * echo the password or the raw string back to the client. The SSL setting is
+ * derived from the URL (sslmode=require etc.).
  */
-function envUrlConfig(rawUrl) {
+export function parsePostgresUrl(rawUrl) {
+  if (typeof rawUrl !== 'string' || !rawUrl.trim()) {
+    throw validationError('The connection string is missing.');
+  }
   let parsed;
   try {
-    parsed = new URL(rawUrl);
+    parsed = new URL(rawUrl.trim());
   } catch {
-    throw validationError('The server database connection string (DATABASE_URL) is invalid.');
+    throw validationError('That connection string is not valid. It should look like postgres://user:password@host:5432/database');
   }
   if (parsed.protocol !== 'postgres:' && parsed.protocol !== 'postgresql:') {
-    throw validationError('DATABASE_URL must be a postgres:// connection string.');
+    throw validationError('The connection string must start with postgres:// or postgresql://.');
   }
+  if (!parsed.hostname) throw validationError('The connection string is missing a host.');
 
   const port = Number(parsed.port) || 5432;
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw validationError('DATABASE_URL contains an invalid port.');
+    throw validationError('The connection string contains an invalid port.');
   }
+
+  const database = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+  if (!database) throw validationError('The connection string is missing a database name.');
+  const user = decodeURIComponent(parsed.username);
+  if (!user) throw validationError('The connection string is missing a username.');
 
   const sslMode = (parsed.searchParams.get('sslmode') || '').toLowerCase();
   const ssl = ['require', 'verify-ca', 'verify-full', 'prefer', 'true', '1'].includes(sslMode) || parsed.searchParams.get('ssl') === 'true';
   const rejectUnauthorized = process.env.RECURA_DB_SSL_REJECT_UNAUTHORIZED !== 'false';
 
-  const config = {
+  return {
     host: parsed.hostname,
     port,
-    database: decodeURIComponent(parsed.pathname.replace(/^\//, '')),
-    user: decodeURIComponent(parsed.username),
-    ssl: ssl ? { rejectUnauthorized } : false,
+    database,
+    user,
+    password: decodeURIComponent(parsed.password),
+    ssl,
+    rejectUnauthorized,
+  };
+}
+
+/** Turns parsed connection-string fields into a pg config. */
+function postgresConfig(p) {
+  const config = {
+    host: p.host,
+    port: p.port,
+    database: p.database,
+    user: p.user,
+    ssl: p.ssl ? { rejectUnauthorized: p.rejectUnauthorized } : false,
     connectionTimeoutMillis: 15000,
     application_name: 'recura',
   };
-  const password = decodeURIComponent(parsed.password);
-  if (password.length > 0) config[PASSWORD_FIELD] = password;
+  if (p.password.length > 0) config.password = p.password;
   return config;
+}
+
+/**
+ * Resolves a postgres:// connection string (DATABASE_URL) into a pg config.
+ * The SSL setting is derived from the URL (sslmode=require etc.).
+ */
+function envUrlConfig(rawUrl) {
+  return postgresConfig(parsePostgresUrl(rawUrl));
 }
 
 function validationError(message) {

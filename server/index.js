@@ -170,6 +170,7 @@ async function handleInstall(req, res, route, body) {
 
   const INSTALL_ACTIONS = {
     'test-connection': () => install.testConnection(body),
+    detect: () => install.detectDatabaseInput(body),
     start: () => install.startInstall(body),
     migrate: () => install.runInstall(token(), body),
     admin: () => install.createAdmin(token(), body),
