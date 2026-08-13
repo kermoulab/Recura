@@ -71,6 +71,52 @@ function authHeaders(key: string): Record<string, string> {
   return { apikey: key, Authorization: `Bearer ${key}` };
 }
 
+export interface PostgrestProbe {
+  /** True when the URL answers like a PostgREST server (OpenAPI at the root). */
+  isPostgrest: boolean;
+  status: number;
+  contentType: string;
+  message?: string;
+}
+
+/**
+ * Determines whether a URL is a PostgREST-compatible API. PostgREST serves an
+ * OpenAPI document at the API root, so fetching `/` and finding an
+ * `openapi`/`swagger` field identifies it. GraphQL-only gateways (e.g. Nhost
+ * / Hasura) or plain web servers answer differently, which lets the installer
+ * tell "schema missing" apart from "this is not a PostgREST API at all".
+ */
+export async function probePostgrest(url: string, key: string): Promise<PostgrestProbe> {
+  const base = resolveRestBase(url);
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...authHeaders(key.trim()),
+  };
+  try {
+    const res = await fetch(base + '/', { headers });
+    const contentType = res.headers.get('content-type') || '';
+    const text = await res.text();
+    let payload: unknown = null;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = null;
+    }
+    const isOpenApi =
+      payload !== null &&
+      typeof payload === 'object' &&
+      ('openapi' in payload || 'swagger' in payload);
+    return { isPostgrest: isOpenApi, status: res.status, contentType };
+  } catch (err) {
+    return {
+      isPostgrest: false,
+      status: 0,
+      contentType: '',
+      message: err instanceof Error ? err.message : 'Network error while probing the database API.',
+    };
+  }
+}
+
 function eqParams(eq?: Record<string, unknown>): string {
   if (!eq) return '';
   const parts: string[] = [];

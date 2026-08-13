@@ -5,7 +5,7 @@ import {
   ShieldCheck, Sparkles, AlertTriangle, CircleCheck, KeyRound,
   Link2, ClipboardPaste, HelpCircle, ArrowRight, Cloud, Copy, ClipboardCheck,
 } from 'lucide-react';
-import { createRestClient } from '../../src/lib/restClient';
+import { createRestClient, probePostgrest } from '../../src/lib/restClient';
 import { RecuraLogoIcon, RecuraWordmark } from '../../src/components/common/RecuraLogo';
 import { api, DbConnectionInput, DbPreset, TestConnectionResult, VerifyResult } from './api';
 import { hashPasswordArgon2id } from '../../src/utils/security';
@@ -334,15 +334,31 @@ export function InstallApp() {
         limit: 1,
       });
       if (error) {
-        // Schema not installed yet: PostgREST reports a missing table
-        // (PGRST205 / "Could not find the table") or a 404.
-        if (/PGRST205|does not exist|relation|undefined_table|404|Could not find the table/i.test(error.message)) {
+        // Distinguish "schema not installed" from "this isn't a PostgREST API".
+        // A missing table on a PostgREST server produces PGRST205 / "Could not
+        // find the table" / "relation ... does not exist". A GraphQL-only
+        // gateway (Nhost, Hasura) or plain web server returns a bare 404 or
+        // HTML — which is NOT a schema problem, so surface that clearly.
+        const isMissingTable = /PGRST205|Could not find the table|relation .* does not exist|undefined_table/i.test(error.message);
+        if (isMissingTable) {
           setHostedState('schema-missing');
           setHostedError(error.message);
           return;
         }
-        setHostedState('error');
-        setHostedError(`Could not reach the database API: ${error.message}`);
+        const probe = await probePostgrest(url, key);
+        if (!probe.isPostgrest) {
+          setHostedState('error');
+          setHostedError(
+            `This URL does not answer like a PostgREST database API (HTTP ${probe.status}${probe.contentType ? `, ${probe.contentType}` : ''}). ` +
+              'The hosted option needs a PostgREST-compatible endpoint, e.g. https://<project>.supabase.co/rest/v1 or a self-hosted PostgREST server. ' +
+              'GraphQL-only providers such as Nhost are not supported here.' +
+              (probe.message ? ` (${probe.message})` : '')
+          );
+          return;
+        }
+        // It is PostgREST but the table is genuinely missing → schema needed.
+        setHostedState('schema-missing');
+        setHostedError(error.message);
         return;
       }
       const adminExists = (users ?? []).some((u) => u.role === 'ADMIN');
@@ -729,7 +745,7 @@ function DatabaseStep({
         >
           <Cloud className="w-5 h-5 text-[#4A90FF]" />
           <p className="text-xs font-extrabold text-[#111827] mt-2">Hosted database (REST API)</p>
-          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Any PostgreSQL over a REST API — no server to manage.</p>
+          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">PostgreSQL over a PostgREST REST API (e.g. Supabase) — no server to manage.</p>
         </button>
         </div>
       )}
@@ -738,10 +754,11 @@ function DatabaseStep({
         <div className="space-y-4">
           <div className="p-4 bg-[#F8FAFC] border border-[#E8EAF0] rounded-2xl space-y-3">
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Works with any PostgreSQL served through a PostgREST-style API — including Supabase. For Supabase,
+              Works with any PostgreSQL served through a PostgREST API — including Supabase. For Supabase,
               paste <span className="font-bold">https://&lt;project&gt;.supabase.co/rest/v1</span> and the{' '}
               <span className="font-bold">anon public key</span> from <span className="font-mono">Project Settings → API</span>.
               For a self-hosted PostgREST server, use its URL. Only public credentials are used — they stay in this browser.
+              The endpoint must speak PostgREST — GraphQL-only providers such as Nhost are not supported here.
             </p>
             <Field label="Database API URL">
               <input className={inputCls} placeholder="https://your-database.example.com" value={hostedUrl} onChange={(e) => setHostedUrl(e.target.value)} disabled={hostedBusy} />
@@ -768,6 +785,11 @@ function DatabaseStep({
                     The database is reachable but the Recura schema is not installed yet. Open your database's SQL
                     console (for Supabase: <span className="font-mono">SQL Editor</span>), paste the schema below, run it,
                     then verify again.
+                    <br />
+                    <span className="font-normal text-amber-700">
+                      Seeing this on a provider like Nhost? The endpoint is not PostgREST, so it can't work with this
+                      option — use the "Self-hosted (PostgreSQL)" backend instead.
+                    </span>
                   </span>
                 </div>
                 <textarea className={inputCls} readOnly rows={8} value={HOSTED_SCHEMA_SQL} spellCheck={false} />
