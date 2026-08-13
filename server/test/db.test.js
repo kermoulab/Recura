@@ -47,3 +47,54 @@ test('db: rejects invalid port', () => {
   assert.throws(() => buildConnConfig({ host: 'h', database: 'd', user: 'u', port: 99999 }), /Port must be/);
   assert.throws(() => buildConnConfig({ host: 'h', database: 'd', user: 'u', port: 'abc' }), /Port must be/);
 });
+
+test('db: resolves the hosting database from DATABASE_URL', () => {
+  const prev = process.env.DATABASE_URL;
+  process.env.DATABASE_URL = 'postgres://user%40x:p%40ss@db.example.com:5433/appdb?sslmode=require';
+  try {
+    const cfg = buildConnConfig({ useEnvDatabase: true });
+    assert.equal(cfg.host, 'db.example.com');
+    assert.equal(cfg.port, 5433);
+    assert.equal(cfg.database, 'appdb');
+    assert.equal(cfg.user, 'user@x');
+    assert.equal(cfg.password, 'p@ss');
+    assert.deepEqual(cfg.ssl, { rejectUnauthorized: true });
+  } finally {
+    if (prev === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = prev;
+  }
+});
+
+test('db: env database without sslmode resolves ssl off', () => {
+  const prev = process.env.DATABASE_URL;
+  process.env.DATABASE_URL = 'postgresql://u:p@h/db';
+  try {
+    const cfg = buildConnConfig({ useEnvDatabase: true });
+    assert.equal(cfg.ssl, false);
+    assert.equal(cfg.port, 5432);
+  } finally {
+    if (prev === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = prev;
+  }
+});
+
+test('db: env database requires DATABASE_URL to be set', () => {
+  const prev = process.env.DATABASE_URL;
+  delete process.env.DATABASE_URL;
+  try {
+    assert.throws(() => buildConnConfig({ useEnvDatabase: true }), /DATABASE_URL is not set/);
+  } finally {
+    if (prev !== undefined) process.env.DATABASE_URL = prev;
+  }
+});
+
+test('db: env database rejects a non-postgres URL', () => {
+  const prev = process.env.DATABASE_URL;
+  process.env.DATABASE_URL = 'mysql://u:p@h/db';
+  try {
+    assert.throws(() => buildConnConfig({ useEnvDatabase: true }), /postgres/);
+  } finally {
+    if (prev === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = prev;
+  }
+});

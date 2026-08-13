@@ -1,12 +1,28 @@
+/// <reference types="vite/client" />
 import React, { useEffect, useState } from 'react';
 import {
   Check, ChevronRight, Database, Loader2, Lock, RefreshCw, Server,
   ShieldCheck, Sparkles, AlertTriangle, CircleCheck, KeyRound,
+  Link2, ClipboardPaste, HelpCircle, ArrowRight, Cloud, Copy, ClipboardCheck,
 } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 import { RecuraLogoIcon, RecuraWordmark } from '../../src/components/common/RecuraLogo';
-import { api, DbConnectionInput, TestConnectionResult, VerifyResult } from './api';
+import { api, DbConnectionInput, DbPreset, TestConnectionResult, VerifyResult } from './api';
+import { hashPasswordArgon2id } from '../../src/utils/security';
+import { saveHostedConfig } from '../../src/lib/hostedBackend';
+
+// Raw SQL used to bootstrap the schema of a brand-new hosted database.
+// The installer cannot run DDL over the Supabase REST API (anon key), so the
+// user pastes this into their provider's SQL editor once, then verifies again.
+import hostedSchema001 from '../../server/migrations/001_initial_schema.sql?raw';
+import hostedSchema002 from '../../server/migrations/002_default_whatsapp_templates.sql?raw';
+import hostedSchema003 from '../../server/migrations/003_order_number_backfill.sql?raw';
+
+const HOSTED_SCHEMA_SQL = [hostedSchema001, hostedSchema002, hostedSchema003].join('\n\n');
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
+type Backend = 'postgres' | 'hosted';
+type HostedState = 'idle' | 'testing' | 'ok' | 'error' | 'schema-missing';
 
 const STEP_LABELS = ['Welcome', 'Database', 'Install', 'Admin', 'Verify', 'Complete'];
 
@@ -46,6 +62,50 @@ const EMPTY_ADMIN: AdminForm = { name: '', username: '', email: '', password: ''
 const USERNAME_REGEX = /^[a-zA-Z0-9_.-]+$/;
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
+const EMPTY_DB: DbConnectionInput = { host: '', port: '5432', database: '', user: '', password: '', ssl: false };
+
+/** Defaults of the database bundled with `docker compose up` (docker-compose.yml). */
+const DOCKER_DB: DbConnectionInput = { host: 'db', port: '5432', database: 'recura', user: 'recura', password: 'recura', ssl: false };
+
+/** Turns a postgres:// connection string (Neon, Supabase, Render, ...) into the form fields. */
+function parseConnectionString(raw: string): { db: DbConnectionInput; error?: string } {
+  const trimmed = raw.trim();
+  if (!/^postgres(ql)?:\/\//i.test(trimmed)) {
+    return { db: EMPTY_DB, error: 'That does not look like a connection string. It should start with postgres:// or postgresql://' };
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { db: EMPTY_DB, error: 'Could not read that connection string. Double-check it and try again.' };
+  }
+  const sslMode = (parsed.searchParams.get('sslmode') || '').toLowerCase();
+  const ssl =
+    ['require', 'verify-ca', 'verify-full', 'prefer', 'true', '1'].includes(sslMode) ||
+    parsed.searchParams.get('ssl') === 'true';
+  return {
+    db: {
+      host: parsed.hostname,
+      port: parsed.port || '5432',
+      database: decodeURIComponent(parsed.pathname.replace(/^\//, '')),
+      user: decodeURIComponent(parsed.username),
+      password: decodeURIComponent(parsed.password),
+      ssl,
+    },
+  };
+}
+
+/** Plain-language follow-up for common connection problems. */
+function friendlyErrorHint(message: string): string | null {
+  if (/auth|password|28P01|password authentication/i.test(message)) return 'Double-check the username and password.';
+  if (/could not reach|ECONNREFUSED|host and port/i.test(message)) return 'Check that the host and port are correct and that the database accepts remote connections.';
+  if (/does not exist/i.test(message)) return 'Create the database first (your database provider has a button for that), then try again.';
+  if (/privileges|permission/i.test(message)) return 'The database user needs permission to create tables. Choose a database with full access.';
+  if (/timeout|timed out/i.test(message)) return 'The connection timed out. Check the host and port, and make sure your network allows it.';
+  if (/ssl|certificate/i.test(message)) return 'Your database requires SSL. Turn on "Use SSL connection" and try again.';
+  return null;
+}
+
 export function InstallApp() {
   const [status, setStatus] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -65,10 +125,29 @@ export function InstallApp() {
   const [admin, setAdmin] = useState<AdminForm>(EMPTY_ADMIN);
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
 
+  const [presets, setPresets] = useState<DbPreset[]>([]);
+  const [useEnv, setUseEnv] = useState(false);
+  const [connOpen, setConnOpen] = useState(false);
+  const [connString, setConnString] = useState('');
+  const [connError, setConnError] = useState<string | null>(null);
+
+  const [backend, setBackend] = useState<Backend>('postgres');
+  const [hostedUrl, setHostedUrl] = useState('');
+  const [hostedKey, setHostedKey] = useState('');
+  const [hostedState, setHostedState] = useState<HostedState>('idle');
+  const [hostedResult, setHostedResult] = useState<string | null>(null);
+  const [hostedError, setHostedError] = useState<string | null>(null);
+  const [hostedBusy, setHostedBusy] = useState(false);
+  const [hostedAdminExists, setHostedAdminExists] = useState(false);
+  const [hostedCopied, setHostedCopied] = useState(false);
+
   useEffect(() => {
     api.getStatus()
       .then((s) => setStatus(s.status))
       .catch((err) => setStatusError(err.message));
+    api.getDbPresets()
+      .then((r) => { if (r.ok) setPresets(r.presets ?? []); })
+      .catch(() => { /* presets are optional */ });
   }, []);
 
   if (statusError) {
@@ -79,10 +158,9 @@ export function InstallApp() {
           <h1 className="text-lg font-extrabold text-[#111827] text-center">Cannot reach the installer service</h1>
           <p className="text-xs text-slate-500 text-center">{statusError}</p>
           <p className="text-xs text-slate-400 text-center leading-relaxed">
-            The installer is served by the Recura server. If you opened this page from a static server
-            (e.g. <code className="font-mono">npm run preview</code>, <code className="font-mono">npx serve</code>, or a
-            hosting provider), start the server with <code className="font-mono">npm run start</code> and open{' '}
-            <code className="font-mono">/install</code> instead.
+            The installer needs to reach a running Recura server. If this page is hosted separately (e.g. Vercel),
+            make sure the <code className="font-mono">VITE_API_URL</code> build setting points at your hosted server.
+            Otherwise open <code className="font-mono">/install</code> on the Recura server itself.
           </p>
           <a href="/install" className="btn-secondary w-full">Reload /install</a>
         </ScreenCard>
@@ -169,26 +247,54 @@ export function InstallApp() {
             onTest={handleTest}
             onNext={handleStart}
             busy={busy}
+            presets={presets}
+            useEnv={useEnv}
+            setUseEnv={setUseEnv}
+            connOpen={connOpen}
+            setConnOpen={setConnOpen}
+            connString={connString}
+            setConnString={setConnString}
+            connError={connError}
+            setConnError={setConnError}
+            onDbChange={() => { setTest(null); setError(null); }}
+            backend={backend}
+            setBackend={setBackend}
+            hostedUrl={hostedUrl}
+            setHostedUrl={setHostedUrl}
+            hostedKey={hostedKey}
+            setHostedKey={setHostedKey}
+            hostedState={hostedState}
+            hostedError={hostedError}
+            hostedResult={hostedResult}
+            hostedBusy={hostedBusy}
+            hostedAdminExists={hostedAdminExists}
+            hostedCopied={hostedCopied}
+            setHostedCopied={setHostedCopied}
+            onHostedTest={handleHostedTest}
+            onHostedAdmin={handleHostedAdmin}
+            onHostedFinish={handleHostedFinish}
+            admin={admin}
+            setAdmin={setAdmin}
           />
         )}
         {step === 2 && <InstallStep migrations={migrations} onNext={() => setStep(3)} />}
         {step === 3 && <AdminStep admin={admin} setAdmin={setAdmin} busy={busy} onSubmit={handleAdmin} />}
         {step === 4 && <VerifyStep result={verifyResult} onNext={handleComplete} busy={busy} />}
-        {step === 5 && <CompleteStep />}
+        {step === 5 && <CompleteStep hosted={backend === 'hosted'} />}
       </div>
     </Shell>
   );
 
   async function handleTest() {
     setError(null);
-    if (!db.host || !db.database || !db.user) {
+    if (!useEnv && (!db.host || !db.database || !db.user)) {
       setError('Host, database name and username are required to test the connection.');
       return;
     }
     setTesting(true);
     setTest(null);
     try {
-      const result = await api.testConnection(db);
+      const result = await api.testConnection(useEnv ? { ...db, useEnvDatabase: true } : db);
       setTest(result);
       if (!result.ok) setError(result.message || 'Connection test failed.');
     } catch (err) {
@@ -196,6 +302,100 @@ export function InstallApp() {
     } finally {
       setTesting(false);
     }
+  }
+
+  async function handleHostedTest() {
+    setError(null);
+    const url = hostedUrl.trim();
+    const key = hostedKey.trim();
+    if (!url || !key) {
+      setHostedState('error');
+      setHostedError('Please paste both the project URL and the anon key.');
+      return;
+    }
+    if (!/^https:\/\/.+/i.test(url)) {
+      setHostedState('error');
+      setHostedError('The project URL must start with https:// (e.g. https://abcd.supabase.co).');
+      return;
+    }
+    setHostedState('testing');
+    setHostedError(null);
+    setHostedResult(null);
+    try {
+      const client = createClient(url, key, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      });
+      const { data: users, error } = await client.from('User').select('id, role').limit(1);
+      if (error) {
+        if (/does not exist|relation|undefined_table|404/i.test(error.message)) {
+          setHostedState('schema-missing');
+          setHostedError(error.message);
+          return;
+        }
+        setHostedState('error');
+        setHostedError(`Could not reach the hosted database: ${error.message}`);
+        return;
+      }
+      const adminExists = (users ?? []).some((u) => u.role === 'ADMIN');
+      setHostedAdminExists(adminExists);
+      setHostedState('ok');
+      setHostedResult(
+        adminExists
+          ? 'Connected. An administrator already exists, so the installation is complete.'
+          : 'Connected and the schema is ready — create your administrator account below.'
+      );
+    } catch (err) {
+      setHostedState('error');
+      setHostedError(err instanceof Error ? err.message : 'Could not reach the hosted database.');
+    }
+  }
+
+  async function handleHostedAdmin() {
+    const name = admin.name.trim();
+    const username = admin.username.trim();
+    const email = admin.email.trim();
+    if (!name) return setHostedError('Full name is required.');
+    if (username.length < 3 || username.length > 40 || /\s/.test(username) || !USERNAME_REGEX.test(username)) {
+      return setHostedError('Username must be 3–40 characters using letters, numbers, _ , - or . only.');
+    }
+    if (!EMAIL_REGEX.test(email)) return setHostedError('Please enter a valid email address.');
+    if (admin.password.length < 6) return setHostedError('Password must be at least 6 characters.');
+    if (admin.password !== admin.confirm) return setHostedError('Passwords do not match.');
+    setHostedBusy(true);
+    setHostedError(null);
+    try {
+      const passwordHash = await hashPasswordArgon2id(admin.password);
+      const client = createClient(hostedUrl.trim(), hostedKey.trim(), {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      });
+      const { error } = await client.from('User').insert({
+        name,
+        username,
+        email: email.toLowerCase(),
+        passwordHash,
+        role: 'ADMIN',
+        currency: 'USD ($)',
+      });
+      if (error) {
+        if (/duplicate|unique/i.test(error.message)) {
+          setHostedError('That email or username is already in use. Choose another one.');
+        } else {
+          setHostedError(`Could not create the administrator account: ${error.message}`);
+        }
+        return;
+      }
+      saveHostedConfig({ provider: 'supabase', url: hostedUrl.trim(), anonKey: hostedKey.trim() });
+      setStep(5);
+    } catch (err) {
+      setHostedError(err instanceof Error ? err.message : 'Could not create the administrator account.');
+    } finally {
+      setHostedBusy(false);
+    }
+  }
+
+  function handleHostedFinish() {
+    saveHostedConfig({ provider: 'supabase', url: hostedUrl.trim(), anonKey: hostedKey.trim() });
+    setStep(5);
   }
 
   async function handleStart() {
@@ -208,7 +408,7 @@ export function InstallApp() {
     setBusy(true);
     setError(null);
     try {
-      const started = await api.startInstall(db, test.state, consent, false);
+      const started = await api.startInstall(useEnv ? { ...db, useEnvDatabase: true } : db, test.state, consent, false);
       if (!started.installToken) {
         setError(started.message || 'Could not start the installation.');
         return;
@@ -361,16 +561,16 @@ const inputCls =
 
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   const items = [
-    { icon: Server, title: 'Your own database', body: 'Point Recura at any PostgreSQL 13+ database you control. Nothing is stored in the browser.' },
-    { icon: Database, title: 'Automatic schema', body: 'Recura creates its schema, templates and your administrator account for you — no SQL needed.' },
-    { icon: ShieldCheck, title: 'Protected after install', body: 'The installer locks itself once finished. Your data stays on your server.' },
+    { icon: Server, title: 'Your data stays yours', body: 'Recura is installed on your own database — your data is never stored in the browser or on a third party.' },
+    { icon: Sparkles, title: 'Almost no setup', body: 'The wizard finds the easiest path for you: paste a connection string, use the database your hosting created, or fill in a few fields.' },
+    { icon: ShieldCheck, title: 'Protected after install', body: 'The installer locks itself once you finish. Your data stays on your server.' },
   ];
   return (
     <ScreenCard>
       <SectionLabel>Welcome to Recura</SectionLabel>
       <p className="text-xs text-slate-500 leading-relaxed">
-        This wizard connects Recura to a PostgreSQL database, installs everything it needs, and creates the first
-        administrator account. You will only need the database host, port, name and credentials.
+        This short wizard connects Recura to a database, installs everything it needs, and creates your first
+        administrator account. It takes about 2 minutes and there is nothing technical to understand.
       </p>
       <div className="space-y-3">
         {items.map(({ icon: Icon, title, body }) => (
@@ -382,6 +582,19 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
             </div>
           </div>
         ))}
+      </div>
+      <div className="p-3.5 bg-blue-50/60 border border-blue-200 rounded-2xl space-y-1.5">
+        <p className="text-[11px] font-extrabold text-[#111827] flex items-center gap-1.5">
+          <HelpCircle className="w-3.5 h-3.5 text-[#4A90FF]" /> What you will need
+        </p>
+        <p className="text-[11px] text-slate-600 leading-relaxed">
+          One of: <span className="font-bold text-slate-800">a database your hosting already created</span>,{' '}
+          <span className="font-bold text-slate-800">a connection string</span> from a free database provider
+          (<a className="text-[#4A90FF] font-bold underline" href="https://neon.tech" target="_blank" rel="noreferrer">Neon</a>,{' '}
+          <a className="text-[#4A90FF] font-bold underline" href="https://supabase.com" target="_blank" rel="noreferrer">Supabase</a>,{' '}
+          <a className="text-[#4A90FF] font-bold underline" href="https://render.com" target="_blank" rel="noreferrer">Render</a>), or{' '}
+          <span className="font-bold text-slate-800">a few connection details</span>. Plus an email and a password for your login.
+        </p>
       </div>
       <button className="btn-primary w-full" onClick={onNext}>
         Begin Installation <ChevronRight className="w-4 h-4" />
@@ -402,55 +615,306 @@ interface DatabaseStepProps {
   onTest: () => void;
   onNext: () => void;
   busy: boolean;
+  presets: DbPreset[];
+  useEnv: boolean;
+  setUseEnv: React.Dispatch<React.SetStateAction<boolean>>;
+  connOpen: boolean;
+  setConnOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  connString: string;
+  setConnString: React.Dispatch<React.SetStateAction<string>>;
+  connError: string | null;
+  setConnError: React.Dispatch<React.SetStateAction<string | null>>;
+  onDbChange: () => void;
+  backend: Backend;
+  setBackend: React.Dispatch<React.SetStateAction<Backend>>;
+  hostedUrl: string;
+  setHostedUrl: React.Dispatch<React.SetStateAction<string>>;
+  hostedKey: string;
+  setHostedKey: React.Dispatch<React.SetStateAction<string>>;
+  hostedState: HostedState;
+  hostedError: string | null;
+  hostedResult: string | null;
+  hostedBusy: boolean;
+  hostedAdminExists: boolean;
+  hostedCopied: boolean;
+  setHostedCopied: React.Dispatch<React.SetStateAction<boolean>>;
+  onHostedTest: () => void;
+  onHostedAdmin: () => void;
+  onHostedFinish: () => void;
+  admin: AdminForm;
+  setAdmin: React.Dispatch<React.SetStateAction<AdminForm>>;
 }
 
-function DatabaseStep({ db, setDb, test, testing, consent, setConsent, onTest, onNext, busy }: DatabaseStepProps) {
+function DatabaseStep({
+  db, setDb, test, testing, consent, setConsent, onTest, onNext, busy,
+  presets, useEnv, setUseEnv, connOpen, setConnOpen, connString, setConnString,
+  connError, setConnError, onDbChange,
+  backend, setBackend,
+  hostedUrl, setHostedUrl, hostedKey, setHostedKey,
+  hostedState, hostedError, hostedResult, hostedBusy, hostedAdminExists,
+  hostedCopied, setHostedCopied,
+  onHostedTest, onHostedAdmin, onHostedFinish,
+  admin, setAdmin,
+}: DatabaseStepProps) {
   const set = (k: keyof DbConnectionInput) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = k === 'ssl' ? e.target.checked : e.target.value;
+    setUseEnv(false);
+    onDbChange();
     setDb((prev) => ({ ...prev, [k]: value }));
+  };
+
+  const applyConnString = () => {
+    const { db: parsed, error } = parseConnectionString(connString);
+    setConnError(error ?? null);
+    if (!error) {
+      setUseEnv(false);
+      onDbChange();
+      setDb(parsed);
+      setConnOpen(false);
+      setConnString('');
+    }
   };
 
   const needsConsent = test?.ok && (test.state === 'partial' || test.state === 'unrelated' || (test.state === 'complete' && test.migrated !== true));
   const ready = test?.ok === true && (!needsConsent || consent);
 
+  const setAdminField = (k: keyof AdminForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setAdmin((prev) => ({ ...prev, [k]: e.target.value }));
+
+  const copySchemaSql = async () => {
+    try {
+      await navigator.clipboard.writeText(HOSTED_SCHEMA_SQL);
+      setHostedCopied(true);
+      window.setTimeout(() => setHostedCopied(false), 2500);
+    } catch {
+      /* clipboard blocked — the SQL stays visible to copy manually */
+    }
+  };
+
   return (
     <ScreenCard>
       <SectionLabel>Database Connection</SectionLabel>
       <p className="text-xs text-slate-500 leading-relaxed">
-        Enter the details of the PostgreSQL database Recura should use. The installer will test the connection before touching anything.
+        Recura stores everything in a PostgreSQL database. Pick the option that fits you best.
       </p>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 sm:col-span-1">
-          <Field label="Host">
-            <input className={inputCls} placeholder="db.example.com" value={db.host} onChange={set('host')} disabled={busy} />
-          </Field>
-        </div>
-        <div className="col-span-1">
-          <Field label="Port">
-            <input className={inputCls} type="number" placeholder="5432" value={db.port} onChange={set('port')} disabled={busy} />
-          </Field>
-        </div>
-        <div className="col-span-2">
-          <Field label="Database Name">
-            <input className={inputCls} placeholder="recura" value={db.database} onChange={set('database')} disabled={busy} />
-          </Field>
-        </div>
-        <div className="col-span-2 sm:col-span-1">
-          <Field label="Username">
-            <input className={inputCls} autoComplete="username" placeholder="postgres" value={db.user} onChange={set('user')} disabled={busy} />
-          </Field>
-        </div>
-        <div className="col-span-2 sm:col-span-1">
-          <Field label="Password">
-            <input className={inputCls} type="password" autoComplete="current-password" value={db.password} onChange={set('password')} disabled={busy} />
-          </Field>
-        </div>
+      {/* Backend choice */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button
+          className={`text-left rounded-2xl border-2 p-4 transition-all ${backend === 'postgres' ? 'border-[#4A90FF] bg-blue-50/60' : 'border-[#E8EAF0] bg-[#F8FAFC] hover:border-slate-300'}`}
+          onClick={() => setBackend('postgres')}
+          disabled={busy}
+        >
+          <Server className="w-5 h-5 text-[#4A90FF]" />
+          <p className="text-xs font-extrabold text-[#111827] mt-2">Self-hosted (Recommended)</p>
+          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Your own PostgreSQL, installed by the Recura server.</p>
+        </button>
+        <button
+          className={`text-left rounded-2xl border-2 p-4 transition-all ${backend === 'hosted' ? 'border-[#4A90FF] bg-blue-50/60' : 'border-[#E8EAF0] bg-[#F8FAFC] hover:border-slate-300'}`}
+          onClick={() => setBackend('hosted')}
+          disabled={busy}
+        >
+          <Cloud className="w-5 h-5 text-[#4A90FF]" />
+          <p className="text-xs font-extrabold text-[#111827] mt-2">Hosted (Supabase)</p>
+          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">No server to manage — the app talks to a hosted database directly.</p>
+        </button>
       </div>
 
+      {backend === 'hosted' ? (
+        <div className="space-y-4">
+          <div className="p-4 bg-[#F8FAFC] border border-[#E8EAF0] rounded-2xl space-y-3">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Create a project on <span className="font-bold">Supabase</span>, then copy its <span className="font-bold">Project URL</span> and{' '}
+              <span className="font-bold">anon public key</span> from <span className="font-mono">Project Settings → API</span>. Only the public key is used — it stays in this browser.
+            </p>
+            <Field label="Project URL">
+              <input className={inputCls} placeholder="https://abcdefgh.supabase.co" value={hostedUrl} onChange={(e) => setHostedUrl(e.target.value)} disabled={hostedBusy} />
+            </Field>
+            <Field label="Anon (public) key">
+              <input className={inputCls} type="password" autoComplete="off" placeholder="eyJhbGciOi..." value={hostedKey} onChange={(e) => setHostedKey(e.target.value)} disabled={hostedBusy} />
+            </Field>
+            <button className="btn-secondary w-full" onClick={onHostedTest} disabled={hostedBusy || hostedState === 'testing'}>
+              {hostedState === 'testing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
+              {hostedState === 'testing' ? 'Checking…' : 'Verify connection & schema'}
+            </button>
+
+            {hostedState === 'error' && (
+              <div className="flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-bold text-rose-800">
+                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" /> {hostedError}
+              </div>
+            )}
+
+            {hostedState === 'schema-missing' && (
+              <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <div className="flex items-start gap-2.5 text-xs font-bold text-amber-900">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>
+                    The project is reachable but the Recura schema is not installed yet. Open Supabase →{' '}
+                    <span className="font-mono">SQL Editor</span>, paste the schema below, run it, then verify again.
+                  </span>
+                </div>
+                <textarea className={inputCls} readOnly rows={8} value={HOSTED_SCHEMA_SQL} spellCheck={false} />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button className="btn-primary flex-1 !py-2 text-xs" onClick={copySchemaSql}>
+                    {hostedCopied ? <ClipboardCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {hostedCopied ? 'Copied' : 'Copy the schema'}
+                  </button>
+                  <button className="btn-secondary flex-1 !py-2 text-xs" onClick={onHostedTest} disabled={hostedBusy}>
+                    <RefreshCw className="w-4 h-4" /> I ran it — check again
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {hostedState === 'ok' && (
+              <div className="flex items-start gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-bold text-emerald-800">
+                <CircleCheck className="w-5 h-5 text-emerald-500 shrink-0" /> {hostedResult}
+              </div>
+            )}
+
+            {hostedState === 'ok' && hostedAdminExists && (
+              <button className="btn-primary w-full" onClick={onHostedFinish}>
+                <ShieldCheck className="w-4 h-4" /> Finish installation
+              </button>
+            )}
+
+            {hostedState === 'ok' && !hostedAdminExists && (
+              <div className="space-y-3 border-t border-[#E8EAF0] pt-4">
+                <p className="text-xs font-extrabold text-[#111827]">Administrator Account</p>
+                <Field label="Full Name"><input className={inputCls} placeholder="System Owner" value={admin.name} onChange={setAdminField('name')} disabled={hostedBusy} /></Field>
+                <Field label="Username"><input className={inputCls} autoComplete="username" placeholder="admin" value={admin.username} onChange={setAdminField('username')} disabled={hostedBusy} /></Field>
+                <Field label="Email"><input className={inputCls} type="email" autoComplete="email" placeholder="admin@example.com" value={admin.email} onChange={setAdminField('email')} disabled={hostedBusy} /></Field>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Password"><input className={inputCls} type="password" autoComplete="new-password" value={admin.password} onChange={setAdminField('password')} disabled={hostedBusy} /></Field>
+                  <Field label="Confirm Password"><input className={inputCls} type="password" autoComplete="new-password" value={admin.confirm} onChange={setAdminField('confirm')} disabled={hostedBusy} /></Field>
+                </div>
+                {hostedError && (
+                  <div className="flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-bold text-rose-800">
+                    <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" /> {hostedError}
+                  </div>
+                )}
+                <button className="btn-primary w-full" onClick={onHostedAdmin} disabled={hostedBusy}>
+                  {hostedBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                  {hostedBusy ? 'Creating…' : 'Create administrator & finish'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+      <>
+      {/* Quick setup: one-click options for non-technical users */}
+      <div className="space-y-2.5">
+        {presets.map((p) => (
+          <div key={p.id} className="flex items-start gap-3 p-3.5 bg-blue-50/60 border border-blue-200 rounded-2xl">
+            <Server className="w-5 h-5 text-[#4A90FF] shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-extrabold text-[#111827]">{p.label}</p>
+              {p.hint && <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{p.hint}</p>}
+            </div>
+            <button
+              className="btn-primary !px-4 !py-2 text-[11px] shrink-0"
+              onClick={() => { setUseEnv(true); onDbChange(); }}
+              disabled={busy}
+            >
+              Use it
+            </button>
+          </div>
+        ))}
+
+        <div className="flex items-start gap-3 p-3.5 bg-[#F8FAFC] rounded-2xl border border-[#E8EAF0]">
+          <Database className="w-5 h-5 text-[#4A90FF] shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-extrabold text-[#111827]">Using Docker?</p>
+            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+              If you started Recura with <code className="font-mono">docker compose up</code>, a database is already included.
+            </p>
+          </div>
+          <button
+            className="btn-secondary !px-4 !py-2 text-[11px] shrink-0"
+            onClick={() => { setUseEnv(false); onDbChange(); setDb(DOCKER_DB); }}
+            disabled={busy}
+          >
+            Fill it in
+          </button>
+        </div>
+
+        <button
+          className="w-full flex items-center justify-center gap-2 text-xs font-extrabold text-[#4A90FF] hover:text-[#2f74e6] transition-colors py-1"
+          onClick={() => setConnOpen((v) => !v)}
+          disabled={busy}
+        >
+          <Link2 className="w-4 h-4" /> {connOpen ? 'Hide connection string' : 'I have a connection string instead'}
+        </button>
+      </div>
+
+      {connOpen && (
+        <div className="space-y-3 p-4 bg-[#F8FAFC] border border-[#E8EAF0] rounded-2xl">
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            Your database provider (Neon, Supabase, Render, …) gives you a connection string that starts with{' '}
+            <code className="font-mono">postgres://</code>. Paste it here and we will fill in the fields for you.
+          </p>
+          <textarea
+            className={inputCls}
+            rows={3}
+            placeholder="postgresql://user:password@host:5432/database?sslmode=require"
+            value={connString}
+            onChange={(e) => { setConnString(e.target.value); setConnError(null); }}
+            disabled={busy}
+          />
+          {connError && <p className="text-[11px] font-bold text-rose-700">{connError}</p>}
+          <button className="btn-primary w-full !py-2 text-xs" onClick={applyConnString} disabled={busy}>
+            <ClipboardPaste className="w-4 h-4" /> Fill in the fields from this string
+          </button>
+        </div>
+      )}
+
+      {useEnv ? (
+        <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-1.5">
+          <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-800">
+            <Check className="w-4 h-4 text-emerald-500" /> Using the hosting database
+          </div>
+          <p className="text-[11px] text-slate-600 leading-relaxed">
+            The server will connect using the database configured by your hosting provider. There is nothing to fill
+            in — just test the connection below.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 sm:col-span-1">
+            <Field label="Host">
+              <input className={inputCls} placeholder="db.example.com" value={db.host} onChange={set('host')} disabled={busy} />
+            </Field>
+          </div>
+          <div className="col-span-1">
+            <Field label="Port">
+              <input className={inputCls} type="number" placeholder="5432" value={db.port} onChange={set('port')} disabled={busy} />
+            </Field>
+          </div>
+          <div className="col-span-2">
+            <Field label="Database Name">
+              <input className={inputCls} placeholder="recura" value={db.database} onChange={set('database')} disabled={busy} />
+            </Field>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <Field label="Username">
+              <input className={inputCls} autoComplete="username" placeholder="postgres" value={db.user} onChange={set('user')} disabled={busy} />
+            </Field>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <Field label="Password">
+              <input className={inputCls} type="password" autoComplete="current-password" value={db.password} onChange={set('password')} disabled={busy} />
+            </Field>
+          </div>
+        </div>
+      )}
+
       <label className="flex items-center gap-2.5 text-xs font-bold text-slate-600 cursor-pointer select-none">
-        <input type="checkbox" checked={db.ssl} onChange={set('ssl')} className="w-4 h-4 accent-[#4A90FF]" disabled={busy} />
+        <input type="checkbox" checked={db.ssl} onChange={set('ssl')} className="w-4 h-4 accent-[#4A90FF]" disabled={busy || useEnv} />
         Use SSL connection
+        <span className="inline-flex items-center gap-1 text-slate-400 font-semibold" title="Cloud databases (Neon, Supabase, Render, Railway) usually need this. Local databases usually do not.">
+          <HelpCircle className="w-3.5 h-3.5" />
+        </span>
       </label>
 
       <div className="flex items-center gap-3">
@@ -458,6 +922,7 @@ function DatabaseStep({ db, setDb, test, testing, consent, setConsent, onTest, o
           {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
           {testing ? 'Testing…' : 'Test Connection'}
         </button>
+        <span className="text-[11px] text-slate-400 font-semibold">We check the connection before installing anything.</span>
       </div>
 
       {test && (
@@ -481,8 +946,13 @@ function DatabaseStep({ db, setDb, test, testing, consent, setConsent, onTest, o
               )}
             </>
           ) : (
-            <div className="flex items-center gap-2 font-bold text-rose-800">
-              <AlertTriangle className="w-4 h-4 text-rose-500" /> {test.message || 'Connection failed.'}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-rose-800">
+                <AlertTriangle className="w-4 h-4 text-rose-500" /> {test.message || 'Connection failed.'}
+              </div>
+              {friendlyErrorHint(test.message || '') && (
+                <p className="text-rose-700/80 font-semibold">Tip: {friendlyErrorHint(test.message || '')}</p>
+              )}
             </div>
           )}
         </div>
@@ -501,6 +971,8 @@ function DatabaseStep({ db, setDb, test, testing, consent, setConsent, onTest, o
       <button className="btn-primary w-full" onClick={onNext} disabled={!ready || busy}>
         Continue <ChevronRight className="w-4 h-4" />
       </button>
+      </>
+      )}
     </ScreenCard>
   );
 }
@@ -615,13 +1087,15 @@ function VerifyStep({ result, onNext, busy }: { result: VerifyResult | null; onN
 
 /* ------------------------------------------------------------------ */
 
-function CompleteStep() {
+function CompleteStep({ hosted = false }: { hosted?: boolean }) {
   return (
     <ScreenCard>
       <CircleCheck className="w-10 h-10 text-emerald-500 mx-auto" />
       <h1 className="text-lg font-extrabold text-[#111827] text-center">Installation Complete</h1>
       <p className="text-xs text-slate-500 text-center leading-relaxed">
-        Recura is installed and its installer is now locked. Log in with the administrator account you just created.
+        {hosted
+          ? 'Recura is connected to your hosted database. The app now talks to it directly — no server to manage. Log in with the administrator account you just created.'
+          : 'Recura is installed and its installer is now locked. Log in with the administrator account you just created.'}
       </p>
       <a href="/" className="btn-primary w-full">
         <Lock className="w-4 h-4" /> Go to Log in

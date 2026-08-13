@@ -3,6 +3,8 @@ import { DatabaseAdapter, contextualizeError } from '../types';
 
 export interface UserProfileRepository {
   fetchAll(): Promise<UserProfile[]>;
+  /** Resolves one user by email or username (case-insensitive). Used by hosted-backend login. */
+  findByIdentifier(identifier: string): Promise<UserProfile | null>;
   insert(profile: UserProfile): Promise<UserProfile>;
   update(profile: UserProfile): Promise<UserProfile>;
   delete(id: string): Promise<void>;
@@ -52,6 +54,22 @@ export function createUserProfileRepository(adapter: DatabaseAdapter): UserProfi
       } catch (err) {
         console.warn('Failed to fetch user profiles:', err);
         return [];
+      }
+    },
+
+    async findByIdentifier(identifier) {
+      try {
+        const rows = await adapter.list<UserProfileRow>('User', { limit: 100 });
+        const clean = identifier.toLowerCase();
+        const found = rows.find(
+          (r) =>
+            (r.email || '').toLowerCase() === clean ||
+            (r.username || '').toLowerCase() === clean
+        );
+        return found ? formatFromDb(found) : null;
+      } catch (err) {
+        console.warn('Failed to look up user profile:', err);
+        return null;
       }
     },
 

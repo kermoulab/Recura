@@ -3,12 +3,14 @@ import { KeyRound, User, AlertTriangle, Eye, EyeOff, Clock, ShieldCheck } from '
 import { UserProfile, UserSession, AuditLog } from '../../types/erp';
 import { RecuraLogoIcon, RecuraWordmark } from '../common/RecuraLogo';
 import { DatabaseError } from '../../db/types';
+import { getDatabase, getDatabaseMode } from '../../db';
 import { apiPost, setApiToken } from '../../lib/apiClient';
 import {
   securityRateLimiter,
   stripControlCharacters,
   sanitizeInput as securitySanitize,
   createSecureSessionToken,
+  verifyArgon2idPassword,
 } from '../../utils/security';
 
 interface LoginViewProps {
@@ -87,6 +89,32 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
       if (!cleanUsername || !cleanPassword) {
         setError('Invalid username or password.');
         onAuditLog?.('FAILED_LOGIN', 'Login attempt with empty username or password', 'FAILED');
+        return;
+      }
+
+      // Hosted backend mode: the app talks to the hosted database directly, so
+      // the password hash is verified locally (Argon2id) against the User table.
+      if (getDatabaseMode() === 'supabase') {
+        const profile = await getDatabase().userProfiles.findByIdentifier(cleanUsername);
+        const valid = Boolean(profile) && (await verifyArgon2idPassword(cleanPassword, profile?.passwordHash));
+        if (!valid || !profile) {
+          onAuditLog?.('FAILED_LOGIN', `Failed login attempt for identifier: ${cleanUsername}`, 'FAILED');
+          const nextAttempts = failedAttempts + 1;
+          setFailedAttempts(nextAttempts);
+          if (nextAttempts >= MAX_FAILED_ATTEMPTS) {
+            setLockoutTimer(LOCKOUT_DURATION_SECONDS);
+            setError(`Too many failed attempts. Login locked for ${LOCKOUT_DURATION_SECONDS}s.`);
+            return;
+          }
+          setError('Invalid username or password.');
+          return;
+        }
+
+        const session = createSecureSessionToken(profile.id, profile.email, profile.fullName);
+        onAuditLog?.('LOGIN', `User ${profile.fullName} (${profile.email}) authenticated via hosted database.`, 'SUCCESS');
+        setFailedAttempts(0);
+        setLockoutTimer(0);
+        onLoginSuccess(profile, session);
         return;
       }
 

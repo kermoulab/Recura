@@ -51,54 +51,52 @@ Recura Subscription ERP is an enterprise-grade management platform tailored for 
 
 ---
 
-## 💻 Local Installation & Setup
+## 💻 Installation (easy, no technical knowledge needed)
 
-### Prerequisites
-- **Node.js**: `v18.0.0` or higher
-- **npm**: `v9.0.0` or higher (or `yarn` / `pnpm`)
+Recura installs itself through a friendly wizard. You only need a place to run it and a database — the wizard
+walks you through both. Pick the option that fits you:
 
-### Steps
+### Option A — Docker (recommended, one command)
 
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/your-org/recura-subscription-erp.git
-   cd recura-subscription-erp
-   ```
+If you have [Docker](https://www.docker.com/products/docker-desktop/) installed, everything (app + database)
+starts with one command:
 
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Start Development Server**
-   ```bash
-   npm run dev
-   ```
-
-4. **Access the Application**
-   Open your browser and navigate to `http://localhost:3000`.
-
----
-
-## 📦 Production Build & Live Deployment
-
-### Building for Production
-To generate optimized production assets:
 ```bash
+docker compose up -d
+```
+
+Then open **http://localhost:8787/install**, click **"Using Docker? Fill it in"** in the wizard, and press
+**Test Connection** → **Continue**. The bundled database is already configured for you.
+
+### Option B — Render (one click, runs in the cloud)
+
+1. Push this repo to GitHub.
+2. On [Render](https://render.com), choose **New + → Blueprint** and connect the repo.
+3. Render creates the app **and a database** automatically.
+4. Open `https://<your-service>.onrender.com/install` and click **"Use the database provided by my hosting"** →
+   **Test Connection** → **Continue**. Done.
+
+### Option C — Manual (developers)
+
+Prerequisites: **Node.js 18+**, **npm**, and a PostgreSQL 13+ database.
+
+```bash
+npm install
 npm run build
-```
-The compiled static assets will be located in the `dist/` directory.
-
-### Preview Production Build Locally
-```bash
-npm run preview
+npm start
 ```
 
-### Deploying Live
-The application produces a standard single-page application (SPA) output in `dist/`. You can deploy it to any modern web hosting service or CDN platform:
-- **Vercel / Netlify**: Connect your Git repository and set build command to `npm run build` with output directory `dist`.
-- **Cloud Run / Docker**: Serve the `dist/` folder using Nginx, Caddy, or Node.js static server.
-- **S3 / Cloudfront / Firebase Hosting**: Upload the contents of `dist/` directly.
+Open **http://localhost:8787/install** and follow the wizard. You can paste a `postgres://` connection string
+from your database provider (Neon, Supabase, Render, …) or fill the fields by hand — the installer tests the
+connection and creates everything for you.
+
+> **Hosting the interface separately (e.g. Vercel)?** Deploy the server first (Options A or B), then build the
+> front-end with `VITE_API_URL="https://<your-server>"` and set the server's
+> `RECURA_CORS_ORIGINS` to your site's address. The `/install` wizard also works on the static host and talks
+> to the server over CORS.
+
+After installation, log in with the administrator account you created in the wizard. The installer locks itself
+once finished.
 
 ---
 

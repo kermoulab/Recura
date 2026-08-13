@@ -155,6 +155,23 @@ export function getStatus() {
   return { status: getInstallStatus() };
 }
 
+/**
+ * Read-only, secret-free database presets offered by the installer wizard so
+ * non-technical users do not have to understand connection details. Never
+ * includes passwords or any credential material.
+ */
+export function getDbPresets() {
+  const presets = [];
+  if (typeof process.env.DATABASE_URL === 'string' && process.env.DATABASE_URL.trim()) {
+    presets.push({
+      id: 'env',
+      label: 'Use the database provided by my hosting',
+      hint: 'Your hosting created a database for this server (DATABASE_URL). Nothing to configure.',
+    });
+  }
+  return { ok: true, presets };
+}
+
 export async function testConnection(body) {
   let config;
   let client;

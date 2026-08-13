@@ -3,12 +3,13 @@
 # How to use:
 #   1. Push this repo to GitHub.
 #   2. In Render: New +  ->  Blueprint  ->  connect this repo.
-#   3. Set RECURA_CORS_ORIGINS when prompted to your SPA origin
-#      (e.g. https://recura-rosy.vercel.app).
-#   4. Open the deployed service URL, run the installer at /install, and
-#      connect YOUR Postgres (any host you choose).
+#   3. Render creates BOTH the app and a PostgreSQL database automatically.
+#   4. Open the deployed service URL, run the installer at /install, and click
+#      "Use the database provided by my hosting" — the wizard connects to the
+#      database Render created for you. Nothing else to configure.
 #   5. When building/hosting the SPA separately (Vercel), set its build env:
 #      VITE_API_URL="https://<this-service>.onrender.com"
+#      and this server's RECURA_CORS_ORIGINS to your SPA origin.
 #
 # NOTE: Persistent Disks require a paid Render instance type (free plan has no
 # disk). The disk keeps the installer state and DB config across restarts.
@@ -32,7 +33,17 @@ services:
         value: /var/data/recura
       - key: RECURA_CORS_ORIGINS
         sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: recura-db
+          property: connectionString
     disk:
       name: recura-data
       mountPath: /var/data/recura
       sizeGB: 1
+
+databases:
+  - name: recura-db
+    databaseName: recura
+    user: recura
+    plan: free

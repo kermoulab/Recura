@@ -272,6 +272,9 @@ function handleApi(req, res, urlPath, body) {
   if (req.method === 'GET' && area === 'install' && route === 'status') {
     return handleInstallStatus(res);
   }
+  if (req.method === 'GET' && area === 'install' && route === 'presets') {
+    return sendJson(res, 200, install.getDbPresets());
+  }
   if (req.method === 'GET' && area === 'csrf') {
     return handleCsrf(res);
   }

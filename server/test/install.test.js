@@ -173,3 +173,23 @@ test('install: session-expired operations are rejected', async () => {
     cleanupEnv(dir);
   }
 });
+
+test('install: db presets expose the hosting database and never leak secrets', async () => {
+  const prev = process.env.DATABASE_URL;
+  try {
+    delete process.env.DATABASE_URL;
+    let res = install.getDbPresets();
+    assert.equal(res.ok, true);
+    assert.deepEqual(res.presets, []);
+
+    process.env.DATABASE_URL = 'postgres://user:secret@host:5432/db';
+    res = install.getDbPresets();
+    assert.equal(res.presets.length, 1);
+    assert.equal(res.presets[0].id, 'env');
+    const json = JSON.stringify(res);
+    assert.ok(!json.includes('secret'));
+  } finally {
+    if (prev === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = prev;
+  }
+});

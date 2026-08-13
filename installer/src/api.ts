@@ -14,6 +14,19 @@ export interface DbConnectionInput {
   user: string;
   password: string;
   ssl: boolean;
+  /** True when the server should connect using its own DATABASE_URL (hosting-provided database). */
+  useEnvDatabase?: boolean;
+}
+
+export interface DbPreset {
+  id: string;
+  label: string;
+  hint?: string;
+}
+
+export interface DbPresetsResponse {
+  ok: boolean;
+  presets: DbPreset[];
 }
 
 export interface InstallStatus {
@@ -148,6 +161,12 @@ export const api = {
     const res = await fetch(apiUrl('/api/install/status'), { credentials: 'include' });
     if (!res.ok) throw new Error(`Could not reach the Recura server at ${apiUrl('/api/install/status')}. Is it running?`);
     return (await parseJsonOrThrow(res, '/api/install/status')) as InstallStatus;
+  },
+
+  getDbPresets: async (): Promise<DbPresetsResponse> => {
+    const res = await fetch(apiUrl('/api/install/presets'), { credentials: 'include' });
+    if (!res.ok) return { ok: false, presets: [] };
+    return (await parseJsonOrThrow(res, '/api/install/presets')) as DbPresetsResponse;
   },
 
   testConnection: (db: DbConnectionInput): Promise<TestConnectionResult> =>

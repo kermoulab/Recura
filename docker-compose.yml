@@ -1,0 +1,44 @@
+# Recura — one-command self-hosted install.
+#
+#   docker compose up -d
+#
+# Starts the Recura server AND a PostgreSQL database together. Then open
+# http://localhost:8787/install and click "Using Docker? Fill it in" in the
+# wizard — everything is already wired up.
+#
+# To reach it from another computer, replace "8787:8787" with "0.0.0.0:8787:8787".
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: recura
+      POSTGRES_USER: recura
+      POSTGRES_PASSWORD: recura
+    volumes:
+      - recura-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U recura -d recura"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  recura:
+    build: .
+    ports:
+      - "8787:8787"
+    environment:
+      NODE_ENV: production
+      RECURA_DATA_DIR: /data
+      # Bundled database — the wizard's "Use the database provided by my hosting"
+      # option connects through this automatically.
+      DATABASE_URL: postgres://recura:recura@db:5432/recura?sslmode=disable
+    volumes:
+      - recura-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  recura-db:
+  recura-data:

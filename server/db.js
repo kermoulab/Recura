@@ -16,10 +16,21 @@ const PASSWORD_FIELD = 'password';
 /**
  * Validates and normalizes raw installer input into a pg connection config.
  * Rejects anything malformed. The password is kept in memory only.
+ *
+ * When input.useEnvDatabase is true, the connection is resolved from the
+ * server's own DATABASE_URL environment variable, so the database password
+ * never has to leave the hosting provider (e.g. a Render managed Postgres).
  */
 export function buildConnConfig(input) {
   if (!input || typeof input !== 'object') {
     throw validationError('Connection details are required.');
+  }
+  if (input.useEnvDatabase === true) {
+    const envUrl = typeof process.env.DATABASE_URL === 'string' ? process.env.DATABASE_URL.trim() : '';
+    if (!envUrl) {
+      throw validationError('No hosting database is configured on this server (DATABASE_URL is not set).');
+    }
+    return envUrlConfig(envUrl);
   }
   const host = typeof input.host === 'string' ? input.host.trim() : '';
   if (!host) throw validationError('Host is required.');
@@ -55,6 +66,44 @@ export function buildConnConfig(input) {
     connectionTimeoutMillis: 15000,
     application_name: 'recura',
   };
+  if (password.length > 0) config[PASSWORD_FIELD] = password;
+  return config;
+}
+
+/**
+ * Resolves a postgres:// connection string (DATABASE_URL) into a pg config.
+ * The SSL setting is derived from the URL (sslmode=require etc.).
+ */
+function envUrlConfig(rawUrl) {
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw validationError('The server database connection string (DATABASE_URL) is invalid.');
+  }
+  if (parsed.protocol !== 'postgres:' && parsed.protocol !== 'postgresql:') {
+    throw validationError('DATABASE_URL must be a postgres:// connection string.');
+  }
+
+  const port = Number(parsed.port) || 5432;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw validationError('DATABASE_URL contains an invalid port.');
+  }
+
+  const sslMode = (parsed.searchParams.get('sslmode') || '').toLowerCase();
+  const ssl = ['require', 'verify-ca', 'verify-full', 'prefer', 'true', '1'].includes(sslMode) || parsed.searchParams.get('ssl') === 'true';
+  const rejectUnauthorized = process.env.RECURA_DB_SSL_REJECT_UNAUTHORIZED !== 'false';
+
+  const config = {
+    host: parsed.hostname,
+    port,
+    database: decodeURIComponent(parsed.pathname.replace(/^\//, '')),
+    user: decodeURIComponent(parsed.username),
+    ssl: ssl ? { rejectUnauthorized } : false,
+    connectionTimeoutMillis: 15000,
+    application_name: 'recura',
+  };
+  const password = decodeURIComponent(parsed.password);
   if (password.length > 0) config[PASSWORD_FIELD] = password;
   return config;
 }
