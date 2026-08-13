@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { KeyRound, User, AlertTriangle, Eye, EyeOff, Clock, ShieldCheck } from 'lucide-react';
 import { UserProfile, UserSession, AuditLog } from '../../types/erp';
 import { RecuraLogoIcon, RecuraWordmark } from '../common/RecuraLogo';
+import { DatabaseError } from '../../db/types';
+import { apiPost, setApiToken } from '../../lib/apiClient';
 import {
   securityRateLimiter,
   stripControlCharacters,
@@ -88,32 +90,33 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
         return;
       }
 
-      // Step 2: Server-side authentication
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: cleanUsername, password: cleanPassword }),
-      });
+      // Step 2: Server-side authentication (CSRF + error normalization handled by the API client)
+      let data: { token: string; user: { id: string; name: string; username?: string; email: string; role: UserProfile['role'] } };
+      try {
+        data = await apiPost('/api/auth/login', { identifier: cleanUsername, password: cleanPassword });
+      } catch (err) {
+        const isAuthFailure = err instanceof DatabaseError && (err.code === 'AUTH_FAILED' || err.code === 'PERMISSION_DENIED');
+        if (isAuthFailure) {
+          const nextAttempts = failedAttempts + 1;
+          setFailedAttempts(nextAttempts);
+          onAuditLog?.('FAILED_LOGIN', `Failed login attempt for identifier: ${cleanUsername}`, 'FAILED');
 
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        const nextAttempts = failedAttempts + 1;
-        setFailedAttempts(nextAttempts);
-        onAuditLog?.('FAILED_LOGIN', `Failed login attempt for identifier: ${cleanUsername}`, 'FAILED');
-
-        if (nextAttempts >= MAX_FAILED_ATTEMPTS) {
-          setLockoutTimer(LOCKOUT_DURATION_SECONDS);
-          setError(`Too many failed attempts. Login locked for ${LOCKOUT_DURATION_SECONDS}s.`);
-        } else {
-          setError(data.message || 'Invalid username or password.');
+          if (nextAttempts >= MAX_FAILED_ATTEMPTS) {
+            setLockoutTimer(LOCKOUT_DURATION_SECONDS);
+            setError(`Too many failed attempts. Login locked for ${LOCKOUT_DURATION_SECONDS}s.`);
+            return;
+          }
         }
+        setError(err instanceof DatabaseError ? err.message : 'An error occurred during login. Please check your connection.');
         return;
       }
 
       // Step 3: Handle successful login
       const { user, token } = data;
-      
+
+      // Store the server bearer token so /api/db requests are authenticated.
+      setApiToken(token);
+
       // Reconstruct a UserSession object based on the token
       // We generate the structure using our util, then swap in the real server token
       const session = createSecureSessionToken(user.id, user.email, user.name);

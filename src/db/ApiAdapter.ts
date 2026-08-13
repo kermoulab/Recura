@@ -68,15 +68,12 @@ export class ApiAdapter implements DatabaseAdapter {
     await apiPost<{ data: boolean }>('/api/db', { op: 'upsert', table, rows, conflictKey });
   }
 
-  /** Registers a server-side session after client-side login. Idempotent: if a
-   *  token is already stored, the existing session is reused. */
-  async registerSession(user: { email: string; userName: string }): Promise<void> {
-    if (getApiToken()) return;
-    const { token } = await apiPost<{ token: string }>('/api/auth/session', {
-      email: user.email,
-      userName: user.userName,
-    });
-    setApiToken(token);
+  /** Bearer tokens are issued by POST /api/auth/login and stored in
+   *  sessionStorage by the login view (see LoginView + apiClient.setApiToken).
+   *  Kept as a no-op to satisfy the adapter contract; the token survives
+   *  tab refreshes via sessionStorage. */
+  async registerSession(): Promise<void> {
+    return;
   }
 
   /** Revokes the server-side session on logout. Best effort — failures are

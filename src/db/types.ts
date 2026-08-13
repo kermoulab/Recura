@@ -22,6 +22,7 @@ export type DbErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'PERMISSION_DENIED'
+  | 'AUTH_FAILED'
   | 'VALIDATION'
   | 'UNKNOWN';
 

@@ -44,14 +44,30 @@ export async function ensureCsrfToken(): Promise<string> {
 
   // The CSRF cookie is HttpOnly and sent by the server on GET /api/csrf. The
   // browser stores it automatically; we only cache the value to echo it back.
-  const res = await fetch('/api/csrf', { method: 'GET' });
+  let res: Response;
+  try {
+    res = await fetch('/api/csrf', { method: 'GET' });
+  } catch {
+    throw new DatabaseError({
+      code: 'NETWORK',
+      message: 'Could not reach the Recura server. Is it running?',
+    });
+  }
   if (!res.ok) {
     throw new DatabaseError({
       code: 'NOT_CONFIGURED',
       message: 'Could not reach the Recura server. Is it running?',
     });
   }
-  const body = (await res.json()) as { csrfToken?: string };
+  let body: { csrfToken?: string };
+  try {
+    body = (await res.json()) as { csrfToken?: string };
+  } catch {
+    throw new DatabaseError({
+      code: 'NOT_CONFIGURED',
+      message: 'No Recura server detected on this origin. Open the app through the Recura server (npm run dev:server), not a static host.',
+    });
+  }
   csrfToken = body?.csrfToken || null;
   if (!csrfToken) {
     throw new DatabaseError({
@@ -69,6 +85,7 @@ function toDbCode(code: string | undefined): DbErrorCode {
     case 'NOT_FOUND':
     case 'CONFLICT':
     case 'PERMISSION_DENIED':
+    case 'AUTH_FAILED':
     case 'VALIDATION':
     case 'NETWORK':
     case 'TIMEOUT':
