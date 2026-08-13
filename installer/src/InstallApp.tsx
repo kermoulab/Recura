@@ -5,7 +5,7 @@ import {
   ShieldCheck, Sparkles, AlertTriangle, CircleCheck, KeyRound,
   Link2, ClipboardPaste, HelpCircle, ArrowRight, Cloud, Copy, ClipboardCheck,
 } from 'lucide-react';
-import { createRestClient, probePostgrest } from '../../src/lib/restClient';
+import { createRestClient, probePostgrest, probeGraphql } from '../../src/lib/restClient';
 import { RecuraLogoIcon, RecuraWordmark } from '../../src/components/common/RecuraLogo';
 import { api, DbConnectionInput, DbPreset, TestConnectionResult, VerifyResult } from './api';
 import { hashPasswordArgon2id } from '../../src/utils/security';
@@ -23,7 +23,7 @@ const HOSTED_SCHEMA_SQL = [hostedSchema001, hostedSchema002, hostedSchema003, ho
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 type Backend = 'postgres' | 'hosted';
-type HostedState = 'idle' | 'testing' | 'ok' | 'error' | 'schema-missing';
+type HostedState = 'idle' | 'testing' | 'ok' | 'error' | 'schema-missing' | 'graphql';
 
 const STEP_LABELS = ['Welcome', 'Database', 'Install', 'Admin', 'Verify', 'Complete'];
 
@@ -141,6 +141,8 @@ export function InstallApp() {
   const [hostedBusy, setHostedBusy] = useState(false);
   const [hostedAdminExists, setHostedAdminExists] = useState(false);
   const [hostedCopied, setHostedCopied] = useState(false);
+  const [hostedGraphqlEndpoint, setHostedGraphqlEndpoint] = useState<string | null>(null);
+  const [graphqlConnString, setGraphqlConnString] = useState('');
 
   useEffect(() => {
     api.getStatus()
@@ -271,11 +273,16 @@ export function InstallApp() {
             setHostedKey={setHostedKey}
             hostedState={hostedState}
             hostedError={hostedError}
+            setHostedError={setHostedError}
             hostedResult={hostedResult}
             hostedBusy={hostedBusy}
             hostedAdminExists={hostedAdminExists}
             hostedCopied={hostedCopied}
             setHostedCopied={setHostedCopied}
+            hostedGraphqlEndpoint={hostedGraphqlEndpoint}
+            graphqlConnString={graphqlConnString}
+            setGraphqlConnString={setGraphqlConnString}
+            onGraphqlConnString={handleGraphqlConnString}
             onHostedTest={handleHostedTest}
             onHostedAdmin={handleHostedAdmin}
             onHostedFinish={handleHostedFinish}
@@ -291,16 +298,17 @@ export function InstallApp() {
     </Shell>
   );
 
-  async function handleTest() {
+  async function handleTest(override?: DbConnectionInput) {
     setError(null);
-    if (!useEnv && (!db.host || !db.database || !db.user)) {
+    const target = override ?? db;
+    if (!useEnv && (!target.host || !target.database || !target.user)) {
       setError('Host, database name and username are required to test the connection.');
       return;
     }
     setTesting(true);
     setTest(null);
     try {
-      const result = await api.testConnection(useEnv ? { ...db, useEnvDatabase: true } : db);
+      const result = await api.testConnection(useEnv ? { ...target, useEnvDatabase: true } : target);
       setTest(result);
       if (!result.ok) setError(result.message || 'Connection test failed.');
     } catch (err) {
@@ -310,10 +318,10 @@ export function InstallApp() {
     }
   }
 
-  async function handleHostedTest() {
+  async function handleHostedTest(urlArg?: string, keyArg?: string) {
     setError(null);
-    const url = hostedUrl.trim();
-    const key = hostedKey.trim();
+    const url = (urlArg ?? hostedUrl).trim();
+    const key = (keyArg ?? hostedKey).trim();
     if (!url) {
       setHostedState('error');
       setHostedError('Please paste the database API URL.');
@@ -334,31 +342,38 @@ export function InstallApp() {
         limit: 1,
       });
       if (error) {
-        // Distinguish "schema not installed" from "this isn't a PostgREST API".
-        // A missing table on a PostgREST server produces PGRST205 / "Could not
-        // find the table" / "relation ... does not exist". A GraphQL-only
-        // gateway (Nhost, Hasura) or plain web server returns a bare 404 or
-        // HTML — which is NOT a schema problem, so surface that clearly.
+        // A missing table on a real PostgREST server produces PGRST205 /
+        // "Could not find the table" / "relation ... does not exist". Anything
+        // else is NOT assumed to mean "schema missing": probe what the endpoint
+        // actually is (PostgREST vs GraphQL vs unknown) and react accordingly.
         const isMissingTable = /PGRST205|Could not find the table|relation .* does not exist|undefined_table/i.test(error.message);
         if (isMissingTable) {
           setHostedState('schema-missing');
           setHostedError(error.message);
           return;
         }
-        const probe = await probePostgrest(url, key);
-        if (!probe.isPostgrest) {
-          setHostedState('error');
-          setHostedError(
-            `This URL does not answer like a PostgREST database API (HTTP ${probe.status}${probe.contentType ? `, ${probe.contentType}` : ''}). ` +
-              'The hosted option needs a PostgREST-compatible endpoint, e.g. https://<project>.supabase.co/rest/v1 or a self-hosted PostgREST server. ' +
-              'GraphQL-only providers such as Nhost are not supported here.' +
-              (probe.message ? ` (${probe.message})` : '')
-          );
+        const [graphqlProbe, pgProbe] = await Promise.all([probeGraphql(url, key), probePostgrest(url, key)]);
+        if (graphqlProbe.isGraphql) {
+          // Nhost / Hasura: GraphQL is a database API, not a dead end. Recura
+          // installs the schema over direct PostgreSQL, so ask for the
+          // connection string and continue automatically.
+          setHostedState('graphql');
+          setHostedError(null);
+          setHostedGraphqlEndpoint(graphqlProbe.endpoint ?? null);
           return;
         }
-        // It is PostgREST but the table is genuinely missing → schema needed.
-        setHostedState('schema-missing');
-        setHostedError(error.message);
+        if (pgProbe.isPostgrest) {
+          // PostgREST confirmed but the table is genuinely missing → schema needed.
+          setHostedState('schema-missing');
+          setHostedError(error.message);
+          return;
+        }
+        setHostedState('error');
+        setHostedError(
+          `We couldn't identify the connection method for this address (HTTP ${pgProbe.status}${pgProbe.contentType ? `, ${pgProbe.contentType}` : ''}). ` +
+            'Paste the connection string your database provider gave you (it starts with postgres://) and Recura will install it automatically.' +
+            (pgProbe.message ? ` (${pgProbe.message})` : '')
+        );
         return;
       }
       const adminExists = (users ?? []).some((u) => u.role === 'ADMIN');
@@ -373,6 +388,27 @@ export function InstallApp() {
       setHostedState('error');
       setHostedError(err instanceof Error ? err.message : 'Could not reach the database API.');
     }
+  }
+
+  /**
+   * Handles a Postgres connection string offered after a GraphQL endpoint was
+   * detected (Nhost / Hasura). GraphQL is a database API, not a dead end, but
+   * the browser-only hosted option speaks PostgREST, so we hand off to the
+   * direct-PostgreSQL install path on the Recura server instead.
+   */
+  function handleGraphqlConnString() {
+    const { db: parsed, error } = parseConnectionString(graphqlConnString);
+    if (error) {
+      setHostedError(error);
+      return;
+    }
+    setDb(parsed);
+    setBackend('postgres');
+    setHostedState('idle');
+    setHostedError(null);
+    setTest(null);
+    setError(null);
+    void handleTest(parsed);
   }
 
   async function handleHostedAdmin() {
@@ -636,7 +672,8 @@ interface DatabaseStepProps {
   testing: boolean;
   consent: boolean;
   setConsent: React.Dispatch<React.SetStateAction<boolean>>;
-  onTest: () => void;
+  /** Optional override lets the caller test a connection string without first filling the form. */
+  onTest: (override?: DbConnectionInput) => void;
   onNext: () => void;
   busy: boolean;
   presets: DbPreset[];
@@ -659,26 +696,31 @@ interface DatabaseStepProps {
   setHostedKey: React.Dispatch<React.SetStateAction<string>>;
   hostedState: HostedState;
   hostedError: string | null;
+  setHostedError: React.Dispatch<React.SetStateAction<string | null>>;
   hostedResult: string | null;
   hostedBusy: boolean;
   hostedAdminExists: boolean;
   hostedCopied: boolean;
   setHostedCopied: React.Dispatch<React.SetStateAction<boolean>>;
+  hostedGraphqlEndpoint: string | null;
+  graphqlConnString: string;
+  setGraphqlConnString: React.Dispatch<React.SetStateAction<string>>;
+  onGraphqlConnString: () => void;
   onHostedTest: () => void;
   onHostedAdmin: () => void;
   onHostedFinish: () => void;
   admin: AdminForm;
   setAdmin: React.Dispatch<React.SetStateAction<AdminForm>>;
 }
-
 function DatabaseStep({
   db, setDb, test, testing, consent, setConsent, onTest, onNext, busy,
   presets, useEnv, setUseEnv, connOpen, setConnOpen, connString, setConnString,
   connError, setConnError, onDbChange,
   backend, setBackend, serverAvailable,
   hostedUrl, setHostedUrl, hostedKey, setHostedKey,
-  hostedState, hostedError, hostedResult, hostedBusy, hostedAdminExists,
-  hostedCopied, setHostedCopied,
+  hostedState, hostedError, setHostedError, hostedResult, hostedBusy, hostedAdminExists,
+  hostedCopied, setHostedCopied, hostedGraphqlEndpoint,
+  graphqlConnString, setGraphqlConnString, onGraphqlConnString,
   onHostedTest, onHostedAdmin, onHostedFinish,
   admin, setAdmin,
 }: DatabaseStepProps) {
@@ -758,7 +800,8 @@ function DatabaseStep({
               paste <span className="font-bold">https://&lt;project&gt;.supabase.co/rest/v1</span> and the{' '}
               <span className="font-bold">anon public key</span> from <span className="font-mono">Project Settings → API</span>.
               For a self-hosted PostgREST server, use its URL. Only public credentials are used — they stay in this browser.
-              The endpoint must speak PostgREST — GraphQL-only providers such as Nhost are not supported here.
+              This option speaks PostgREST; if your provider exposes GraphQL (Nhost, Hasura), the wizard detects it and
+              guides you to the connection-string route instead.
             </p>
             <Field label="Database API URL">
               <input className={inputCls} placeholder="https://your-database.example.com" value={hostedUrl} onChange={(e) => setHostedUrl(e.target.value)} disabled={hostedBusy} />
@@ -787,8 +830,7 @@ function DatabaseStep({
                     then verify again.
                     <br />
                     <span className="font-normal text-amber-700">
-                      Seeing this on a provider like Nhost? The endpoint is not PostgREST, so it can't work with this
-                      option — use the "Self-hosted (PostgreSQL)" backend instead.
+                      Need to start over with a different provider? Use the "Self-hosted (PostgreSQL)" backend instead.
                     </span>
                   </span>
                 </div>
@@ -802,6 +844,52 @@ function DatabaseStep({
                     <RefreshCw className="w-4 h-4" /> I ran it — check again
                   </button>
                 </div>
+              </div>
+            )}
+
+            {hostedState === 'graphql' && (
+              <div className="space-y-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                <div className="flex items-start gap-2.5 text-xs font-bold text-blue-900">
+                  <Link2 className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                  <span>
+                    This looks like a <span className="font-extrabold">GraphQL</span> database API
+                    {hostedGraphqlEndpoint ? ` (${hostedGraphqlEndpoint})` : ''} — for example Nhost or Hasura.
+                    The hosted-database option connects through PostgREST, so it can't talk to this endpoint directly.
+                  </span>
+                </div>
+                {serverAvailable ? (
+                  <>
+                    <p className="text-[11px] text-blue-700 leading-relaxed">
+                      No problem — Recura installs its database over plain PostgreSQL. Paste the{' '}
+                      <span className="font-bold">Postgres connection string</span> your provider gives you
+                      (Nhost: Dashboard → Settings → Database) and we'll continue automatically.
+                    </p>
+                    <Field label="Postgres connection string">
+                      <textarea
+                        className={inputCls}
+                        rows={3}
+                        placeholder="postgresql://user:password@host:5432/database?sslmode=require"
+                        value={graphqlConnString}
+                        onChange={(e) => { setGraphqlConnString(e.target.value); setHostedError(null); }}
+                        disabled={hostedBusy}
+                      />
+                    </Field>
+                    {hostedError && (
+                      <div className="flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-bold text-rose-800">
+                        <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" /> {hostedError}
+                      </div>
+                    )}
+                    <button className="btn-primary w-full !py-2 text-xs" onClick={onGraphqlConnString} disabled={hostedBusy}>
+                      <ClipboardPaste className="w-4 h-4" /> Install with this connection string
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-blue-700 leading-relaxed">
+                    No Recura server is reachable from this page, and the browser-only hosted option only works with a
+                    PostgREST endpoint (e.g. Supabase). Try a PostgREST URL instead, or open this installer from your
+                    Recura server.
+                  </p>
+                )}
               </div>
             )}
 

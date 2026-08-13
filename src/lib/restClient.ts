@@ -117,6 +117,72 @@ export async function probePostgrest(url: string, key: string): Promise<Postgres
   }
 }
 
+export interface GraphqlProbe {
+  /** True when the URL answers like a GraphQL (Hasura/Nhost) server. */
+  isGraphql: boolean;
+  status: number;
+  contentType: string;
+  /** The exact endpoint that answered like GraphQL (may differ from the input). */
+  endpoint?: string;
+  message?: string;
+}
+
+/**
+ * Determines whether a URL is a GraphQL (Hasura / Nhost) API by POSTing a
+ * trivial query. A GraphQL server answers with a JSON body that has a `data`
+ * key (success) or an `errors` array (validation / auth error) — either one is
+ * enough to identify the protocol. PostgREST and plain web servers answer
+ * differently, so this cleanly separates "GraphQL provider" from "not a
+ * database API at all". It is ONE capability detector, not a universal
+ * validator — the installer combines it with the PostgREST probe.
+ */
+export async function probeGraphql(url: string, key: string): Promise<GraphqlProbe> {
+  const base = url.trim().replace(/\/+$/, '');
+  const candidates: string[] = [];
+  if (/graphql/i.test(base)) candidates.push(base);
+  else candidates.push(base, `${base}/v1/graphql`);
+
+  let lastStatus = 0;
+  let lastContentType = '';
+  let lastMessage: string | undefined;
+  for (const endpoint of candidates) {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    const k = key.trim();
+    if (k) {
+      headers['x-hasura-admin-secret'] = k;
+      headers.Authorization = `Bearer ${k}`;
+    }
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: '{ __typename }' }),
+      });
+      lastStatus = res.status;
+      lastContentType = res.headers.get('content-type') || '';
+      if (!lastContentType.includes('application/json')) continue;
+      const text = await res.text();
+      let payload: unknown = null;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = null;
+      }
+      if (payload && typeof payload === 'object') {
+        if ('data' in payload) return { isGraphql: true, status: res.status, contentType: lastContentType, endpoint };
+        const errors = (payload as { errors?: unknown }).errors;
+        if (Array.isArray(errors) && errors.length > 0) return { isGraphql: true, status: res.status, contentType: lastContentType, endpoint };
+      }
+    } catch (err) {
+      lastMessage = err instanceof Error ? err.message : 'Network error while probing for a GraphQL API.';
+    }
+  }
+  return { isGraphql: false, status: lastStatus, contentType: lastContentType, message: lastMessage };
+}
+
 function eqParams(eq?: Record<string, unknown>): string {
   if (!eq) return '';
   const parts: string[] = [];
