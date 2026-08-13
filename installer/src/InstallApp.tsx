@@ -18,8 +18,9 @@ import hostedSchema001 from '../../server/migrations/001_initial_schema.sql?raw'
 import hostedSchema002 from '../../server/migrations/002_default_whatsapp_templates.sql?raw';
 import hostedSchema003 from '../../server/migrations/003_order_number_backfill.sql?raw';
 import hostedSchema004 from '../../server/migrations/004_mobile_push_tables.sql?raw';
+import hostedSchema005 from '../../server/migrations/005_widen_pin_code_encrypted.sql?raw';
 
-const HOSTED_SCHEMA_SQL = [hostedSchema001, hostedSchema002, hostedSchema003, hostedSchema004].join('\n\n');
+const HOSTED_SCHEMA_SQL = [hostedSchema001, hostedSchema002, hostedSchema003, hostedSchema004, hostedSchema005].join('\n\n');
 
 // Hosted (Supabase / PostgREST) databases start with row-level security enabled
 // by default. Recura authenticates inside the app (password hashes live in the

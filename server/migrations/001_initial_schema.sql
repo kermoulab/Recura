@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS "Order" (
     "status" "SubscriptionStatus" DEFAULT 'ACTIVE',
     "accountEmail" VARCHAR(255) NOT NULL,
     "accountPasswordEncrypted" TEXT NOT NULL,
-    "pinCodeEncrypted" VARCHAR(20),
+    "pinCodeEncrypted" TEXT,
     "screenProfileName" VARCHAR(100),
     "notes" TEXT,
     "contactedForRenewal" BOOLEAN DEFAULT FALSE,
