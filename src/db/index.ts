@@ -13,6 +13,7 @@
  *     it falls back to the Supabase adapter exactly as before.
  */
 import { ApiAdapter } from './ApiAdapter';
+import { apiUrl } from '../lib/apiClient';
 import { DatabaseAdapter, DbStatus } from './types';
 import { CustomerRepository, createCustomerRepository } from './repositories/customerRepository';
 import { PlanRepository, createPlanRepository } from './repositories/planRepository';
@@ -56,7 +57,7 @@ let needsInstall = false;
 export async function detectDatabaseMode(): Promise<DatabaseMode> {
   if (mode) return mode;
   try {
-    const res = await fetch('/api/install/status', { method: 'GET' });
+    const res = await fetch(apiUrl('/api/install/status'), { method: 'GET', credentials: 'include' });
     if (!res.ok) throw new Error('server unreachable');
     const body = (await res.json()) as { status?: string };
     mode = 'server';

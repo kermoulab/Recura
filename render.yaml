@@ -1,0 +1,38 @@
+# One-click deploy of the Recura server (Render Blueprint).
+#
+# How to use:
+#   1. Push this repo to GitHub.
+#   2. In Render: New +  ->  Blueprint  ->  connect this repo.
+#   3. Set RECURA_CORS_ORIGINS when prompted to your SPA origin
+#      (e.g. https://recura-rosy.vercel.app).
+#   4. Open the deployed service URL, run the installer at /install, and
+#      connect YOUR Postgres (any host you choose).
+#   5. When building/hosting the SPA separately (Vercel), set its build env:
+#      VITE_API_URL="https://<this-service>.onrender.com"
+#
+# NOTE: Persistent Disks require a paid Render instance type (free plan has no
+# disk). The disk keeps the installer state and DB config across restarts.
+#
+# The app itself (this server) serves the SPA + installer + API; Vercel is only
+# needed if you want a separate static front-end pointing at this server.
+
+services:
+  - type: web
+    name: recura-server
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RECURA_DATA_DIR
+        value: /var/data/recura
+      - key: RECURA_CORS_ORIGINS
+        sync: false
+    disk:
+      name: recura-data
+      mountPath: /var/data/recura
+      sizeGB: 1

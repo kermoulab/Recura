@@ -22,6 +22,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { logger } from './logger.js';
 import { INSTALL_STATUS, getInstallStatus } from './config.js';
 import { getPgModule } from './driver.js';
+import { parseOrigins, corsHeadersFor, preflightHeaders } from './cors.js';
 import {
   createAppSession, destroyAppSession,
   checkCsrf, newCsrfToken, CSRF_COOKIE_NAME, allowRequest,
@@ -39,6 +40,11 @@ const SPA_HTML = path.join(DIST, 'index.html');
 
 const PORT = Number(process.env.PORT || 8787);
 const MAX_BODY = 1024 * 1024; // 1 MB
+
+// Cross-origin API mode (e.g. the SPA hosted on a static host talking to a
+// hosted Recura server). Comma-separated list of allowed SPA origins. When
+// empty, the API is same-origin only (the default, and the most secure).
+const CORS_ORIGINS = parseOrigins(process.env.RECURA_CORS_ORIGINS);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -139,7 +145,11 @@ async function handleInstallStatus(res) {
 
 async function handleCsrf(res) {
   const token = newCsrfToken();
-  res.setHeader('Set-Cookie', `${CSRF_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600`);
+  // Same-origin deployments keep SameSite=Lax. Cross-origin (hosted SPA +
+  // hosted server) requires SameSite=None + Secure so the browser sends the
+  // cookie alongside the SPA's credentials:'include' requests.
+  const sameSite = CORS_ORIGINS.length > 0 ? 'None; Secure' : 'Lax';
+  res.setHeader('Set-Cookie', `${CSRF_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=3600`);
   sendJson(res, 200, { csrfToken: token });
 }
 
@@ -359,6 +369,20 @@ const server = http.createServer((req, res) => {
   if (process.env.NODE_ENV === 'production') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
+
+  // Cross-origin SPA support (enabled via RECURA_CORS_ORIGINS).
+  const cors = corsHeadersFor(CORS_ORIGINS, req.headers.origin);
+  if (cors) {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, preflightHeaders(cors));
+      res.end();
+      return;
+    }
+    res.setHeader('Access-Control-Allow-Origin', cors['Access-Control-Allow-Origin']);
+    res.setHeader('Access-Control-Allow-Credentials', cors['Access-Control-Allow-Credentials']);
+    res.setHeader('Vary', cors['Vary']);
+  }
+
   try {
     route(req, res);
   } catch (err) {

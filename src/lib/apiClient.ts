@@ -22,6 +22,26 @@ const CSRF_COOKIE = 'recura_csrf';
 
 let csrfToken: string | null = null;
 
+/**
+ * Base URL of the Recura server API.
+ *
+ * Leave unset when the SPA is served by the Recura server itself (same-origin
+ * /api calls). Set VITE_API_URL when the SPA is hosted separately (e.g. Vercel
+ * static hosting) and talks to a hosted Recura server over CORS.
+ */
+export function apiBase(): string {
+  const envBase = (import.meta as { env?: Record<string, string> }).env?.VITE_API_URL;
+  if (envBase && typeof envBase === 'string' && envBase.trim()) {
+    return envBase.trim().replace(/\/+$/, '');
+  }
+  return '';
+}
+
+/** Resolves a server path against the configured API base (if any). */
+export function apiUrl(path: string): string {
+  return apiBase() + path;
+}
+
 export function getApiToken(): string | null {
   try {
     return sessionStorage.getItem(TOKEN_KEY);
@@ -44,19 +64,20 @@ export async function ensureCsrfToken(): Promise<string> {
 
   // The CSRF cookie is HttpOnly and sent by the server on GET /api/csrf. The
   // browser stores it automatically; we only cache the value to echo it back.
+  const target = apiUrl('/api/csrf');
   let res: Response;
   try {
-    res = await fetch('/api/csrf', { method: 'GET' });
+    res = await fetch(target, { method: 'GET', credentials: 'include' });
   } catch {
     throw new DatabaseError({
       code: 'NETWORK',
-      message: 'Could not reach the Recura server. Is it running?',
+      message: `Could not reach the Recura server at ${target}. Is it running?`,
     });
   }
   if (!res.ok) {
     throw new DatabaseError({
       code: 'NOT_CONFIGURED',
-      message: 'Could not reach the Recura server. Is it running?',
+      message: `The Recura server at ${target} is not reachable (HTTP ${res.status}).`,
     });
   }
   let body: { csrfToken?: string };
@@ -65,7 +86,10 @@ export async function ensureCsrfToken(): Promise<string> {
   } catch {
     throw new DatabaseError({
       code: 'NOT_CONFIGURED',
-      message: 'No Recura server detected on this origin. Open the app through the Recura server (npm run dev:server), not a static host.',
+      message: `No Recura server detected at ${target}. ` +
+        (apiBase()
+          ? 'Check that the server is running and VITE_API_URL points at its HTTPS origin.'
+          : 'VITE_API_URL is not set, so the app called the host it is served from. Set VITE_API_URL (e.g. https://your-server.onrender.com) or open the app through the Recura server itself.'),
     });
   }
   csrfToken = body?.csrfToken || null;
@@ -119,7 +143,7 @@ export async function apiPost<T>(path: string, body: unknown, opts: ApiPostOptio
 
   let res: Response;
   try {
-    res = await fetch(path, { method: 'POST', headers, body: JSON.stringify(body ?? {}) });
+    res = await fetch(apiUrl(path), { method: 'POST', headers, credentials: 'include', body: JSON.stringify(body ?? {}) });
   } catch {
     throw new DatabaseError({
       code: 'NETWORK',
