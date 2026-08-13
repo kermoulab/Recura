@@ -21,6 +21,36 @@ import hostedSchema004 from '../../server/migrations/004_mobile_push_tables.sql?
 
 const HOSTED_SCHEMA_SQL = [hostedSchema001, hostedSchema002, hostedSchema003, hostedSchema004].join('\n\n');
 
+// Hosted (Supabase / PostgREST) databases start with row-level security enabled
+// by default. Recura authenticates inside the app (password hashes live in the
+// "User" table), so RLS would block every read/write through the anon API key —
+// e.g. a 401 "new row violates row-level security policy" when creating the
+// admin account. This block disables RLS on the Recura tables and grants the
+// anon/authenticated roles access. It is idempotent and safe to run again.
+const HOSTED_SCHEMA_SUPABASE_SETUP = `
+-- ---------------------------------------------------------------------------
+-- Supabase / hosted (PostgREST) access
+-- Recura authenticates within the app, so the tables must be readable and
+-- writable through the API key. Run this block if your provider enabled
+-- row-level security (Supabase does by default).
+-- ---------------------------------------------------------------------------
+ALTER TABLE IF EXISTS "User" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "Customer" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "Plan" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS service_accounts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "Order" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "WhatsAppTemplate" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "AuditLog" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS push_events DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS push_log DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS push_tokens DISABLE ROW LEVEL SECURITY;
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+`;
+
+const HOSTED_SCHEMA_SQL_FULL = HOSTED_SCHEMA_SQL + HOSTED_SCHEMA_SUPABASE_SETUP;
+
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 type Backend = 'postgres' | 'hosted';
 type HostedState = 'idle' | 'testing' | 'ok' | 'error' | 'schema-missing' | 'graphql';
@@ -443,6 +473,11 @@ export function InstallApp() {
       if (error) {
         if (/duplicate|unique|23505/i.test(error.message)) {
           setHostedError('That email or username is already in use. Choose another one.');
+        } else if (/row.?level security|permission denied|is not allowed|42501/i.test(error.message)) {
+          setHostedError(
+            'The API key is blocked by row-level security (RLS) on the Recura tables — Supabase enables it by default. ' +
+              'Open the SQL Editor, run the "Supabase / hosted access" block from the schema, then try again.'
+          );
         } else {
           setHostedError(`Could not create the administrator account: ${error.message}`);
         }
@@ -756,7 +791,7 @@ function DatabaseStep({
 
   const copySchemaSql = async () => {
     try {
-      await navigator.clipboard.writeText(HOSTED_SCHEMA_SQL);
+      await navigator.clipboard.writeText(HOSTED_SCHEMA_SQL_FULL);
       setHostedCopied(true);
       window.setTimeout(() => setHostedCopied(false), 2500);
     } catch {
@@ -835,11 +870,15 @@ function DatabaseStep({
                     then verify again.
                     <br />
                     <span className="font-normal text-amber-700">
+                      For Supabase, the last block also disables row-level security so the API key can read and write — required for the hosted option.
+                    </span>
+                    <br />
+                    <span className="font-normal text-amber-700">
                       Need to start over with a different provider? Use the "Self-hosted (PostgreSQL)" backend instead.
                     </span>
                   </span>
                 </div>
-                <textarea className={inputCls} readOnly rows={8} value={HOSTED_SCHEMA_SQL} spellCheck={false} />
+                <textarea className={inputCls} readOnly rows={8} value={HOSTED_SCHEMA_SQL_FULL} spellCheck={false} />
                 <div className="flex flex-col sm:flex-row gap-2">
                   <button className="btn-primary flex-1 !py-2 text-xs" onClick={copySchemaSql}>
                     {hostedCopied ? <ClipboardCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
