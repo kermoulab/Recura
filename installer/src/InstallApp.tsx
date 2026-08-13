@@ -150,25 +150,16 @@ export function InstallApp() {
       .catch(() => { /* presets are optional */ });
   }, []);
 
-  if (statusError) {
-    return (
-      <Shell>
-        <ScreenCard>
-          <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto" />
-          <h1 className="text-lg font-extrabold text-[#111827] text-center">Cannot reach the installer service</h1>
-          <p className="text-xs text-slate-500 text-center">{statusError}</p>
-          <p className="text-xs text-slate-400 text-center leading-relaxed">
-            The installer needs to reach a running Recura server. If this page is hosted separately (e.g. Vercel),
-            make sure the <code className="font-mono">VITE_API_URL</code> build setting points at your hosted server.
-            Otherwise open <code className="font-mono">/install</code> on the Recura server itself.
-          </p>
-          <a href="/install" className="btn-secondary w-full">Reload /install</a>
-        </ScreenCard>
-      </Shell>
-    );
-  }
+  // No Recura server is reachable (e.g. the installer is hosted statically on
+  // Vercel/Netlify). The wizard can still install through a hosted database
+  // (Supabase) entirely in the browser — that flow needs no server.
+  const serverUnreachable = statusError !== null;
 
-  if (status === null) {
+  useEffect(() => {
+    if (serverUnreachable) setBackend('hosted');
+  }, [serverUnreachable]);
+
+  if (status === null && !serverUnreachable) {
     return (
       <Shell>
         <ScreenCard>
@@ -205,10 +196,23 @@ export function InstallApp() {
     );
   }
 
-  // status === 'NOT_INSTALLED' → wizard
+  // status === 'NOT_INSTALLED', or the server is unreachable (hosted-only install)
   return (
     <Shell>
       <div className="w-full max-w-2xl mx-auto space-y-5">
+        {serverUnreachable && (
+          <div className="flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold text-amber-900">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p>No Recura server is reachable at this address.</p>
+              <p className="font-semibold text-amber-800/80 leading-relaxed">
+                You can still install Recura with a hosted database below — that option runs entirely in this
+                browser and needs no server. (Self-hosting needs a running Recura server; see the README.)
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Stepper */}
         <div className="flex items-center justify-center gap-1.5 flex-wrap">
           {STEP_LABELS.map((label, i) => (
@@ -259,6 +263,7 @@ export function InstallApp() {
             onDbChange={() => { setTest(null); setError(null); }}
             backend={backend}
             setBackend={setBackend}
+            serverAvailable={!serverUnreachable}
             hostedUrl={hostedUrl}
             setHostedUrl={setHostedUrl}
             hostedKey={hostedKey}
@@ -627,6 +632,8 @@ interface DatabaseStepProps {
   onDbChange: () => void;
   backend: Backend;
   setBackend: React.Dispatch<React.SetStateAction<Backend>>;
+  /** False when no Recura server is reachable — the self-hosted option is hidden. */
+  serverAvailable: boolean;
   hostedUrl: string;
   setHostedUrl: React.Dispatch<React.SetStateAction<string>>;
   hostedKey: string;
@@ -649,7 +656,7 @@ function DatabaseStep({
   db, setDb, test, testing, consent, setConsent, onTest, onNext, busy,
   presets, useEnv, setUseEnv, connOpen, setConnOpen, connString, setConnString,
   connError, setConnError, onDbChange,
-  backend, setBackend,
+  backend, setBackend, serverAvailable,
   hostedUrl, setHostedUrl, hostedKey, setHostedKey,
   hostedState, hostedError, hostedResult, hostedBusy, hostedAdminExists,
   hostedCopied, setHostedCopied,
@@ -695,11 +702,14 @@ function DatabaseStep({
     <ScreenCard>
       <SectionLabel>Database Connection</SectionLabel>
       <p className="text-xs text-slate-500 leading-relaxed">
-        Recura stores everything in a PostgreSQL database. Pick the option that fits you best.
+        {serverAvailable
+          ? 'Recura stores everything in a PostgreSQL database. Pick the option that fits you best.'
+          : 'Recura stores everything in a PostgreSQL database. No server is reachable here, so use a hosted database — it works entirely from this browser.'}
       </p>
 
-      {/* Backend choice */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Backend choice (hidden when the Recura server is unreachable) */}
+      {serverAvailable && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           className={`text-left rounded-2xl border-2 p-4 transition-all ${backend === 'postgres' ? 'border-[#4A90FF] bg-blue-50/60' : 'border-[#E8EAF0] bg-[#F8FAFC] hover:border-slate-300'}`}
           onClick={() => setBackend('postgres')}
@@ -718,7 +728,8 @@ function DatabaseStep({
           <p className="text-xs font-extrabold text-[#111827] mt-2">Hosted (Supabase)</p>
           <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">No server to manage — the app talks to a hosted database directly.</p>
         </button>
-      </div>
+        </div>
+      )}
 
       {backend === 'hosted' ? (
         <div className="space-y-4">
