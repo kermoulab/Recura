@@ -79,6 +79,20 @@ export interface PostgrestProbe {
   message?: string;
 }
 
+/** Hard timeout for all installer / app probes so a dead host can never leave a button spinning forever. */
+const PROBE_TIMEOUT_MS = 10000;
+
+/** fetch() that aborts after a timeout, so probing a hung host settles quickly. */
+async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs = PROBE_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Determines whether a URL is a PostgREST-compatible API. PostgREST serves an
  * OpenAPI document at the API root, so fetching `/` and finding an
@@ -93,7 +107,7 @@ export async function probePostgrest(url: string, key: string): Promise<Postgres
     ...authHeaders(key.trim()),
   };
   try {
-    const res = await fetch(base + '/', { headers });
+    const res = await fetchWithTimeout(base + '/', { headers });
     const contentType = res.headers.get('content-type') || '';
     const text = await res.text();
     let payload: unknown = null;
@@ -112,7 +126,12 @@ export async function probePostgrest(url: string, key: string): Promise<Postgres
       isPostgrest: false,
       status: 0,
       contentType: '',
-      message: err instanceof Error ? err.message : 'Network error while probing the database API.',
+      message:
+        err instanceof Error && err.name === 'AbortError'
+          ? 'The address did not respond in time. Check that it is correct and reachable.'
+          : err instanceof Error
+            ? err.message
+            : 'Network error while probing the database API.',
     };
   }
 }
@@ -139,7 +158,17 @@ export interface GraphqlProbe {
 export async function probeGraphql(url: string, key: string): Promise<GraphqlProbe> {
   const base = url.trim().replace(/\/+$/, '');
   const candidates: string[] = [];
-  if (/graphql/i.test(base)) candidates.push(base);
+  // Only treat the URL itself as the endpoint when its PATH looks like a
+  // GraphQL mount (/graphql or /v1/graphql). Matching the whole string is
+  // wrong — Nhost hostnames contain "graphql" (graphql.us1.nhost.run) while
+  // the real endpoint lives at /v1/graphql, and that must still be probed.
+  let path = '';
+  try {
+    path = new URL(base).pathname;
+  } catch {
+    path = '';
+  }
+  if (/(\/v1\/graphql|\/graphql)(\/|$)/i.test(path)) candidates.push(base);
   else candidates.push(base, `${base}/v1/graphql`);
 
   let lastStatus = 0;
@@ -156,7 +185,7 @@ export async function probeGraphql(url: string, key: string): Promise<GraphqlPro
       headers.Authorization = `Bearer ${k}`;
     }
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetchWithTimeout(endpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify({ query: '{ __typename }' }),
@@ -177,7 +206,12 @@ export async function probeGraphql(url: string, key: string): Promise<GraphqlPro
         if (Array.isArray(errors) && errors.length > 0) return { isGraphql: true, status: res.status, contentType: lastContentType, endpoint };
       }
     } catch (err) {
-      lastMessage = err instanceof Error ? err.message : 'Network error while probing for a GraphQL API.';
+      lastMessage =
+        err instanceof Error && err.name === 'AbortError'
+          ? 'The address did not respond in time. Check that it is correct and reachable.'
+          : err instanceof Error
+            ? err.message
+            : 'Network error while probing for a GraphQL API.';
     }
   }
   return { isGraphql: false, status: lastStatus, contentType: lastContentType, message: lastMessage };
@@ -208,11 +242,18 @@ async function request(
 
   let res: Response;
   try {
-    res = await fetch(base + path, { ...init, headers });
+    res = await fetchWithTimeout(base + path, { ...init, headers });
   } catch (err) {
     return {
       data: null,
-      error: { message: err instanceof Error ? err.message : 'Network error while reaching the database API.' },
+      error: {
+        message:
+          err instanceof Error && err.name === 'AbortError'
+            ? 'The database API did not respond in time. Check the URL and try again.'
+            : err instanceof Error
+              ? err.message
+              : 'Network error while reaching the database API.',
+      },
       status: 0,
       headers: new Headers(),
     };
