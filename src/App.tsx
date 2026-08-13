@@ -900,6 +900,29 @@ export default function App() {
     logAudit('EXPORT_DATA', 'Exported complete system JSON data backup');
   };
 
+  // The installer is a separate bundle served at /install. If the app SPA is
+  // rendering on /install instead, this host routes everything to the app —
+  // it is not configured to serve the installer entry there.
+  if (window.location.pathname.startsWith('/install')) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] flex items-center justify-center p-6">
+        <div className="max-w-lg w-full bg-white border border-[#E8EAF0] rounded-3xl p-7 shadow-xl space-y-4">
+          <h1 className="text-lg font-extrabold text-[#111827]">Installer is not being served at /install</h1>
+          <p className="text-xs leading-relaxed text-slate-600">
+            The Recura installer is a separate bundle served at <code>/install</code> (the same origin as this
+            app, or the Recura server's own origin). This host rewrites every path to the app's{' '}
+            <code>index.html</code> instead.
+          </p>
+          <p className="text-xs leading-relaxed text-slate-600">
+            On Vercel, route <code>/install</code> to the installer bundle with:{' '}
+            <code>{'{ "source": "/install", "destination": "/installer/index.html" }'}</code> — or open{' '}
+            <code>https://&lt;your-server&gt;/install</code> directly on a deployed Recura server.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#F5F7FA] text-[#111827] font-sans antialiased">

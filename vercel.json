@@ -1,3 +1,7 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/install", "destination": "/installer/index.html" },
+    { "source": "/install/:path*", "destination": "/installer/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

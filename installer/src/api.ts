@@ -52,6 +52,26 @@ export interface VerifyResult {
 
 let csrfToken: string | null = null;
 
+/**
+ * Base URL of the Recura server API (mirrors src/lib/apiClient.ts).
+ *
+ * Leave unset when the installer is served by the Recura server itself
+ * (same-origin /api calls). Set VITE_API_URL when the installer is hosted on a
+ * static host (e.g. Vercel) and talks to a hosted Recura server over CORS.
+ */
+function apiBase(): string {
+  const envBase = (import.meta as { env?: Record<string, string> }).env?.VITE_API_URL;
+  if (envBase && typeof envBase === 'string' && envBase.trim()) {
+    return envBase.trim().replace(/\/+$/, '');
+  }
+  return '';
+}
+
+/** Resolves a server path against the configured API base (if any). */
+function apiUrl(path: string): string {
+  return apiBase() + path;
+}
+
 /** Content-type sniff: is this an API JSON response or an HTML page (SPA
  *  fallback from a static server / vite preview / dev server)? */
 function isHtmlResponse(text: string, contentType: string | null): boolean {
@@ -64,8 +84,10 @@ function isHtmlResponse(text: string, contentType: string | null): boolean {
 }
 
 const STATIC_SERVER_HINT =
-  'This page is not being served by the Recura server — the /api/install/* endpoints returned an HTML page instead of JSON. ' +
-  'The installer must run on the Recura server. Start it with "npm run start" (or "npm run dev:server") and open /install.';
+  'The /api/install/* endpoints returned an HTML page instead of JSON — the installer is not talking to a Recura server. ' +
+  (apiBase()
+    ? `Check that the Recura server is running at ${apiBase()} and that VITE_API_URL points at its HTTPS origin (no trailing slash).`
+    : 'Set the VITE_API_URL build environment variable to the HTTPS origin of your hosted Recura server (e.g. https://your-server.onrender.com).');
 
 async function parseJsonOrThrow(res: Response, context: string): Promise<unknown> {
   const text = await res.text();
@@ -82,8 +104,8 @@ async function parseJsonOrThrow(res: Response, context: string): Promise<unknown
 
 async function ensureCsrf(): Promise<string> {
   if (csrfToken) return csrfToken;
-  const res = await fetch('/api/csrf', { method: 'GET' });
-  if (!res.ok) throw new Error('Could not reach the Recura server. Is it running?');
+  const res = await fetch(apiUrl('/api/csrf'), { method: 'GET', credentials: 'include' });
+  if (!res.ok) throw new Error(`Could not reach the Recura server at ${apiUrl('/api/csrf')}. Is it running?`);
   const body = await parseJsonOrThrow(res, '/api/csrf');
   csrfToken = (body as { csrfToken?: string })?.csrfToken || null;
   if (!csrfToken) {
@@ -99,11 +121,17 @@ async function post<T>(path: string, body: unknown, token?: string): Promise<T> 
     'X-CSRF-Token': csrf,
   };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(path, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body ?? {}),
-  });
+  let res: Response;
+  try {
+    res = await fetch(apiUrl(path), {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify(body ?? {}),
+    });
+  } catch {
+    throw new Error(`Could not reach the Recura server at ${apiUrl(path)}. Is it running?`);
+  }
   const data = (await parseJsonOrThrow(res, path)) as T;
   const maybeErr = data as { ok?: boolean; code?: string; message?: string };
   if (!res.ok || maybeErr.ok === false) {
@@ -117,8 +145,8 @@ async function post<T>(path: string, body: unknown, token?: string): Promise<T> 
 
 export const api = {
   getStatus: async (): Promise<InstallStatus> => {
-    const res = await fetch('/api/install/status');
-    if (!res.ok) throw new Error('Could not reach the Recura server. Is it running?');
+    const res = await fetch(apiUrl('/api/install/status'), { credentials: 'include' });
+    if (!res.ok) throw new Error(`Could not reach the Recura server at ${apiUrl('/api/install/status')}. Is it running?`);
     return (await parseJsonOrThrow(res, '/api/install/status')) as InstallStatus;
   },
 
