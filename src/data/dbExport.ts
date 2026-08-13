@@ -366,7 +366,10 @@ volumes:
   postgres_data:
 `;
 
-export const SEED_TS = `import { PrismaClient } from '@prisma/client';
+export const SEED_TS = `// SECURITY WARNING: This seed creates an admin whose password (TestAdmin@123)
+// is publicly known (it lives in this repository). Development/demo use only —
+// never on production. For real deployments create the admin via the installer.
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

@@ -1,6 +1,12 @@
 -- =============================================================================
 -- Recura ERP - Quick Admin Seed
 --
+-- SECURITY WARNING: This seeds an admin account whose password (TestAdmin@123)
+-- is publicly known (it lives in this repository). Only use it in throwaway
+-- development databases. For any real deployment, create the admin through the
+-- installer wizard instead (which hashes a password you choose), or change this
+-- account's password immediately after seeding. Never run this on production.
+--
 -- IMPORTANT: This file only seeds the admin user. For the FULL schema
 -- including all tables and demo data, run recura_full_schema.sql instead.
 --
@@ -12,7 +18,7 @@
 --        VITE_SUPABASE_URL="https://your-project.supabase.co"
 --        VITE_SUPABASE_ANON_KEY="your-supabase-anon-key"
 --   4. Run: npm run dev
---   5. Log in with: admin / TestAdmin@123
+--   5. Log in with: admin / TestAdmin@123  (and change it immediately)
 -- =============================================================================
 
 INSERT INTO "User" (

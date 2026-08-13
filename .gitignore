@@ -365,3 +365,5 @@ FodyWeavers.xsd
 # Local environment variables (never commit real credentials)
 .env
 .env.local
+# Recura server runtime data (state + database credentials)
+recura-data/

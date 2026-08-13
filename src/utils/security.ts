@@ -242,15 +242,28 @@ const ARGON2_MEMORY_SIZE = 65536;
 const ARGON2_PARALLELISM = 1;
 
 function generateSalt(bytes = 16): Uint8Array {
- const salt = new Uint8Array(bytes);
- if (typeof globalThis.crypto?.getRandomValues === 'function') {
-   globalThis.crypto.getRandomValues(salt);
- } else {
-   for (let i = 0; i < bytes; i += 1) {
-     salt[i] = Math.floor(Math.random() * 256);
-   }
- }
- return salt;
+  const salt = new Uint8Array(bytes);
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    globalThis.crypto.getRandomValues(salt);
+  } else {
+    for (let i = 0; i < bytes; i += 1) {
+      salt[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return salt;
+}
+
+/** Cryptographically-secure random hex string (falls back when crypto is absent). */
+function randomHex(bytes: number): string {
+  const buf = new Uint8Array(bytes);
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    globalThis.crypto.getRandomValues(buf);
+  } else {
+    for (let i = 0; i < bytes; i += 1) {
+      buf[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function decodeBase64ToBytes(value: string): Uint8Array {
@@ -376,18 +389,19 @@ export function detectDeviceInformation(): DeviceInfo {
  * Creates a secure authenticated user session object with simulated HttpOnly, Secure, SameSite=Strict cookie flags
  */
 export function createSecureSessionToken(userId: string, userEmail: string, userName?: string): UserSession {
-  const randomHex = Math.random().toString(36).substring(2, 12) + Math.random().toString(36).substring(2, 12);
+  const sessionToken = `recura_sess_${randomHex(10)}`;
+  const id = `sess_${Date.now()}_${randomHex(4)}`;
   const now = new Date();
   const expires = new Date(now.getTime() + 12 * 60 * 60 * 1000); // 12 hours expiry by default
 
   const device = detectDeviceInformation();
 
   return {
-    id: `sess_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    id,
     userId,
     userEmail,
     userName: userName || userEmail.split('@')[0],
-    sessionToken: `recura_sess_${randomHex}`,
+    sessionToken,
     createdAt: now.toISOString(),
     lastActiveAt: now.toISOString(),
     expiresAt: expires.toISOString(),
