@@ -300,7 +300,12 @@ export function InstallApp() {
 
   async function handleTest(override?: DbConnectionInput) {
     setError(null);
-    const target = override ?? db;
+    // React calls onClick handlers with the click event; only accept a real
+    // connection object (from handleGraphqlConnString) as an override.
+    const target =
+      override && typeof override === 'object' && typeof override.host === 'string'
+        ? override
+        : db;
     if (!useEnv && (!target.host || !target.database || !target.user)) {
       setError('Host, database name and username are required to test the connection.');
       return;
@@ -318,10 +323,10 @@ export function InstallApp() {
     }
   }
 
-  async function handleHostedTest(urlArg?: string, keyArg?: string) {
+  async function handleHostedTest() {
     setError(null);
-    const url = (urlArg ?? hostedUrl).trim();
-    const key = (keyArg ?? hostedKey).trim();
+    const url = hostedUrl.trim();
+    const key = hostedKey.trim();
     if (!url) {
       setHostedState('error');
       setHostedError('Please paste the database API URL.');
