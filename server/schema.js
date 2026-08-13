@@ -79,3 +79,21 @@ export function columnsFor(table) {
   if (!cols) throw Object.assign(new Error(`Table not allowed: ${table}`), { code: 'VALIDATION' });
   return cols;
 }
+
+/**
+ * Columns that must NEVER be returned in API responses.
+ * SECURITY: prevents credential / hash leakage to the client.
+ */
+export const REDACTED_COLUMNS = Object.freeze({
+  User: ['passwordHash'],
+  service_accounts: ['password'],
+});
+
+/** Strips redacted columns from a single row object. */
+export function redactRow(table, row) {
+  const cols = REDACTED_COLUMNS[table];
+  if (!cols || !row) return row;
+  const out = { ...row };
+  for (const col of cols) delete out[col];
+  return out;
+}

@@ -50,7 +50,7 @@ export async function verifyPassword(password, encodedHash) {
 /** Validates installer-provided password policy (mirrors client rules). */
 export function validatePasswordPolicy(password) {
   if (!password) return 'Password is required.';
-  if (password.length < 6) return 'Password must be at least 6 characters.';
+  if (password.length < 8) return 'Password must be at least 8 characters.';
   if (password.length > 128) return 'Password must be at most 128 characters.';
   if (/[\u0000-\u001f\u007f]/.test(password)) return 'Password contains invalid control characters.';
   return null;

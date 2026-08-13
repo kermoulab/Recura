@@ -6,7 +6,6 @@ import {
   securityRateLimiter,
   stripControlCharacters,
   sanitizeInput as securitySanitize,
-  verifyArgon2idPassword,
   createSecureSessionToken,
 } from '../../utils/security';
 
@@ -89,20 +88,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
         return;
       }
 
-      // Step 2a: Check if username/email exists in database profiles
-      const matchedUser = profiles.find(
-        (p) =>
-          (p.username && p.username.toLowerCase() === cleanUsername.toLowerCase()) ||
-          p.email.toLowerCase() === cleanUsername.toLowerCase() ||
-          p.email.split('@')[0].toLowerCase() === cleanUsername.toLowerCase()
-      );
+      // Step 2: Server-side authentication
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: cleanUsername, password: cleanPassword }),
+      });
 
-      // Step 2b: Verify password strictly against the stored password hash or legacy plaintext value
-      const isPasswordValid = matchedUser
-        ? await verifyArgon2idPassword(cleanPassword, matchedUser.passwordHash || matchedUser.password)
-        : false;
+      const data = await response.json();
 
-      if (!matchedUser || !isPasswordValid) {
+      if (!response.ok || !data.ok) {
         const nextAttempts = failedAttempts + 1;
         setFailedAttempts(nextAttempts);
         onAuditLog?.('FAILED_LOGIN', `Failed login attempt for identifier: ${cleanUsername}`, 'FAILED');
@@ -111,41 +106,43 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
           setLockoutTimer(LOCKOUT_DURATION_SECONDS);
           setError(`Too many failed attempts. Login locked for ${LOCKOUT_DURATION_SECONDS}s.`);
         } else {
-          setError('Invalid username or password.');
+          setError(data.message || 'Invalid username or password.');
         }
         return;
       }
 
-      // Step 2c: Check account status
-      if (matchedUser.status === 'DISABLED' || matchedUser.status === 'BLOCKED' || matchedUser.isBlocked) {
-        onAuditLog?.('FAILED_LOGIN', `Rejected login for disabled/blocked user: ${matchedUser.email}`, 'FAILED');
-        setError('Account disabled.');
-        return;
-      }
-
-      // Step 2d: Check active session limits
-      const activeCount = matchedUser.activeSessionsCount ?? 1;
-      const maxLimit = matchedUser.maxSessionsAllowed ?? 3;
-      if (activeCount >= maxLimit) {
-        onAuditLog?.('FAILED_LOGIN', `Session limit exceeded (${activeCount}/${maxLimit}) for: ${matchedUser.email}`, 'FAILED');
-        setError('Session expired.');
-        return;
-      }
-
-      // Step 2e: Create secure session
-      const session = createSecureSessionToken(matchedUser.id, matchedUser.email, matchedUser.fullName);
+      // Step 3: Handle successful login
+      const { user, token } = data;
+      
+      // Reconstruct a UserSession object based on the token
+      // We generate the structure using our util, then swap in the real server token
+      const session = createSecureSessionToken(user.id, user.email, user.name);
+      session.sessionToken = token;
+      session.ipAddress = 'Server Verified';
 
       onAuditLog?.(
         'LOGIN',
-        `User ${matchedUser.fullName} (${matchedUser.email}) authenticated. Session ${session.sessionToken} created.`,
+        `User ${user.name} (${user.email}) authenticated via server.`,
         'SUCCESS'
       );
 
       setFailedAttempts(0);
       setLockoutTimer(0);
-      onLoginSuccess(matchedUser, session);
+      
+      // Pass the user profile and session back up
+      const userProfile: UserProfile = {
+        id: user.id,
+        email: user.email,
+        fullName: user.name,
+        role: user.role,
+        passwordHash: '',
+        createdAt: new Date().toISOString(),
+        status: 'ACTIVE'
+      };
+      
+      onLoginSuccess(userProfile, session);
     } catch {
-      setError('Invalid username or password.');
+      setError('An error occurred during login. Please check your connection.');
       onAuditLog?.('FAILED_LOGIN', 'Unhandled login exception caught', 'FAILED');
     }
   };

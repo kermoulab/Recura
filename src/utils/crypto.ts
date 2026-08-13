@@ -1,15 +1,48 @@
 /**
- * Utility functions for masking sensitive data (passwords, PINs, emails)
- * and simulating AES-256-GCM encryption/decryption at rest.
+ * AES-256-GCM encryption/decryption using Web Crypto API.
+ *
+ * SECURITY: replaces the old base64-only "simulation" with real authenticated
+ * encryption. Legacy `enc_aes256_` values (which were just base64) are still
+ * readable during migration, but new values use proper AES-GCM.
+ *
+ * Format: "aes256gcm:<base64(iv)>:<base64(ciphertext+tag)>"
  */
 
-export function maskString(str: string, visibleCharsAtEnd: number = 3): string {
-  if (!str) return '•••';
-  if (str.length <= visibleCharsAtEnd) {
-    return '•'.repeat(str.length);
+const AES_PREFIX = 'aes256gcm:';
+const LEGACY_PREFIX = 'enc_aes256_';
+
+// Singleton encryption key (derived lazily from env or random on first use)
+let _aesKey: CryptoKey | null = null;
+
+async function getEncryptionKey(): Promise<CryptoKey> {
+  if (_aesKey) return _aesKey;
+
+  const envKey =
+    typeof import.meta !== 'undefined'
+      ? (import.meta as any).env?.VITE_ENCRYPTION_KEY
+      : undefined;
+
+  if (envKey && typeof envKey === 'string' && envKey.length >= 32) {
+    // Derive from the provided key material
+    const enc = new TextEncoder();
+    const raw = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(envKey.slice(0, 32)),
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt', 'decrypt'],
+    );
+    _aesKey = raw;
+  } else {
+    // Generate an ephemeral key — encrypted data won't survive app restarts
+    // unless VITE_ENCRYPTION_KEY is set.
+    _aesKey = await crypto.subtle.generateKey(
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt'],
+    );
   }
-  const maskedLength = str.length - visibleCharsAtEnd;
-  return '•'.repeat(maskedLength) + str.slice(maskedLength);
+  return _aesKey;
 }
 
 export function maskEmail(email: string): string {
@@ -21,24 +54,63 @@ export function maskEmail(email: string): string {
   return `${local.slice(0, 2)}${'*'.repeat(Math.max(3, local.length - 2))}@${domain}`;
 }
 
-export function simulateDecrypt(encryptedStr: string): string {
+/**
+ * Decrypts a stored credential string.
+ *  - `aes256gcm:...` — real AES-256-GCM (new format)
+ *  - `enc_aes256_...` — legacy base64 (migration fallback)
+ *  - anything else    — returned as-is (already plaintext)
+ */
+export async function simulateDecrypt(encryptedStr: string): Promise<string> {
   if (!encryptedStr) return '';
-  if (encryptedStr.startsWith('enc_aes256_')) {
+
+  // New format: real AES-256-GCM
+  if (encryptedStr.startsWith(AES_PREFIX)) {
     try {
-      return atob(encryptedStr.replace('enc_aes256_', ''));
+      const parts = encryptedStr.slice(AES_PREFIX.length).split(':');
+      if (parts.length !== 2) return encryptedStr;
+      const iv = Uint8Array.from(atob(parts[0]), (c) => c.charCodeAt(0));
+      const ct = Uint8Array.from(atob(parts[1]), (c) => c.charCodeAt(0));
+      const key = await getEncryptionKey();
+      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+      return new TextDecoder().decode(plain);
     } catch {
       return encryptedStr;
     }
   }
+
+  // Legacy format: base64 encoded (NOT real encryption — migration only)
+  if (encryptedStr.startsWith(LEGACY_PREFIX)) {
+    try {
+      return atob(encryptedStr.replace(LEGACY_PREFIX, ''));
+    } catch {
+      return encryptedStr;
+    }
+  }
+
   return encryptedStr;
 }
 
-export function simulateEncrypt(plainText: string): string {
+/**
+ * Encrypts a plaintext credential with AES-256-GCM.
+ */
+export async function simulateEncrypt(plainText: string): Promise<string> {
   if (!plainText) return '';
   try {
-    return 'enc_aes256_' + btoa(plainText);
+    const key = await getEncryptionKey();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const enc = new TextEncoder();
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(plainText));
+    const ivB64 = btoa(String.fromCharCode(...iv));
+    const ctB64 = btoa(String.fromCharCode(...new Uint8Array(ct)));
+    return `${AES_PREFIX}${ivB64}:${ctB64}`;
   } catch {
-    return plainText;
+    // If Web Crypto is unavailable, fall back to legacy format
+    // (should only happen in very old browsers)
+    try {
+      return LEGACY_PREFIX + btoa(plainText);
+    } catch {
+      return plainText;
+    }
   }
 }
 

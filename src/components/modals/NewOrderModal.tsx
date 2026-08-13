@@ -62,8 +62,12 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       setStartDate(initialData.startDate);
       setEndDate(initialData.endDate);
       setAccountEmail(initialData.accountEmail);
-      setRawPassword(simulateDecrypt(initialData.accountPasswordEncrypted));
-      setRawPin(initialData.pinCodeEncrypted ? simulateDecrypt(initialData.pinCodeEncrypted) : '');
+      if (initialData.accountPasswordEncrypted) {
+        simulateDecrypt(initialData.accountPasswordEncrypted).then(setRawPassword);
+      }
+      if (initialData.pinCodeEncrypted) {
+        simulateDecrypt(initialData.pinCodeEncrypted).then(setRawPin);
+      }
       setScreenProfileName(initialData.screenProfileName || 'Profile 1');
       setNotes(initialData.notes || '');
       setSelectedAccountId(initialData.serviceAccountId || '');
@@ -99,7 +103,11 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
     const account = serviceAccounts.find((a) => a.id === selectedAccountId);
     if (account) {
       setAccountEmail(account.email);
-      setRawPassword(simulateDecrypt(account.passwordEncrypted || ''));
+      if (account.passwordEncrypted) {
+        simulateDecrypt(account.passwordEncrypted).then(setRawPassword);
+      } else {
+        setRawPassword('');
+      }
     } else {
       setAccountEmail('');
       setRawPassword('');
@@ -141,7 +149,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
 
   const selectedAccount = serviceAccounts.find((a) => a.id === selectedAccountId);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -236,8 +244,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       endDate,
       status,
       accountEmail: cleanAccountEmail,
-      accountPasswordEncrypted: simulateEncrypt(cleanRawPassword),
-      pinCodeEncrypted: cleanRawPin ? simulateEncrypt(cleanRawPin) : undefined,
+      accountPasswordEncrypted: await simulateEncrypt(cleanRawPassword),
+      pinCodeEncrypted: cleanRawPin ? await simulateEncrypt(cleanRawPin) : undefined,
       screenProfileName: cleanProfileName,
       notes: cleanNotes,
       contactedForRenewal: false,

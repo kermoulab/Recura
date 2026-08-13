@@ -42,13 +42,16 @@ export function buildConnConfig(input) {
 
   const password = typeof input.password === 'string' ? input.password : '';
   const ssl = Boolean(input.ssl);
+  // SECURITY: default to strict certificate validation. Set
+  // RECURA_DB_SSL_REJECT_UNAUTHORIZED=false only for self-signed dev certs.
+  const rejectUnauthorized = process.env.RECURA_DB_SSL_REJECT_UNAUTHORIZED !== 'false';
 
   const config = {
     host,
     port,
     database,
     user,
-    ssl: ssl ? { rejectUnauthorized: false } : false,
+    ssl: ssl ? { rejectUnauthorized } : false,
     connectionTimeoutMillis: 15000,
     application_name: 'recura',
   };

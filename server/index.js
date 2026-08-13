@@ -182,15 +182,6 @@ async function handleInstall(req, res, route, body) {
 
 async function handleAuth(req, res, route, body) {
   switch (route) {
-    case 'session': {
-      const email = String(body?.email || '').trim().toLowerCase();
-      const userName = String(body?.userName || '').trim();
-      if (!email || !userName) {
-        return sendJson(res, 400, { ok: false, code: 'VALIDATION', message: 'Email and user name are required.' });
-      }
-      const token = createAppSession({ email, userName });
-      return sendJson(res, 200, { ok: true, token });
-    }
     case 'login': {
       const emailOrUsername = String(body?.identifier || '').trim();
       const password = String(body?.password || '');
@@ -360,6 +351,14 @@ function route(req, res) {
 }
 
 const server = http.createServer((req, res) => {
+  // SECURITY: apply hardening headers to every response
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
   try {
     route(req, res);
   } catch (err) {

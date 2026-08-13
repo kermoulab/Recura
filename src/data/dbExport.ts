@@ -345,7 +345,8 @@ INSERT INTO "User" ("name", "username", "email", "passwordHash", "role")
 VALUES ('James Noah', 'admin', 'admin@recura.io', '$argon2id$v=19$m=65536,t=3,p=1$QdiQ/RMZXNk4nbzGNtQcIA$rFFVNx7nm/b4xDGMLbB8JIU6GTIH1cI3KA+bRMXmI+E', 'ADMIN');
 `;
 
-export const DOCKER_COMPOSE = `version: '3.8'
+export const DOCKER_COMPOSE = `# SECURITY: Change ALL default credentials below before use.
+version: '3.8'
 
 services:
   postgres:
@@ -353,7 +354,7 @@ services:
     container_name: recura_postgres
     environment:
       POSTGRES_USER: recura_admin
-      POSTGRES_PASSWORD: recura_secure_password_2026
+      POSTGRES_PASSWORD: <CHANGE_ME_USE_A_STRONG_PASSWORD>
       POSTGRES_DB: recura_erp
     ports:
       - "5432:5432"

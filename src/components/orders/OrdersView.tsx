@@ -78,7 +78,24 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>({});
   const [sendingOrderIds, setSendingOrderIds] = useState<Record<string, boolean>>({});
+  const [decryptedPasswords, setDecryptedPasswords] = useState<Record<string, { pass: string; pin: string | null }>>({});
   const lastFocusedId = useRef<string | null>(null);
+
+  // Decrypt order passwords asynchronously (simulateDecrypt is now async)
+  useEffect(() => {
+    let cancelled = false;
+    async function decryptAll() {
+      const result: Record<string, { pass: string; pin: string | null }> = {};
+      for (const ord of orders) {
+        const pass = await simulateDecrypt(ord.accountPasswordEncrypted);
+        const pin = ord.pinCodeEncrypted ? await simulateDecrypt(ord.pinCodeEncrypted) : null;
+        result[ord.id] = { pass, pin };
+      }
+      if (!cancelled) setDecryptedPasswords(result);
+    }
+    decryptAll();
+    return () => { cancelled = true; };
+  }, [orders]);
 
   useEffect(() => {
     if (!focusOrderId || lastFocusedId.current === focusOrderId) return;
@@ -231,8 +248,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
           </div>
         ) : (
           filteredOrders.map((ord) => {
-            const decryptedPass = simulateDecrypt(ord.accountPasswordEncrypted);
-            const decryptedPin = ord.pinCodeEncrypted ? simulateDecrypt(ord.pinCodeEncrypted) : null;
+            const decryptedPass = decryptedPasswords[ord.id]?.pass ?? '•••';
+            const decryptedPin = decryptedPasswords[ord.id]?.pin ?? null;
             const isUnmasked = unmaskedPasswords[ord.id] === true;
             const isAccountExpanded = !!expandedAccounts[ord.id];
             const account = getAccountById(serviceAccounts, ord.serviceAccountId);

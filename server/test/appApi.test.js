@@ -10,7 +10,7 @@ function bearer(token) {
   return { authorization: `Bearer ${token}` };
 }
 
-test('api: list works without a session (login bootstrap)', async () => {
+test('api: list requires an app session', async () => {
   const { dir, mock } = makeTestEnv();
   try {
     writeConfig(VALID_DB);
@@ -18,9 +18,19 @@ test('api: list works without a session (login bootstrap)', async () => {
       { id: 'c1', name: 'Ada', whatsapp: '+1001' },
       { id: 'c2', name: 'Bob', whatsapp: '+1002' },
     ]);
-    const res = await handleDataApi({ op: 'list', table: 'Customer', options: { orderBy: { column: 'name', ascending: true } } });
-    assert.equal(res.ok, true);
-    assert.deepEqual(res.data.map((r) => r.name), ['Ada', 'Bob']);
+    const denied = await handleDataApi({ op: 'list', table: 'Customer' });
+    assert.equal(denied.ok, false);
+    assert.equal(denied.code, 'PERMISSION_DENIED');
+    assert.equal(denied.status, 401);
+
+    const token = createAppSession({ email: 'a@b.c', userName: 'A' });
+    try {
+      const res = await handleDataApi({ op: 'list', table: 'Customer', options: { orderBy: { column: 'name', ascending: true } } }, bearer(token));
+      assert.equal(res.ok, true);
+      assert.deepEqual(res.data.map((r) => r.name), ['Ada', 'Bob']);
+    } finally {
+      destroyAppSession(token);
+    }
   } finally {
     cleanupEnv(dir);
   }
@@ -64,7 +74,7 @@ test('api: full CRUD round-trip with parameterized SQL', async () => {
       const upWhere = await handleDataApi({ op: 'updateWhere', table: 'Customer', match: { whatsapp: '+33 6 12 34 56 78' }, patch: { notes: 'updated' } }, bearer(token));
       assert.equal(upWhere.ok, true);
 
-      const list = await handleDataApi({ op: 'list', table: 'Customer' });
+      const list = await handleDataApi({ op: 'list', table: 'Customer' }, bearer(token));
       assert.equal(list.data.length, 1);
       assert.equal(list.data[0].notes, 'updated');
 
@@ -110,11 +120,11 @@ test('api: whitelist rejects unknown tables and columns', async () => {
     mock.seed('Customer', []);
     const token = createAppSession({ email: 'a@b.c', userName: 'A' });
     try {
-      const badTable = await handleDataApi({ op: 'list', table: 'Users; DROP TABLE "User"' });
+      const badTable = await handleDataApi({ op: 'list', table: 'Users; DROP TABLE "User"' }, bearer(token));
       assert.equal(badTable.ok, false);
       assert.equal(badTable.code, 'VALIDATION');
 
-      const badColumn = await handleDataApi({ op: 'list', table: 'Customer', options: { orderBy: { column: 'id; SELECT 1' } } });
+      const badColumn = await handleDataApi({ op: 'list', table: 'Customer', options: { orderBy: { column: 'id; SELECT 1' } } }, bearer(token));
       assert.equal(badColumn.ok, false);
       assert.equal(badColumn.code, 'VALIDATION');
 
@@ -134,12 +144,21 @@ test('api: whitelist rejects unknown tables and columns', async () => {
   }
 });
 
-test('api: not configured returns NOT_CONFIGURED', async () => {
+test('api: not configured returns NOT_CONFIGURED to authenticated callers', async () => {
   const { dir } = makeTestEnv();
   try {
-    const res = await handleDataApi({ op: 'list', table: 'Customer' });
-    assert.equal(res.ok, false);
-    assert.equal(res.code, 'NOT_CONFIGURED');
+    const denied = await handleDataApi({ op: 'list', table: 'Customer' });
+    assert.equal(denied.ok, false);
+    assert.equal(denied.code, 'PERMISSION_DENIED');
+
+    const token = createAppSession({ email: 'a@b.c', userName: 'A' });
+    try {
+      const res = await handleDataApi({ op: 'list', table: 'Customer' }, bearer(token));
+      assert.equal(res.ok, false);
+      assert.equal(res.code, 'NOT_CONFIGURED');
+    } finally {
+      destroyAppSession(token);
+    }
   } finally {
     cleanupEnv(dir);
   }

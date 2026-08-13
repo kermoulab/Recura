@@ -24,7 +24,7 @@ export const NewServiceAccountModal: React.FC<NewServiceAccountModalProps> = ({
   const [serviceType, setServiceType] = useState<ServiceType>(initialData?.serviceType || 'Netflix');
   const [providerId, setProviderId] = useState(initialData?.providerId || '');
   const [email, setEmail] = useState(initialData?.email || '');
-  const [rawPassword, setRawPassword] = useState(initialData?.passwordEncrypted ? simulateDecrypt(initialData.passwordEncrypted) : '');
+  const [rawPassword, setRawPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [subscriptionStart, setSubscriptionStart] = useState(initialData?.subscriptionStart || new Date().toISOString().split('T')[0]);
   const [subscriptionEnd, setSubscriptionEnd] = useState(initialData?.subscriptionEnd || '');
@@ -44,7 +44,12 @@ export const NewServiceAccountModal: React.FC<NewServiceAccountModalProps> = ({
       setServiceType(initialData?.serviceType || 'Netflix');
       setProviderId(initialData?.providerId || '');
       setEmail(initialData?.email || '');
-      setRawPassword(initialData?.passwordEncrypted ? simulateDecrypt(initialData.passwordEncrypted) : '');
+      // Decrypt password asynchronously
+      if (initialData?.passwordEncrypted) {
+        simulateDecrypt(initialData.passwordEncrypted).then(setRawPassword);
+      } else {
+        setRawPassword('');
+      }
       setShowPassword(false);
       setSubscriptionStart(initialData?.subscriptionStart || new Date().toISOString().split('T')[0]);
       setSubscriptionEnd(initialData?.subscriptionEnd || '');
@@ -72,7 +77,7 @@ export const NewServiceAccountModal: React.FC<NewServiceAccountModalProps> = ({
     setPurchaseCost(isNaN(parsed) ? 0 : parsed);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -113,7 +118,7 @@ export const NewServiceAccountModal: React.FC<NewServiceAccountModalProps> = ({
       serviceType,
       providerId: cleanProvider || undefined,
       email: cleanEmail.clean,
-      passwordEncrypted: simulateEncrypt(cleanPassword),
+      passwordEncrypted: await simulateEncrypt(cleanPassword),
       subscriptionStart,
       subscriptionEnd,
       purchaseCost: costInUsd,

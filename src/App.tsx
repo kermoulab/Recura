@@ -127,7 +127,7 @@ export default function App() {
   const [whatsAppTemplates, setWhatsAppTemplates] = useState<Record<Language, WhatsAppTemplate>>(DEFAULT_WHATSAPP_TEMPLATES);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Initial Load from the database (SELECT queries)
+  // Load from the database only when authenticated
   useEffect(() => {
     async function loadDataFromDatabase() {
       setIsLoading(true);
@@ -161,8 +161,10 @@ export default function App() {
       }
     }
 
-    loadDataFromDatabase();
-  }, []);
+    if (isLoggedIn) {
+      loadDataFromDatabase();
+    }
+  }, [isLoggedIn]);
 
 
   // Modals state

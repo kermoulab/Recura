@@ -10,8 +10,25 @@ test('db: normalizes a valid connection config', () => {
   assert.equal(cfg.database, 'app');
   assert.equal(cfg.user, 'u');
   assert.equal(cfg.password, 'pw');
-  assert.deepEqual(cfg.ssl, { rejectUnauthorized: false });
+  assert.deepEqual(cfg.ssl, { rejectUnauthorized: true });
   assert.equal(cfg.connectionTimeoutMillis, 15000);
+});
+
+test('db: ssl defaults to strict certificate validation', () => {
+  const cfg = buildConnConfig({ host: 'localhost', database: 'x', user: 'u', ssl: true });
+  assert.deepEqual(cfg.ssl, { rejectUnauthorized: true });
+});
+
+test('db: ssl certificate validation can be relaxed via env for dev certs', () => {
+  const prev = process.env.RECURA_DB_SSL_REJECT_UNAUTHORIZED;
+  process.env.RECURA_DB_SSL_REJECT_UNAUTHORIZED = 'false';
+  try {
+    const cfg = buildConnConfig({ host: 'localhost', database: 'x', user: 'u', ssl: true });
+    assert.deepEqual(cfg.ssl, { rejectUnauthorized: false });
+  } finally {
+    if (prev === undefined) delete process.env.RECURA_DB_SSL_REJECT_UNAUTHORIZED;
+    else process.env.RECURA_DB_SSL_REJECT_UNAUTHORIZED = prev;
+  }
 });
 
 test('db: defaults port to 5432 and ssl to false', () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Server,
@@ -79,12 +79,21 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
   const [showDelete, setShowDelete] = useState(false);
   const [blockedDelete, setBlockedDelete] = useState(false);
   const [showSuspend, setShowSuspend] = useState(false);
+  const [decryptedPassword, setDecryptedPassword] = useState('');
+
+  useEffect(() => {
+    if (account.passwordEncrypted) {
+      simulateDecrypt(account.passwordEncrypted).then(setDecryptedPassword);
+    } else {
+      setDecryptedPassword('');
+    }
+  }, [account.passwordEncrypted]);
 
   const occupancy = getOccupancy(account, orders);
   const effectiveStatus = getEffectiveAccountStatus(account);
   const daysLeft = getDaysRemaining(account);
   const linkedOrders = getLinkedOrders(account.id, orders);
-  const password = account.passwordEncrypted ? simulateDecrypt(account.passwordEncrypted) : '';
+  const password = decryptedPassword;
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);

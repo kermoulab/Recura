@@ -15,7 +15,7 @@
  *     and is enforced to be at least as strict: RLS-independent, server-filtered.
  */
 
-import { assertTable, assertColumn, sanitizeRow, quoteIdent } from './schema.js';
+import { assertTable, assertColumn, sanitizeRow, quoteIdent, redactRow } from './schema.js';
 import { readConfig } from './config.js';
 import { connectClient, queryAll, normalizeError } from './db.js';
 import { verifyAppSession } from './auth.js';
@@ -26,6 +26,11 @@ const MAX_ROWS = 1000;
 const MAX_BATCH = 100;
 
 const OPERATIONS = new Set(['list', 'insert', 'update', 'updateWhere', 'delete', 'upsert', 'ping']);
+
+/** Strips redacted columns (passwordHash, passwords) from response rows. */
+function sanitizeResponseRows(table, rows) {
+  return rows.map((row) => redactRow(table, row));
+}
 
 /** Lazily-created connection pool-ish helper. For simplicity each request uses
  *  a short-lived dedicated connection from the live config. */
@@ -110,7 +115,8 @@ async function opList(client, table, options) {
     params.push(limit);
     sql += ` LIMIT $${params.length}`;
   }
-  return queryAll(client, sql, params);
+  const rows = await queryAll(client, sql, params);
+  return sanitizeResponseRows(table, rows);
 }
 
 async function opInsert(client, table, rows) {
@@ -183,7 +189,9 @@ function assertColumnSafe(table, col) {
 /** ---------- public entry ---------- */
 
 export function requiresSession(op) {
-  return op !== 'list' && op !== 'ping';
+  // SECURITY: ALL operations require a valid session token.
+  // No unauthenticated access to any data.
+  return true;
 }
 
 export async function handleDataApi(body, headers = {}) {

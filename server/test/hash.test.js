@@ -25,8 +25,8 @@ test('hash: refuses non-argon2id hashes and empty inputs', async () => {
 });
 
 test('hash: password policy', () => {
-  assert.equal(validatePasswordPolicy('secret1'), null);
+  assert.equal(validatePasswordPolicy('secret12'), null);
   assert.equal(validatePasswordPolicy(''), 'Password is required.');
-  assert.equal(validatePasswordPolicy('123'), 'Password must be at least 6 characters.');
+  assert.equal(validatePasswordPolicy('123'), 'Password must be at least 8 characters.');
   assert.equal(validatePasswordPolicy('a'.repeat(200)), 'Password must be at most 128 characters.');
 });

@@ -12,7 +12,6 @@
  *   * When the Recura server is unreachable (e.g. Vite dev / static hosting),
  *     it falls back to the Supabase adapter exactly as before.
  */
-import { SupabaseAdapter } from './SupabaseAdapter';
 import { ApiAdapter } from './ApiAdapter';
 import { DatabaseAdapter, DbStatus } from './types';
 import { CustomerRepository, createCustomerRepository } from './repositories/customerRepository';
@@ -63,7 +62,8 @@ export async function detectDatabaseMode(): Promise<DatabaseMode> {
     mode = 'server';
     needsInstall = body?.status !== 'INSTALLED';
   } catch {
-    mode = 'supabase';
+    // SECURITY: The server is strictly required. No falling back to Supabase.
+    mode = 'server';
     needsInstall = false;
   }
   return mode;
@@ -75,12 +75,12 @@ export function getInstallRedirectTarget(): string | null {
 }
 
 export function getDatabaseMode(): DatabaseMode {
-  return mode ?? 'supabase';
+  return 'server';
 }
 
 export function getDatabase(): Database {
   if (!database) {
-    const adapter = getDatabaseMode() === 'server' ? new ApiAdapter() : new SupabaseAdapter();
+    const adapter = new ApiAdapter();
     database = {
       adapter,
       customers: createCustomerRepository(adapter),

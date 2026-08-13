@@ -116,23 +116,29 @@ test('installer is locked after INSTALLED (status excepted)', async () => {
   assert.equal(blocked.body.code, 'LOCKED');
 });
 
-test('data API: reads work after install, writes need a session', async () => {
-  const list = await json('POST', '/api/db', { op: 'list', table: 'Customer' });
-  assert.equal(list.body.ok, true);
+test('data API: all operations require a session, then login unlocks CRUD', async () => {
+  const listDenied = await json('POST', '/api/db', { op: 'list', table: 'Customer' });
+  assert.equal(listDenied.status, 401);
+  assert.equal(listDenied.body.code, 'PERMISSION_DENIED');
 
   const insertDenied = await json('POST', '/api/db', { op: 'insert', table: 'Customer', rows: [{ name: 'X' }] });
   assert.equal(insertDenied.status, 401);
   assert.equal(insertDenied.body.code, 'PERMISSION_DENIED');
 
-  const session = await json('POST', '/api/auth/session', { email: 'admin@recura.local', userName: 'System Owner' });
-  assert.equal(session.body.ok, true);
-  appToken = session.body.token;
+  const login = await json('POST', '/api/auth/login', { identifier: 'admin@recura.local', password: 'Sup3rStrong#2024' });
+  assert.equal(login.status, 200);
+  assert.equal(login.body.ok, true);
+  appToken = login.body.token;
 
   const insert = await json('POST', '/api/db',
     { op: 'insert', table: 'Customer', rows: [{ name: 'Ada', whatsapp: '+1001' }] },
     { Authorization: `Bearer ${appToken}` });
   assert.equal(insert.body.ok, true);
   assert.ok(insert.body.data[0].id);
+
+  const list = await json('POST', '/api/db', { op: 'list', table: 'Customer' }, { Authorization: `Bearer ${appToken}` });
+  assert.equal(list.body.ok, true);
+  assert.equal(list.body.data.length, 1);
 
   const logout = await json('POST', '/api/auth/logout', {}, { Authorization: `Bearer ${appToken}` });
   assert.equal(logout.body.ok, true);
@@ -144,7 +150,11 @@ test('data API: reads work after install, writes need a session', async () => {
 });
 
 test('data API: rejects SQL-injection table names', async () => {
-  const bad = await json('POST', '/api/db', { op: 'list', table: 'Customer; DROP TABLE "User"' });
+  const login = await json('POST', '/api/auth/login', { identifier: 'admin@recura.local', password: 'Sup3rStrong#2024' });
+  assert.equal(login.body.ok, true);
+  appToken = login.body.token;
+
+  const bad = await json('POST', '/api/db', { op: 'list', table: 'Customer; DROP TABLE "User"' }, { Authorization: `Bearer ${appToken}` });
   assert.equal(bad.body.ok, false);
   assert.equal(bad.body.code, 'VALIDATION');
 });

@@ -310,28 +310,17 @@ export async function hashPasswordArgon2id(password: string): Promise<string> {
 }
 
 /**
- * Verifies password against stored password or Argon2id/bcrypt hash representation
+ * Verifies password against a stored Argon2id hash.
+ * SECURITY: Only Argon2id encoded hashes are accepted. Plaintext comparison
+ * and legacy enc_aes256_ fallbacks have been removed to prevent bypass attacks.
  */
-export async function verifyArgon2idPassword(password: string, storedPasswordOrHash?: string): Promise<boolean> {
- if (!password || !storedPasswordOrHash) return false;
+export async function verifyArgon2idPassword(password: string, storedHash?: string): Promise<boolean> {
+ if (!password || !storedHash) return false;
 
- // Direct match with stored password or hash (legacy fallback)
- if (password === storedPasswordOrHash) return true;
-
- // If stored password is encrypted with AES-256 simulation
- if (storedPasswordOrHash.startsWith('enc_aes256_')) {
-   try {
-     const decrypted = globalThis.atob?.(storedPasswordOrHash.replace('enc_aes256_', '')) ?? '';
-     if (decrypted === password) return true;
-   } catch {
-     // ignore
-   }
- }
-
- if (!storedPasswordOrHash.startsWith('$argon2id$')) return false;
+ if (!storedHash.startsWith('$argon2id$')) return false;
 
  try {
-   const parsed = parseArgon2EncodedHash(storedPasswordOrHash);
+   const parsed = parseArgon2EncodedHash(storedHash);
    if (!parsed) return false;
 
    const derivedHash = await argon2id({
@@ -344,7 +333,7 @@ export async function verifyArgon2idPassword(password: string, storedPasswordOrH
      outputType: 'encoded',
    });
 
-   return derivedHash === storedPasswordOrHash;
+   return derivedHash === storedHash;
  } catch {
    return false;
  }
