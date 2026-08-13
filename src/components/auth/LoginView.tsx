@@ -94,7 +94,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
 
       // Hosted backend mode: the app talks to the hosted database directly, so
       // the password hash is verified locally (Argon2id) against the User table.
-      if (getDatabaseMode() === 'supabase') {
+      if (getDatabaseMode() === 'rest') {
         const profile = await getDatabase().userProfiles.findByIdentifier(cleanUsername);
         const valid = Boolean(profile) && (await verifyArgon2idPassword(cleanPassword, profile?.passwordHash));
         if (!valid || !profile) {

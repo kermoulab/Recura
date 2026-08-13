@@ -5,7 +5,7 @@ import {
   ShieldCheck, Sparkles, AlertTriangle, CircleCheck, KeyRound,
   Link2, ClipboardPaste, HelpCircle, ArrowRight, Cloud, Copy, ClipboardCheck,
 } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+import { createRestClient } from '../../src/lib/restClient';
 import { RecuraLogoIcon, RecuraWordmark } from '../../src/components/common/RecuraLogo';
 import { api, DbConnectionInput, DbPreset, TestConnectionResult, VerifyResult } from './api';
 import { hashPasswordArgon2id } from '../../src/utils/security';
@@ -313,32 +313,35 @@ export function InstallApp() {
     setError(null);
     const url = hostedUrl.trim();
     const key = hostedKey.trim();
-    if (!url || !key) {
+    if (!url) {
       setHostedState('error');
-      setHostedError('Please paste both the project URL and the anon key.');
+      setHostedError('Please paste the database API URL.');
       return;
     }
-    if (!/^https:\/\/.+/i.test(url)) {
+    if (!/^https:\/\/.+/i.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(url)) {
       setHostedState('error');
-      setHostedError('The project URL must start with https:// (e.g. https://abcd.supabase.co).');
+      setHostedError('The API URL must start with https:// (or http://localhost for local development).');
       return;
     }
     setHostedState('testing');
     setHostedError(null);
     setHostedResult(null);
     try {
-      const client = createClient(url, key, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      const client = createRestClient(url, key);
+      const { data: users, error } = await client.get<{ id: string; role?: string }>('User', {
+        select: 'id, role',
+        limit: 1,
       });
-      const { data: users, error } = await client.from('User').select('id, role').limit(1);
       if (error) {
-        if (/does not exist|relation|undefined_table|404/i.test(error.message)) {
+        // Schema not installed yet: PostgREST reports a missing table
+        // (PGRST205 / "Could not find the table") or a 404.
+        if (/PGRST205|does not exist|relation|undefined_table|404|Could not find the table/i.test(error.message)) {
           setHostedState('schema-missing');
           setHostedError(error.message);
           return;
         }
         setHostedState('error');
-        setHostedError(`Could not reach the hosted database: ${error.message}`);
+        setHostedError(`Could not reach the database API: ${error.message}`);
         return;
       }
       const adminExists = (users ?? []).some((u) => u.role === 'ADMIN');
@@ -351,7 +354,7 @@ export function InstallApp() {
       );
     } catch (err) {
       setHostedState('error');
-      setHostedError(err instanceof Error ? err.message : 'Could not reach the hosted database.');
+      setHostedError(err instanceof Error ? err.message : 'Could not reach the database API.');
     }
   }
 
@@ -370,26 +373,24 @@ export function InstallApp() {
     setHostedError(null);
     try {
       const passwordHash = await hashPasswordArgon2id(admin.password);
-      const client = createClient(hostedUrl.trim(), hostedKey.trim(), {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      });
-      const { error } = await client.from('User').insert({
+      const client = createRestClient(hostedUrl.trim(), hostedKey.trim());
+      const { error } = await client.insert('User', [{
         name,
         username,
         email: email.toLowerCase(),
         passwordHash,
         role: 'ADMIN',
         currency: 'USD ($)',
-      });
+      }]);
       if (error) {
-        if (/duplicate|unique/i.test(error.message)) {
+        if (/duplicate|unique|23505/i.test(error.message)) {
           setHostedError('That email or username is already in use. Choose another one.');
         } else {
           setHostedError(`Could not create the administrator account: ${error.message}`);
         }
         return;
       }
-      saveHostedConfig({ provider: 'supabase', url: hostedUrl.trim(), anonKey: hostedKey.trim() });
+      saveHostedConfig({ provider: 'postgrest', url: hostedUrl.trim(), key: hostedKey.trim() });
       setStep(5);
     } catch (err) {
       setHostedError(err instanceof Error ? err.message : 'Could not create the administrator account.');
@@ -399,7 +400,7 @@ export function InstallApp() {
   }
 
   function handleHostedFinish() {
-    saveHostedConfig({ provider: 'supabase', url: hostedUrl.trim(), anonKey: hostedKey.trim() });
+    saveHostedConfig({ provider: 'postgrest', url: hostedUrl.trim(), key: hostedKey.trim() });
     setStep(5);
   }
 
@@ -593,7 +594,8 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
           <HelpCircle className="w-3.5 h-3.5 text-[#4A90FF]" /> What you will need
         </p>
         <p className="text-[11px] text-slate-600 leading-relaxed">
-          One of: <span className="font-bold text-slate-800">a database your hosting already created</span>,{' '}
+          One of: <span className="font-bold text-slate-800">a hosted database REST API</span> (no server needed —
+          any PostgreSQL, e.g. Supabase), <span className="font-bold text-slate-800">a database your hosting already created</span>,{' '}
           <span className="font-bold text-slate-800">a connection string</span> from a free database provider
           (<a className="text-[#4A90FF] font-bold underline" href="https://neon.tech" target="_blank" rel="noreferrer">Neon</a>,{' '}
           <a className="text-[#4A90FF] font-bold underline" href="https://supabase.com" target="_blank" rel="noreferrer">Supabase</a>,{' '}
@@ -725,8 +727,8 @@ function DatabaseStep({
           disabled={busy}
         >
           <Cloud className="w-5 h-5 text-[#4A90FF]" />
-          <p className="text-xs font-extrabold text-[#111827] mt-2">Hosted (Supabase)</p>
-          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">No server to manage — the app talks to a hosted database directly.</p>
+          <p className="text-xs font-extrabold text-[#111827] mt-2">Hosted database (REST API)</p>
+          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Any PostgreSQL over a REST API — no server to manage.</p>
         </button>
         </div>
       )}
@@ -735,14 +737,16 @@ function DatabaseStep({
         <div className="space-y-4">
           <div className="p-4 bg-[#F8FAFC] border border-[#E8EAF0] rounded-2xl space-y-3">
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Create a project on <span className="font-bold">Supabase</span>, then copy its <span className="font-bold">Project URL</span> and{' '}
-              <span className="font-bold">anon public key</span> from <span className="font-mono">Project Settings → API</span>. Only the public key is used — it stays in this browser.
+              Works with any PostgreSQL served through a PostgREST-style API — including Supabase. For Supabase,
+              paste <span className="font-bold">https://&lt;project&gt;.supabase.co/rest/v1</span> and the{' '}
+              <span className="font-bold">anon public key</span> from <span className="font-mono">Project Settings → API</span>.
+              For a self-hosted PostgREST server, use its URL. Only public credentials are used — they stay in this browser.
             </p>
-            <Field label="Project URL">
-              <input className={inputCls} placeholder="https://abcdefgh.supabase.co" value={hostedUrl} onChange={(e) => setHostedUrl(e.target.value)} disabled={hostedBusy} />
+            <Field label="Database API URL">
+              <input className={inputCls} placeholder="https://your-database.example.com" value={hostedUrl} onChange={(e) => setHostedUrl(e.target.value)} disabled={hostedBusy} />
             </Field>
-            <Field label="Anon (public) key">
-              <input className={inputCls} type="password" autoComplete="off" placeholder="eyJhbGciOi..." value={hostedKey} onChange={(e) => setHostedKey(e.target.value)} disabled={hostedBusy} />
+            <Field label="API key (optional)">
+              <input className={inputCls} type="password" autoComplete="off" placeholder="anon public key — leave empty for open access" value={hostedKey} onChange={(e) => setHostedKey(e.target.value)} disabled={hostedBusy} />
             </Field>
             <button className="btn-secondary w-full" onClick={onHostedTest} disabled={hostedBusy || hostedState === 'testing'}>
               {hostedState === 'testing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
@@ -760,8 +764,9 @@ function DatabaseStep({
                 <div className="flex items-start gap-2.5 text-xs font-bold text-amber-900">
                   <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                   <span>
-                    The project is reachable but the Recura schema is not installed yet. Open Supabase →{' '}
-                    <span className="font-mono">SQL Editor</span>, paste the schema below, run it, then verify again.
+                    The database is reachable but the Recura schema is not installed yet. Open your database's SQL
+                    console (for Supabase: <span className="font-mono">SQL Editor</span>), paste the schema below, run it,
+                    then verify again.
                   </span>
                 </div>
                 <textarea className={inputCls} readOnly rows={8} value={HOSTED_SCHEMA_SQL} spellCheck={false} />

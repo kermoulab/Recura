@@ -31,8 +31,8 @@ either support them or we must relax them:
 
 | Stack | Adapter work | Schema port | Notes |
 | --- | --- | --- | --- |
-| **Supabase (current)** | done (`SupabaseAdapter`) | none | Production today |
-| **Neon (PostgreSQL)** | new `PostgresAdapter` (use `pg` + SQL, or `postgrest-js`) | none — same SQL | Smallest migration; same schema + SQL scripts |
+| **PostgREST (Supabase / any PostgreSQL)** | done (`RestAdapter`) | none | Production today |
+| **Neon (PostgreSQL)** | new `PostgresAdapter` (use `pg` + SQL) | none — same SQL | Smallest migration; same schema + SQL scripts |
 | **Vercel Postgres / Railway (PostgreSQL)** | new `PostgresAdapter` | none | Same as Neon |
 | **PlanetScale / MySQL** | new `MysqlAdapter` | medium: quoting, reserved words, upsert, UUID-as-char, no RLS | `Order`/`User` need quotes or renames; remove `CREATE EXTENSION` |
 | **Turso / libSQL (SQLite)** | new `SqliteAdapter` | medium: no enums, no `TIMESTAMPTZ`, upsert syntax, column types | Suitable for single-region/small deployments; enums → `TEXT` + CHECK |

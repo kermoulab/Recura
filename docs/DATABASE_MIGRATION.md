@@ -1,22 +1,25 @@
 # Database Migration Guide
 
-This document outlines how to move the Recura Web App from the current
-Supabase (PostgreSQL) backend to another provider using the abstraction layer,
-and how to evolve the schema safely in the future.
+This document outlines how to move the Recura Web App from one PostgreSQL
+backend to another using the abstraction layer, and how to evolve the schema
+safely in the future.
 
 ## Why migration is now low-risk
 
 Because of `src/db` (see `DATABASE_ABSTRACTION.md`):
 
 - The UI only depends on repositories (`getDatabase()`).
-- The only Supabase-specific code is `src/lib/supabase.ts` +
-  `src/db/SupabaseAdapter.ts`.
-- A new backend = one new `DatabaseAdapter` implementation + a schema port.
+- The only provider-specific code is `src/lib/restClient.ts` (a dependency-free
+  PostgREST client) + `src/db/RestAdapter.ts`. Any PostgreSQL served through a
+  PostgREST API (Supabase, or a self-hosted PostgREST server) works with zero
+  changes.
+- A genuinely different backend = one new `DatabaseAdapter` implementation + a
+  schema port.
 - Zero changes in `App.tsx`, components, or repositories.
 
-## Option A — Supabase → Neon / another PostgreSQL host (recommended)
+## Option A — Supabase → another PostgREST host (recommended)
 
-Same SQL dialect, so this is the smallest possible move.
+Same SQL dialect and same HTTP semantics, so this is the smallest possible move.
 
 1. **Export data**
    ```bash
@@ -27,22 +30,18 @@ Same SQL dialect, so this is the smallest possible move.
    Or use the app's built-in JSON backup (Settings → Export) for entity-level
    data.
 
-2. **Create the schema on the target** (run `scripts/recura_full_schema.sql`).
+2. **Create the schema on the target** (run `scripts/recura_full_schema.sql`,
+   or the installer's bundled schema SQL for a hosted backend).
 
-3. **Write a `PostgresAdapter`** implementing `DatabaseAdapter` in
-   `src/db/`. Use a server-side pooling client (`pg`) — do not ship a DB
-   connection string to the browser. If you keep PostgREST (Postgres +
-   PostgREST), a `PostgrestAdapter` mirrors `SupabaseAdapter` with different
-   credentials.
+3. **Point the hosted backend at it.** Run the installer's hosted-database
+   option with the target's PostgREST URL and key, or set
+   `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (legacy names kept for the
+   REST client) in `.env`. No adapter code is needed.
 
-4. **Switch the factory** in `src/db/index.ts`:
-   ```ts
-   const adapter = usePostgres ? new PostgresAdapter() : new SupabaseAdapter();
-   ```
-
-5. **Update env**: replace `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
-   with the new provider's config, and update the not-configured message in
-   `src/db/SupabaseAdapter.ts` (or move it into a shared constant).
+4. **For a non-PostgREST provider**, write a new `DatabaseAdapter`
+   implementation (e.g. a server-side `PostgresAdapter` using `pg` — do not
+   ship a DB connection string to the browser) and switch the factory in
+   `src/db/index.ts`.
 
 ## Option B — Supabase → MySQL / PlanetScale
 

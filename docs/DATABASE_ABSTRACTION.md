@@ -13,23 +13,24 @@ Repositories  (src/db/repositories/*)
 DatabaseAdapter  (src/db/types.ts — contract)
         │  provider mechanics (raw rows)
         ▼
-SupabaseAdapter  (src/db/SupabaseAdapter.ts)  ← the only Supabase-aware file
-        │
-        ▼
-Supabase / PostgreSQL
+RestAdapter  (src/db/RestAdapter.ts)   ApiAdapter (src/db/ApiAdapter.ts)
+        │                                  │
+        ▼                                  ▼
+PostgreSQL via PostgREST (any provider,   Recura server /api/db
+e.g. Supabase, self-hosted PostgREST)
 ```
 
 ## Layering rules (must be enforced in reviews)
 
-1. **UI never imports a provider SDK.** `@supabase/supabase-js` is imported in
-   exactly two files: `src/lib/supabase.ts` (client creation) and
-   `src/db/SupabaseAdapter.ts` (adapter). Nothing else may import either.
-2. **UI never imports `src/lib/supabase`.** App.tsx uses
-   `db.isConnected()` / `db.getStatus()` instead of `isSupabaseConfigured`.
+1. **UI never imports a provider SDK.** The PostgREST client lives in exactly
+   two files: `src/lib/restClient.ts` (dependency-free fetch client + config
+   wiring) and `src/db/RestAdapter.ts` (adapter). Nothing else may import them.
+2. **UI never imports `src/lib/restClient`.** App.tsx uses
+   `db.isConnected()` / `db.getStatus()` instead of `isRestConfigured`.
 3. **UI communicates with repositories**, obtained once from
    `getDatabase()` in `src/db/index.ts`.
 4. **Repositories communicate only with the `DatabaseAdapter` contract**,
-   never with Supabase types.
+   never with provider types.
 5. **No provider schema in the UI.** Table/column names live in the
    repositories and adapter only.
 6. **No fake success.** Reads may be best-effort (return `[]`/`null`), but
@@ -81,7 +82,7 @@ Every provider error is normalized into `DatabaseError` with a stable `code`:
 
 | Code | Meaning |
 | --- | --- |
-| `NOT_CONFIGURED` | No `.env` credentials — write refused |
+| `NOT_CONFIGURED` | No credentials configured — write refused |
 | `NETWORK` | Provider unreachable |
 | `TIMEOUT` | Request timed out |
 | `NOT_FOUND` | Update/delete matched no row |
@@ -127,6 +128,11 @@ camelCase/snake_case fallbacks and the `toDateOnly` normalizer
 
 No UI, component, or repository changes are required — that is the whole point
 of the layer.
+
+> Most providers are already covered: any PostgreSQL exposed through
+> PostgREST (Supabase, or a self-hosted PostgREST server) uses `RestAdapter`
+> with no code changes. The hosted backend is configured at runtime by the
+> installer and kept in `src/lib/hostedBackend.ts`.
 
 ## History / cleanup
 

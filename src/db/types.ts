@@ -6,9 +6,9 @@
  * talk to a DatabaseAdapter, and the adapter is the only place that knows how
  * to talk to a concrete database provider.
  *
- * The current implementation of this contract is SupabaseAdapter, but the
- * contract itself is provider-agnostic: no Supabase types, client instances,
- * table names, or column names leak into it.
+ * The current implementations of this contract are RestAdapter (PostgREST) and
+ * ApiAdapter (Recura server), but the contract itself is provider-agnostic: no
+ * provider types, client instances, table names, or column names leak into it.
  */
 
 /**

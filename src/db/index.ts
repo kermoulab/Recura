@@ -6,18 +6,19 @@
  * a provider SDK or a provider client directly — everything goes through here.
  *
  * Provider selection is automatic and resolves before first render:
- *   * When a hosted backend was configured by the installer (Supabase-style
- *     project URL + anon key), the SupabaseAdapter is used and the app talks
- *     to it directly from the browser (no Recura server needed).
+ *   * When a hosted backend was configured by the installer (any PostgreSQL
+ *     served through a PostgREST-style API, e.g. Supabase), the RestAdapter is
+ *     used and the app talks to it directly from the browser (no Recura server
+ *     needed).
  *   * Otherwise, when the install status on the Recura server is INSTALLED,
  *     the ApiAdapter is used (persistence over /api/db).
  *   * When nothing is configured yet, the app redirects to /install.
  */
 import { ApiAdapter } from './ApiAdapter';
-import { SupabaseAdapter } from './SupabaseAdapter';
+import { RestAdapter } from './RestAdapter';
 import { apiUrl } from '../lib/apiClient';
 import { loadHostedConfig } from '../lib/hostedBackend';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { rest, isRestConfigured } from '../lib/restClient';
 import { DatabaseAdapter, DbStatus } from './types';
 import { CustomerRepository, createCustomerRepository } from './repositories/customerRepository';
 import { PlanRepository, createPlanRepository } from './repositories/planRepository';
@@ -47,7 +48,7 @@ export interface Database {
   getStatus(): DbStatus;
 }
 
-export type DatabaseMode = 'server' | 'supabase';
+export type DatabaseMode = 'server' | 'rest';
 
 let database: Database | null = null;
 let mode: DatabaseMode | null = null;
@@ -55,15 +56,11 @@ let needsInstall = false;
 
 /** True when the hosted backend already has an ADMIN account (post-install). */
 async function hostedAdminExists(): Promise<boolean> {
-  if (!isSupabaseConfigured || !supabase) return false;
+  if (!isRestConfigured || !rest) return false;
   try {
-    const { count, error } = await supabase
-      .from('User')
-      .select('id', { count: 'exact', head: true })
-      .eq('role', 'ADMIN')
-      .limit(1);
+    const { data, error } = await rest.count('User', { role: 'ADMIN' });
     if (error) return false;
-    return (count ?? 0) > 0;
+    return (data ?? 0) > 0;
   } catch {
     return false;
   }
@@ -77,9 +74,9 @@ async function hostedAdminExists(): Promise<boolean> {
 export async function detectDatabaseMode(): Promise<DatabaseMode> {
   if (mode) return mode;
 
-  // 1. Hosted backend configured by the installer (Supabase-style URL + key).
+  // 1. Hosted backend configured by the installer (PostgREST URL + optional key).
   if (loadHostedConfig()) {
-    mode = 'supabase';
+    mode = 'rest';
     needsInstall = !(await hostedAdminExists());
     return mode;
   }
@@ -111,7 +108,7 @@ export function getDatabaseMode(): DatabaseMode {
 
 export function getDatabase(): Database {
   if (!database) {
-    const adapter = getDatabaseMode() === 'supabase' ? new SupabaseAdapter() : new ApiAdapter();
+    const adapter = getDatabaseMode() === 'rest' ? new RestAdapter() : new ApiAdapter();
     database = {
       adapter,
       customers: createCustomerRepository(adapter),

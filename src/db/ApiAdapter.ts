@@ -7,7 +7,7 @@
  * a parameter, so no SQL identifiers from the client are ever interpolated.
  *
  * Session lifecycle:
- *   * Reads (list) need no token — mirrors the Supabase anon-key trust model.
+ *   * Reads (list) need no token — mirrors the hosted REST anon-key trust model.
  *   * Mutations need a bearer token issued by POST /api/auth/session after a
  *     successful client-side login. App.tsx calls registerSession on login /
  *     session restore and unregisterSession on logout.

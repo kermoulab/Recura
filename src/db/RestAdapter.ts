@@ -1,36 +1,34 @@
 /**
- * Supabase implementation of the DatabaseAdapter contract.
+ * PostgREST implementation of the DatabaseAdapter contract.
  *
- * This file is the ONLY place in the application that imports the Supabase
- * client. It translates Supabase PostgREST mechanics (errors, ordering, upsert
- * conflict handling) into the provider-agnostic contract in src/db/types.ts.
- *
- * Table names are still referenced here (the adapter is schema-agnostic and
- * receives the table name per call), but the app-facing domain mapping lives
- * in the repositories.
+ * This file is the ONLY place in the application that talks to the hosted REST
+ * client. It translates PostgREST mechanics (errors, ordering, upsert conflict
+ * handling) into the provider-agnostic contract in src/db/types.ts. Because
+ * PostgREST is the standard HTTP layer over any PostgreSQL, this adapter works
+ * with Supabase and any other PostgREST-served database identically.
  */
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { rest, isRestConfigured, RestClient } from '../lib/restClient';
 import { DatabaseAdapter, DatabaseError, DbErrorCode, ListOptions } from './types';
 
-const PROVIDER = 'supabase';
+const PROVIDER = 'rest';
 
-function getClientOrNull() {
-  return isSupabaseConfigured && supabase ? supabase : null;
+function getClientOrNull(): RestClient | null {
+  return isRestConfigured && rest ? rest : null;
 }
 
-function getClientOrThrow(): NonNullable<typeof supabase> {
-  if (!isSupabaseConfigured || !supabase) {
+function getClientOrThrow(): RestClient {
+  if (!isRestConfigured || !rest) {
     throw new DatabaseError({
       code: 'NOT_CONFIGURED',
       message:
-        'Database not connected. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env, restart the app, then try again.',
+        'Database not connected. Configure a hosted database in the installer, or set the database API URL and key in .env, restart the app, then try again.',
     });
   }
-  return supabase;
+  return rest;
 }
 
 /**
- * Normalizes any Supabase/network error into a DatabaseError with a stable
+ * Normalizes any PostgREST/network error into a DatabaseError with a stable
  * `code` the UI can react to.
  */
 function normalizeError(err: unknown, table: string, operation: string): DatabaseError {
@@ -63,15 +61,15 @@ async function run<T>(fn: () => Promise<T>, table: string, operation: string): P
   }
 }
 
-export class SupabaseAdapter implements DatabaseAdapter {
+export class RestAdapter implements DatabaseAdapter {
   readonly provider = PROVIDER;
 
   isConnected(): boolean {
-    return isSupabaseConfigured;
+    return isRestConfigured;
   }
 
   getStatus() {
-    return { connected: isSupabaseConfigured, provider: PROVIDER, configured: isSupabaseConfigured };
+    return { connected: isRestConfigured, provider: PROVIDER, configured: isRestConfigured };
   }
 
   async list<T>(table: string, options?: ListOptions): Promise<T[]> {
@@ -82,14 +80,10 @@ export class SupabaseAdapter implements DatabaseAdapter {
     }
 
     return run(async () => {
-      let query = client.from(table).select('*');
-      if (options?.orderBy) {
-        query = query.order(options.orderBy.column, { ascending: options.orderBy.ascending ?? true });
-      }
-      if (options?.limit && options.limit > 0) {
-        query = query.limit(options.limit);
-      }
-      const { data, error } = await query;
+      const { data, error } = await client.get<T>(table, {
+        orderBy: options?.orderBy,
+        limit: options?.limit,
+      });
       if (error) throw error;
       return (data ?? []) as T[];
     }, table, 'list');
@@ -99,7 +93,7 @@ export class SupabaseAdapter implements DatabaseAdapter {
     const client = getClientOrThrow();
 
     return run(async () => {
-      const { data, error } = await client.from(table).insert(rows).select();
+      const { data, error } = await client.insert<T>(table, rows);
       if (error) throw error;
       const inserted = (data ?? []) as T[];
       if (inserted.length === 0) {
@@ -118,7 +112,7 @@ export class SupabaseAdapter implements DatabaseAdapter {
     const client = getClientOrThrow();
 
     return run(async () => {
-      const { data, error } = await client.from(table).update(patch).eq('id', id).select();
+      const { data, error } = await client.update<T>(table, { id }, patch);
       if (error) throw error;
       const updated = (data ?? []) as T[];
       if (updated.length === 0) {
@@ -141,11 +135,7 @@ export class SupabaseAdapter implements DatabaseAdapter {
     const client = getClientOrThrow();
 
     return run(async () => {
-      let query = client.from(table).update(patch);
-      for (const [key, value] of Object.entries(match)) {
-        query = query.eq(key, value);
-      }
-      const { error } = await query;
+      const { error } = await client.update(table, match, patch);
       if (error) throw error;
     }, table, 'updateWhere');
   }
@@ -154,7 +144,7 @@ export class SupabaseAdapter implements DatabaseAdapter {
     const client = getClientOrThrow();
 
     return run(async () => {
-      const { data, error } = await client.from(table).delete().eq('id', id).select();
+      const { data, error } = await client.delete(table, { id });
       if (error) throw error;
       if (!data || data.length === 0) {
         throw new DatabaseError({
@@ -171,7 +161,7 @@ export class SupabaseAdapter implements DatabaseAdapter {
     const client = getClientOrThrow();
 
     return run(async () => {
-      const { error } = await client.from(table).upsert(rows, { onConflict: conflictKey });
+      const { error } = await client.upsert(table, rows, conflictKey);
       if (error) throw error;
     }, table, 'upsert');
   }
