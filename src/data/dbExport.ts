@@ -205,7 +205,7 @@ CREATE TYPE "SubscriptionStatus" AS ENUM ('ACTIVE', 'EXPIRING_7D', 'EXPIRING_3D'
 -- CustomerStatus is VARCHAR(20) (not enum) — frontend TypeScript validates values.
 -- Enum definition retained for reference only:
 -- CREATE TYPE "CustomerStatus" AS ENUM ('ACTIVE', 'BLOCKED', 'INACTIVE', 'VIP');
-CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'AGENT');
+CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MANAGER', 'AGENT');
 
 -- Table: Users
 CREATE TABLE "User" (
@@ -338,6 +338,45 @@ CREATE TABLE "AuditLog" (
     "status" VARCHAR(20) DEFAULT 'SUCCESS',
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Table: push_events (mobile app push-notification queue)
+CREATE TABLE push_events (
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "event_type" TEXT NOT NULL,
+    "entity_type" TEXT NOT NULL,
+    "entity_id" TEXT NOT NULL,
+    "payload" JSONB,
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX idx_push_events_entity ON push_events ("entity_type", "entity_id", "created_at");
+
+-- Table: push_log (mobile app push delivery/dedup log)
+CREATE TABLE push_log (
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "entity_type" TEXT NOT NULL,
+    "entity_id" TEXT NOT NULL,
+    "milestone" TEXT NOT NULL,
+    "sent_at" TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+    CONSTRAINT push_log_unique UNIQUE ("entity_type", "entity_id", "milestone")
+);
+
+-- Table: push_tokens (mobile app device tokens per user)
+CREATE TABLE push_tokens (
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "user_email" TEXT NOT NULL,
+    "device_token" TEXT NOT NULL,
+    "platform" TEXT NOT NULL DEFAULT 'android',
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+    "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+    "device_id" TEXT,
+    "app_version" TEXT,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "last_seen_at" TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+    CONSTRAINT push_tokens_device_token_key UNIQUE ("device_token")
+);
+
+CREATE INDEX idx_push_tokens_user_email ON push_tokens ("user_email");
 
 -- Initial Seed Admin Data
 -- Seed uses a real Argon2id hash for the admin workspace account.

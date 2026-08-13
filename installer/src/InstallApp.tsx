@@ -17,8 +17,9 @@ import { saveHostedConfig } from '../../src/lib/hostedBackend';
 import hostedSchema001 from '../../server/migrations/001_initial_schema.sql?raw';
 import hostedSchema002 from '../../server/migrations/002_default_whatsapp_templates.sql?raw';
 import hostedSchema003 from '../../server/migrations/003_order_number_backfill.sql?raw';
+import hostedSchema004 from '../../server/migrations/004_mobile_push_tables.sql?raw';
 
-const HOSTED_SCHEMA_SQL = [hostedSchema001, hostedSchema002, hostedSchema003].join('\n\n');
+const HOSTED_SCHEMA_SQL = [hostedSchema001, hostedSchema002, hostedSchema003, hostedSchema004].join('\n\n');
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 type Backend = 'postgres' | 'hosted';

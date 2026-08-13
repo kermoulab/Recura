@@ -27,6 +27,12 @@ mappers in `src/db/repositories/*` must match them exactly.
 | `UserProfile` | `User` | `src/db/repositories/userProfileRepository.ts` |
 | `WhatsAppTemplate` | `WhatsAppTemplate` | `src/db/repositories/whatsAppTemplateRepository.ts` |
 
+> **Mobile-app tables in the shared schema**: the production database also
+> contains `push_events`, `push_log`, and `push_tokens`, used exclusively by
+> the companion mobile app for push notifications. The web app never reads or
+> writes them, and the installer creates them (migration
+> `004_mobile_push_tables.sql`) so a fresh install supports the mobile app.
+
 ### Naming convention split
 
 Two different conventions coexist and are preserved as-is:
@@ -148,7 +154,7 @@ Unique index `uq_order_account_profile` on
 | `username` | VARCHAR(100) | unique |
 | `email` | VARCHAR(255) | unique |
 | `passwordHash` | TEXT | Argon2id |
-| `role` | enum `UserRole` | `ADMIN`/`AGENT` |
+| `role` | enum `UserRole` | `ADMIN`/`MANAGER`/`AGENT` |
 | `mfaEnabled` | BOOLEAN | |
 | `currency` | VARCHAR | nullable, default `USD ($)` |
 | `createdAt` / `updatedAt` | TIMESTAMPTZ | |

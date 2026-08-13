@@ -24,7 +24,7 @@ test('install: happy path completes and locks the installer', async () => {
 
     const migrate = await install.runInstall(token);
     assert.equal(migrate.ok, true);
-    assert.equal(migrate.result.applied.length, 3);
+    assert.equal(migrate.result.applied.length, 4);
     assert.equal(getInstallStatus(), INSTALL_STATUS.INSTALLING);
 
     const admin = await install.createAdmin(token, ADMIN);
@@ -95,7 +95,7 @@ test('install: migration failure marks INSTALLATION_FAILED and retry resumes', a
     assert.equal(restart.ok, true);
     const retried = await install.runInstall(restart.installToken);
     assert.equal(retried.ok, true);
-    assert.equal(retried.result.applied.length, 3);
+    assert.equal(retried.result.applied.length, 4);
     assert.equal(getInstallStatus(), INSTALL_STATUS.INSTALLING);
 
     const admin = await install.createAdmin(restart.installToken, ADMIN);
