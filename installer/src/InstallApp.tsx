@@ -14,13 +14,20 @@ import { saveHostedConfig } from '../../src/lib/hostedBackend';
 // Raw SQL used to bootstrap the schema of a brand-new hosted database.
 // The installer cannot run DDL over the Supabase REST API (anon key), so the
 // user pastes this into their provider's SQL editor once, then verifies again.
-import hostedSchema001 from '../../server/migrations/001_initial_schema.sql?raw';
-import hostedSchema002 from '../../server/migrations/002_default_whatsapp_templates.sql?raw';
-import hostedSchema003 from '../../server/migrations/003_order_number_backfill.sql?raw';
-import hostedSchema004 from '../../server/migrations/004_mobile_push_tables.sql?raw';
-import hostedSchema005 from '../../server/migrations/005_widen_pin_code_encrypted.sql?raw';
+//
+// Every *.sql file in server/migrations is included automatically, sorted in
+// the same lexicographic order the server-side runner (server/migrate.js) uses.
+// A future migration therefore needs no change here.
+const schemaModules = import.meta.glob<string>('../../server/migrations/*.sql', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
 
-const HOSTED_SCHEMA_SQL = [hostedSchema001, hostedSchema002, hostedSchema003, hostedSchema004, hostedSchema005].join('\n\n');
+const HOSTED_SCHEMA_SQL = Object.keys(schemaModules)
+  .sort()
+  .map((path) => schemaModules[path])
+  .join('\n\n');
 
 // Hosted (Supabase / PostgREST) databases start with row-level security enabled
 // by default. Recura authenticates inside the app (password hashes live in the
@@ -52,9 +59,16 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 
 const HOSTED_SCHEMA_SQL_FULL = HOSTED_SCHEMA_SQL + HOSTED_SCHEMA_SUPABASE_SETUP;
 
+// Shown when the API key can read the schema but writes are blocked by RLS.
+// Supabase enables RLS on tables created from the dashboard; Recura's schema
+// was written for RLS-disabled access, so this must be run once in the SQL Editor.
+const RLS_FIX_MESSAGE =
+  'The API key can read the Recura schema but is blocked from writing — row-level security (RLS) is still enabled. ' +
+  'Open your database SQL console (for Supabase: SQL Editor), run only the "Supabase / hosted access" block below, then verify again.';
+
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 type Backend = 'postgres' | 'hosted';
-type HostedState = 'idle' | 'testing' | 'ok' | 'error' | 'schema-missing' | 'graphql';
+type HostedState = 'idle' | 'testing' | 'ok' | 'error' | 'schema-missing' | 'graphql' | 'rls';
 
 const STEP_LABELS = ['Welcome', 'Database', 'Install', 'Admin', 'Verify', 'Complete'];
 
@@ -413,6 +427,30 @@ export function InstallApp() {
         return;
       }
       const adminExists = (users ?? []).some((u) => u.role === 'ADMIN');
+
+      // A read probe cannot detect RLS: with no policies, PostgREST silently
+      // returns 0 rows on SELECT (no error), but the first INSERT — the admin
+      // account — fails with a 401. So probe write access with a throwaway
+      // AuditLog row (append-only, no unique constraints), then remove it.
+      const { data: probeRows, error: probeError } = await client.insert<{ id: string }>('AuditLog', [
+        {
+          userEmail: `installer-probe-${Date.now()}@recura.local`,
+          userName: 'Installer Probe',
+          action: 'INSTALLER_ACCESS_PROBE',
+          details: 'Temporary write-access check; removed immediately.',
+          ipAddress: '127.0.0.1',
+        },
+      ]);
+      if (probeError) {
+        setHostedState('rls');
+        setHostedError(RLS_FIX_MESSAGE);
+        return;
+      }
+      if (probeRows && probeRows.length) {
+        const probeId = probeRows[0].id;
+        if (probeId) await client.delete('AuditLog', { id: probeId });
+      }
+
       setHostedAdminExists(adminExists);
       setHostedState('ok');
       setHostedResult(
@@ -475,10 +513,7 @@ export function InstallApp() {
         if (/duplicate|unique|23505/i.test(error.message)) {
           setHostedError('That email or username is already in use. Choose another one.');
         } else if (/row.?level security|permission denied|is not allowed|42501/i.test(error.message)) {
-          setHostedError(
-            'The API key is blocked by row-level security (RLS) on the Recura tables — Supabase enables it by default. ' +
-              'Open the SQL Editor, run the "Supabase / hosted access" block from the schema, then try again.'
-          );
+          setHostedError(RLS_FIX_MESSAGE);
         } else {
           setHostedError(`Could not create the administrator account: ${error.message}`);
         }
@@ -790,9 +825,9 @@ function DatabaseStep({
   const setAdminField = (k: keyof AdminForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setAdmin((prev) => ({ ...prev, [k]: e.target.value }));
 
-  const copySchemaSql = async () => {
+  const copySchemaSql = async (text: string = HOSTED_SCHEMA_SQL_FULL) => {
     try {
-      await navigator.clipboard.writeText(HOSTED_SCHEMA_SQL_FULL);
+      await navigator.clipboard.writeText(text);
       setHostedCopied(true);
       window.setTimeout(() => setHostedCopied(false), 2500);
     } catch {
@@ -884,6 +919,25 @@ function DatabaseStep({
                   <button className="btn-primary flex-1 !py-2 text-xs" onClick={copySchemaSql}>
                     {hostedCopied ? <ClipboardCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     {hostedCopied ? 'Copied' : 'Copy the schema'}
+                  </button>
+                  <button className="btn-secondary flex-1 !py-2 text-xs" onClick={onHostedTest} disabled={hostedBusy}>
+                    <RefreshCw className="w-4 h-4" /> I ran it — check again
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {hostedState === 'rls' && (
+              <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                <div className="flex items-start gap-2.5 text-xs font-bold text-rose-900">
+                  <ShieldCheck className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <span>{hostedError}</span>
+                </div>
+                <textarea className={inputCls} readOnly rows={6} value={HOSTED_SCHEMA_SUPABASE_SETUP} spellCheck={false} />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button className="btn-primary flex-1 !py-2 text-xs" onClick={() => copySchemaSql(HOSTED_SCHEMA_SUPABASE_SETUP)}>
+                    {hostedCopied ? <ClipboardCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {hostedCopied ? 'Copied' : 'Copy the RLS fix block'}
                   </button>
                   <button className="btn-secondary flex-1 !py-2 text-xs" onClick={onHostedTest} disabled={hostedBusy}>
                     <RefreshCw className="w-4 h-4" /> I ran it — check again
