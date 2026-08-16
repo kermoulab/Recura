@@ -33,28 +33,38 @@ const HOSTED_SCHEMA_SQL = Object.keys(schemaModules)
 // by default. Recura authenticates inside the app (password hashes live in the
 // "User" table), so RLS would block every read/write through the anon API key —
 // e.g. a 401 "new row violates row-level security policy" when creating the
-// admin account. This block disables RLS on the Recura tables and grants the
-// anon/authenticated roles access. It is idempotent and safe to run again.
+// admin account. This block grants the anon/authenticated roles access, disables
+// RLS on every Recura table, and adds permissive policies as a belt-and-suspenders
+// fallback so the API key keeps working even if RLS is re-enabled later. It is
+// idempotent, safe to run again, and runs only against Supabase (the anon/
+// authenticated roles do not exist on plain PostgreSQL).
 const HOSTED_SCHEMA_SUPABASE_SETUP = `
 -- ---------------------------------------------------------------------------
 -- Supabase / hosted (PostgREST) access
 -- Recura authenticates within the app, so the tables must be readable and
--- writable through the API key. Run this block if your provider enabled
--- row-level security (Supabase does by default).
+-- writable through the API key. Required for Supabase (RLS is on by default).
+-- Safe to run again; missing tables are skipped.
 -- ---------------------------------------------------------------------------
-ALTER TABLE IF EXISTS "User" DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "Customer" DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "Plan" DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS service_accounts DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "Order" DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "WhatsAppTemplate" DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "AuditLog" DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS push_events DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS push_log DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS push_tokens DISABLE ROW LEVEL SECURITY;
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+-- Disable RLS on every Recura table and, belt-and-suspenders, add permissive
+-- policies for the anon/authenticated roles so the API key keeps working even
+-- if RLS is ever re-enabled. Missing tables are skipped, so this can be run on
+-- a partial schema or repeatedly.
+DO $$
+DECLARE t TEXT;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['User','Customer','Plan','Order','WhatsAppTemplate','AuditLog','service_accounts','push_events','push_log','push_tokens']
+  LOOP
+    IF to_regclass(format('%I', t)) IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY', t);
+      EXECUTE format('DROP POLICY IF EXISTS recura_full_access ON %I', t);
+      EXECUTE format('CREATE POLICY recura_full_access ON %I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true)', t);
+    END IF;
+  END LOOP;
+END $$;
 `;
 
 const HOSTED_SCHEMA_SQL_FULL = HOSTED_SCHEMA_SQL + HOSTED_SCHEMA_SUPABASE_SETUP;

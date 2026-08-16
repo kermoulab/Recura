@@ -315,6 +315,31 @@ INSERT INTO "AuditLog" ("id", "timestamp", "userEmail", "userName", "action", "d
 ('e1000000-0000-0000-0000-000000000005', NOW() - INTERVAL '1 day',   'sarah@recura.io', 'Sarah Connor',  'WHATSAPP_SENT',   'Sent renewal notice for order #d1000000-...',                                     '127.0.0.1', 'SUCCESS');
 
 -- =============================================================================
+-- SUPABASE / HOSTED ACCESS (RLS fix)
+-- Required for Supabase: row-level security is enabled by default and would
+-- block the anon API key from reading/writing the Recura tables. This grants
+-- the anon/authenticated roles access, disables RLS on every Recura table, and
+-- adds permissive policies as a belt-and-suspenders fallback. Idempotent and
+-- safe to run again; missing tables are skipped.
+-- =============================================================================
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+DO $$
+DECLARE t TEXT;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['User','Customer','Plan','Order','WhatsAppTemplate','AuditLog','service_accounts','push_events','push_log','push_tokens']
+  LOOP
+    IF to_regclass(format('%I', t)) IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY', t);
+      EXECUTE format('DROP POLICY IF EXISTS recura_full_access ON %I', t);
+      EXECUTE format('CREATE POLICY recura_full_access ON %I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true)', t);
+    END IF;
+  END LOOP;
+END $$;
+
+-- =============================================================================
 -- END OF SCRIPT
 -- =============================================================================
 -- After running this script, log in with:
