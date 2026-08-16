@@ -10,39 +10,64 @@
 
 const AES_PREFIX = 'aes256gcm:';
 const LEGACY_PREFIX = 'enc_aes256_';
+const KEY_STORAGE = 'recura.encryption.key.v1';
 
-// Singleton encryption key (derived lazily from env or random on first use)
+// Singleton encryption key (persistent, so reloads keep decrypting old data)
 let _aesKey: CryptoKey | null = null;
+
+async function importKeyFromRaw(raw: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    'raw',
+    raw,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
 
 async function getEncryptionKey(): Promise<CryptoKey> {
   if (_aesKey) return _aesKey;
 
+  // 1. Fixed build-time key (VITE_ENCRYPTION_KEY) — stable across browsers/devices.
   const envKey =
     typeof import.meta !== 'undefined'
       ? (import.meta as any).env?.VITE_ENCRYPTION_KEY
       : undefined;
-
   if (envKey && typeof envKey === 'string' && envKey.length >= 32) {
-    // Derive from the provided key material
-    const enc = new TextEncoder();
-    const raw = await crypto.subtle.importKey(
-      'raw',
-      enc.encode(envKey.slice(0, 32)),
-      { name: 'AES-GCM' },
-      false,
-      ['encrypt', 'decrypt'],
-    );
-    _aesKey = raw;
-  } else {
-    // Generate an ephemeral key — encrypted data won't survive app restarts
-    // unless VITE_ENCRYPTION_KEY is set.
-    _aesKey = await crypto.subtle.generateKey(
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['encrypt', 'decrypt'],
-    );
+    _aesKey = await importKeyFromRaw(new TextEncoder().encode(envKey.slice(0, 32)));
+    return _aesKey;
   }
+
+  // 2. Key persisted from a previous session (survives reloads).
+  const stored = localStorage.getItem(KEY_STORAGE);
+  if (stored) {
+    try {
+      _aesKey = await importKeyFromRaw(Uint8Array.from(atob(stored), (c) => c.charCodeAt(0)));
+      return _aesKey;
+    } catch {
+      // stored key is corrupt — generate a fresh one below
+    }
+  }
+
+  // 3. New random key, persisted for future sessions.
+  const key = await crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt'],
+  );
+  try {
+    const raw = new Uint8Array(await crypto.subtle.exportKey('raw', key));
+    localStorage.setItem(KEY_STORAGE, btoa(String.fromCharCode(...raw)));
+  } catch {
+    // Storage unavailable — key stays ephemeral for this session only.
+  }
+  _aesKey = key;
   return _aesKey;
+}
+
+/** True when the value is still an encrypted blob (i.e. could not be decrypted). */
+export function isEncryptedValue(value: string): boolean {
+  return value.startsWith(AES_PREFIX) || value.startsWith(LEGACY_PREFIX);
 }
 
 export function maskEmail(email: string): string {

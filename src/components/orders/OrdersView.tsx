@@ -26,7 +26,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { Order, SubscriptionStatus, ServiceAccount, Customer, Plan, Language, WhatsAppTemplate } from '../../types/erp';
-import { simulateDecrypt, maskEmail, formatCurrency } from '../../utils/crypto';
+import { simulateDecrypt, maskEmail, formatCurrency, isEncryptedValue } from '../../utils/crypto';
 import {
   createWhatsAppWebUrl,
   cleanWhatsAppNumber,
@@ -250,6 +250,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
           filteredOrders.map((ord) => {
             const decryptedPass = decryptedPasswords[ord.id]?.pass ?? '•••';
             const decryptedPin = decryptedPasswords[ord.id]?.pin ?? null;
+            const passUnreadable = isEncryptedValue(decryptedPass);
             const isUnmasked = unmaskedPasswords[ord.id] !== false;
             const isAccountExpanded = !!expandedAccounts[ord.id];
             const account = getAccountById(serviceAccounts, ord.serviceAccountId);
@@ -296,8 +297,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   toast.error('Customer WhatsApp number is missing.');
                   return;
                 }
-                if (!ord.accountEmail || !decryptedPass) {
-                  toast.error('Order account credentials are missing (email/password).');
+                if (!ord.accountEmail || !decryptedPass || passUnreadable) {
+                  toast.error('Order account credentials are missing or unreadable (email/password).');
                   return;
                 }
                 window.open(thanksWaUrl, '_blank', 'noopener,noreferrer');
@@ -510,14 +511,20 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         <div className="flex items-center justify-between text-xs font-mono">
                           <div className="flex items-center gap-2 text-slate-800 font-medium">
                             <KeyRound className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="font-extrabold text-amber-700">
-                              {isUnmasked ? decryptedPass : '••••••••••••'}
-                            </span>
+                            {isUnmasked && passUnreadable ? (
+                              <span className="text-slate-400 font-sans text-[11px] italic">
+                                Cannot decrypt — re-enter the password
+                              </span>
+                            ) : (
+                              <span className="font-extrabold text-amber-700">
+                                {isUnmasked ? decryptedPass : '••••••••••••'}
+                              </span>
+                            )}
                           </div>
                           <button
-                            onClick={() => copyToClipboard(decryptedPass, `pass-${ord.id}`)}
+                            onClick={() => !passUnreadable && copyToClipboard(decryptedPass, `pass-${ord.id}`)}
                             className="text-slate-400 hover:text-blue-600 p-1 cursor-pointer"
-                            title="Copy Password"
+                            title={passUnreadable ? 'Cannot copy — re-enter the password' : 'Copy Password'}
                           >
                             {copiedField === `pass-${ord.id}` ? (
                               <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -535,7 +542,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                             </span>
                             {decryptedPin && (
                               <span>
-                                PIN: <strong className="text-blue-600 font-extrabold">{isUnmasked ? decryptedPin : '••••'}</strong>
+                                PIN: <strong className="text-blue-600 font-extrabold">{isUnmasked ? (isEncryptedValue(decryptedPin) ? '—' : decryptedPin) : '••••'}</strong>
                               </span>
                             )}
                           </div>

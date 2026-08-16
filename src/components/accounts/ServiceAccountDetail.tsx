@@ -30,6 +30,7 @@ import {
   simulateDecrypt,
   formatCurrency,
   calculateDaysRemaining,
+  isEncryptedValue,
 } from '../../utils/crypto';
 import {
   getLinkedOrders,
@@ -94,6 +95,7 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
   const daysLeft = getDaysRemaining(account);
   const linkedOrders = getLinkedOrders(account.id, orders);
   const password = decryptedPassword;
+  const passwordUnreadable = isEncryptedValue(password);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -311,14 +313,20 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
           <div className="flex items-center justify-between p-3 bg-[#F8FAFC] border border-[#E8EAF0] rounded-xl text-xs font-mono">
             <div className="flex items-center gap-2 text-slate-800 font-medium">
               <KeyRound className="w-3.5 h-3.5 text-slate-400" />
-              <span className="font-extrabold text-amber-700">
-                {revealCredentials ? password : '••••••••••••'}
-              </span>
+              {revealCredentials && passwordUnreadable ? (
+                <span className="text-slate-400 font-sans text-[11px] italic">
+                  Cannot decrypt — re-enter the password
+                </span>
+              ) : (
+                <span className="font-extrabold text-amber-700">
+                  {revealCredentials ? password : '••••••••••••'}
+                </span>
+              )}
             </div>
             <button
-              onClick={() => copyToClipboard(password, 'pass')}
+              onClick={() => !passwordUnreadable && copyToClipboard(password, 'pass')}
               className="text-slate-400 hover:text-blue-600 p-1 cursor-pointer"
-              title="Copy Password"
+              title={passwordUnreadable ? 'Cannot copy — re-enter the password' : 'Copy Password'}
             >
               {copiedField === 'pass' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
             </button>

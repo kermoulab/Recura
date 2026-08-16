@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShoppingBag, Lock, Calendar, User, Package, KeyRound, AlertCircle, Server, Layers } from 'lucide-react';
 import { Customer, Plan, Order, SubscriptionStatus, ServiceAccount } from '../../types/erp';
-import { simulateEncrypt, simulateDecrypt, calculateDaysRemaining, formatCurrency } from '../../utils/crypto';
+import { simulateEncrypt, simulateDecrypt, calculateDaysRemaining, formatCurrency, isEncryptedValue } from '../../utils/crypto';
 import { sanitizeInput, validateEmail, stripControlCharacters } from '../../utils/security';
 import { getEffectiveAccountStatus, getNextFreeProfileNumber, getOccupancy } from '../../utils/serviceAccounts';
 
@@ -63,10 +63,14 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       setEndDate(initialData.endDate);
       setAccountEmail(initialData.accountEmail);
       if (initialData.accountPasswordEncrypted) {
-        simulateDecrypt(initialData.accountPasswordEncrypted).then(setRawPassword);
+        simulateDecrypt(initialData.accountPasswordEncrypted).then((v) => {
+          if (!isEncryptedValue(v)) setRawPassword(v);
+        });
       }
       if (initialData.pinCodeEncrypted) {
-        simulateDecrypt(initialData.pinCodeEncrypted).then(setRawPin);
+        simulateDecrypt(initialData.pinCodeEncrypted).then((v) => {
+          if (!isEncryptedValue(v)) setRawPin(v);
+        });
       }
       setScreenProfileName(initialData.screenProfileName || 'Profile 1');
       setNotes(initialData.notes || '');
@@ -104,7 +108,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
     if (account) {
       setAccountEmail(account.email);
       if (account.passwordEncrypted) {
-        simulateDecrypt(account.passwordEncrypted).then(setRawPassword);
+        simulateDecrypt(account.passwordEncrypted).then((v) => {
+          if (!isEncryptedValue(v)) setRawPassword(v);
+        });
       } else {
         setRawPassword('');
       }

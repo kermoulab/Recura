@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Server, Calendar, Layers, AlertCircle, Mail, KeyRound, User, Eye, EyeOff } from 'lucide-react';
 import { ServiceAccount, ServiceAccountStatus, ServiceType } from '../../types/erp';
 import { sanitizeInput, validateEmail, stripControlCharacters } from '../../utils/security';
-import { simulateEncrypt, simulateDecrypt, getCurrencyRate } from '../../utils/crypto';
+import { simulateEncrypt, simulateDecrypt, getCurrencyRate, isEncryptedValue } from '../../utils/crypto';
 
 interface NewServiceAccountModalProps {
   isOpen: boolean;
@@ -46,7 +46,9 @@ export const NewServiceAccountModal: React.FC<NewServiceAccountModalProps> = ({
       setEmail(initialData?.email || '');
       // Decrypt password asynchronously
       if (initialData?.passwordEncrypted) {
-        simulateDecrypt(initialData.passwordEncrypted).then(setRawPassword);
+        simulateDecrypt(initialData.passwordEncrypted).then((v) => {
+          if (!isEncryptedValue(v)) setRawPassword(v);
+        });
       } else {
         setRawPassword('');
       }
