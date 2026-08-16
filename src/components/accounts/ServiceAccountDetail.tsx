@@ -70,7 +70,7 @@ export const ServiceAccountDetail: React.FC<ServiceAccountDetailProps> = ({
   onUnlinkOrder,
   onAssignCustomer,
 }) => {
-  const [revealCredentials, setRevealCredentials] = useState(false);
+  const [revealCredentials, setRevealCredentials] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showRenew, setShowRenew] = useState(false);
   const [renewStart, setRenewStart] = useState(account.subscriptionStart);

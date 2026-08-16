@@ -250,7 +250,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
           filteredOrders.map((ord) => {
             const decryptedPass = decryptedPasswords[ord.id]?.pass ?? '•••';
             const decryptedPin = decryptedPasswords[ord.id]?.pin ?? null;
-            const isUnmasked = unmaskedPasswords[ord.id] === true;
+            const isUnmasked = unmaskedPasswords[ord.id] !== false;
             const isAccountExpanded = !!expandedAccounts[ord.id];
             const account = getAccountById(serviceAccounts, ord.serviceAccountId);
             const customerMissing = isOrderCustomerMissing(ord, customers);
