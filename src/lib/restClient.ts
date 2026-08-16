@@ -79,11 +79,20 @@ export interface PostgrestProbe {
   message?: string;
 }
 
-/** Hard timeout for all installer / app probes so a dead host can never leave a button spinning forever. */
+/** Short hard timeout for installer / host probes so a dead host can never leave a button spinning forever. */
 const PROBE_TIMEOUT_MS = 10000;
 
+/**
+ * Timeout for real application requests against the database API. Longer than
+ * the probe timeout on purpose: a cold serverless PostgREST endpoint (Supabase)
+ * or a slow network can take a while on the first request, and aborting at the
+ * probe timeout makes normal saves fail with a confusing "did not respond in
+ * time" error instead of succeeding.
+ */
+const REQUEST_TIMEOUT_MS = 30000;
+
 /** fetch() that aborts after a timeout, so probing a hung host settles quickly. */
-async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs = PROBE_TIMEOUT_MS): Promise<Response> {
+async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -107,7 +116,7 @@ export async function probePostgrest(url: string, key: string): Promise<Postgres
     ...authHeaders(key.trim()),
   };
   try {
-    const res = await fetchWithTimeout(base + '/', { headers });
+    const res = await fetchWithTimeout(base + '/', { headers }, PROBE_TIMEOUT_MS);
     const contentType = res.headers.get('content-type') || '';
     const text = await res.text();
     let payload: unknown = null;
@@ -189,7 +198,7 @@ export async function probeGraphql(url: string, key: string): Promise<GraphqlPro
         method: 'POST',
         headers,
         body: JSON.stringify({ query: '{ __typename }' }),
-      });
+      }, PROBE_TIMEOUT_MS);
       lastStatus = res.status;
       lastContentType = res.headers.get('content-type') || '';
       if (!lastContentType.includes('application/json')) continue;
@@ -249,7 +258,7 @@ async function request(
       error: {
         message:
           err instanceof Error && err.name === 'AbortError'
-            ? 'The database API did not respond in time. Check the URL and try again.'
+            ? 'The database API took too long to respond. Check your connection and try again.'
             : err instanceof Error
               ? err.message
               : 'Network error while reaching the database API.',

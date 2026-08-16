@@ -46,7 +46,7 @@ function normalizeError(err: unknown, table: string, operation: string): Databas
     code = 'PERMISSION_DENIED';
   } else if (/failed to fetch|network|econn|socket/i.test(message)) {
     code = 'NETWORK';
-  } else if (/timed? ?out/i.test(message)) {
+  } else if (/timed? ?out|took too long to respond|did not respond in time/i.test(message)) {
     code = 'TIMEOUT';
   }
 
