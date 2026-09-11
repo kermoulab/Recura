@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Smartphone, Trash2, RefreshCw, QrCode, AlertTriangle } from 'lucide-react';
 import { MobileDevice } from '../../types/erp';
 import { getDatabase } from '../../db';
+import { getActiveSession } from '../../utils/sessionManager';
 import { toast } from 'sonner';
 
 export const MobileDevicesTab: React.FC = () => {
@@ -43,13 +44,17 @@ export const MobileDevicesTab: React.FC = () => {
   const handleGeneratePairing = async () => {
     try {
       const db = getDatabase();
+      const session = getActiveSession();
+      if (!session) throw new Error('Not logged in');
       
       // Ensure installation exists
+      let installationId = '';
       let installations = await db.adapter.list<any>('installation', { limit: 1 });
       if (installations.length === 0) {
-        // Fallback installation name
-        const id = crypto.randomUUID();
-        await db.adapter.upsert('installation', [{ id, name: 'Recura Server', is_active: true }], 'id');
+        installationId = crypto.randomUUID();
+        await db.adapter.upsert('installation', [{ id: installationId, name: 'Recura Server', status: 'active' }], 'id');
+      } else {
+        installationId = installations[0].id;
       }
       
       // Generate code & hash
@@ -63,8 +68,10 @@ export const MobileDevicesTab: React.FC = () => {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
       
       await db.adapter.insert('mobile_pairing_tokens', [{
-        code_hash: codeHash,
-        expires_at: expiresAt
+        installation_id: installationId,
+        token_hash: codeHash,
+        expires_at: expiresAt,
+        created_by: session.userId
       }]);
       
       setPairingData({ code: rawCode, expiresAt });
