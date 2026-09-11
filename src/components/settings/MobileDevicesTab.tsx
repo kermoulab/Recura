@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Trash2, RefreshCw, QrCode, AlertTriangle } from 'lucide-react';
+import { Smartphone, Trash2, RefreshCw, Key, AlertTriangle } from 'lucide-react';
 import { MobileDevice } from '../../types/erp';
 import { getDatabase } from '../../db';
 import { getActiveSession } from '../../utils/sessionManager';
@@ -93,7 +93,7 @@ export const MobileDevicesTab: React.FC = () => {
           onClick={handleGeneratePairing}
           className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center space-x-2"
         >
-          <QrCode className="w-4 h-4" />
+          <Key className="w-4 h-4" />
           <span>Link New Device</span>
         </button>
       </div>

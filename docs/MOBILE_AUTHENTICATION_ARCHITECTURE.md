@@ -19,7 +19,7 @@
 - Currently, `push_tokens` are associated with `user_email` and `device_token`.
 
 ## 5. Proposed Architecture
-We will introduce an architecture where the Android App connects to the existing Recura installation through a one-time QR pairing process.
+We will introduce an architecture where the Android App connects to the existing Recura installation through a one-time 8-digit code pairing process.
 
 ### Entities
 1. **Installation**: Represents the Recura backend. A single record in the `installation` table.
@@ -29,8 +29,8 @@ We will introduce an architecture where the Android App connects to the existing
 
 ### Auth Flow
 1. **Pairing Phase**:
-   - Web App generates a pairing token (QR Code) in Settings -> Mobile App.
-   - Android scans QR code and calls `POST /api/mobile/pair`.
+   - Web App generates a pairing token (8-digit code) in Settings -> Mobile App.
+   - Android enters the 8-digit code and calls `POST /api/mobile/pair`.
    - Backend validates the token, registers the device in `mobile_devices`, and returns the `installation_id`.
 2. **Login Phase**:
    - Android prompts user for Recura credentials.
@@ -47,7 +47,7 @@ We will introduce an architecture where the Android App connects to the existing
 - `server/mobileApi.js`: Implement endpoints for pair, login, revoke.
 - `src/components/settings/SettingsView.tsx`: Add a new tab for "Mobile App" management.
 - `src/types/erp.ts`: Add `MobileDevice` and `MobilePairingToken` types.
-- `src/components/settings/MobileDevicesTab.tsx`: New component to list devices, revoke them, and show pairing QR code.
+- `src/components/settings/MobileDevicesTab.tsx`: New component to list devices, revoke them, and show pairing 8-digit code.
 
 ## 7. Affected Database Tables
 - `installation` (NEW)

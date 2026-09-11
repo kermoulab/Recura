@@ -227,7 +227,7 @@ A singleton table representing the Recura backend. Android devices pair with a s
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
 ### `mobile_devices`
-Represents an authorized Android device paired via QR token.
+Represents an authorized Android device paired via 8-digit code.
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | `gen_random_uuid()` |
@@ -243,7 +243,7 @@ Represents an authorized Android device paired via QR token.
 | `created_at` | TIMESTAMPTZ | |
 
 ### `mobile_pairing_tokens`
-Short-lived tokens for QR code pairing.
+Short-lived tokens for 8-digit code pairing.
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | `gen_random_uuid()` |

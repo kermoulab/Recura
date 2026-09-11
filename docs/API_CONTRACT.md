@@ -5,24 +5,21 @@
 
 ---
 
-## 1. Device Pairing
+## 1. Web App API (For context only)
 
-### `POST /api/mobile/generate`
-**Auth**: Required (Web App Session)
-**Description**: Generates a short-lived pairing token and QR code for a new Android device.
-**Request Body**: None
-**Response**:
-```json
-{
-  "ok": true,
-  "code": "A1B2C3D4",
-  "expiresAt": "2023-12-01T12:00:00Z"
-}
-```
+### Generate Pairing Token
+- **Endpoint**: `POST /api/mobile/generate`
+- **Description**: Generates a short-lived 8-digit pairing code for a new Android device. (Now handled directly by the frontend DatabaseAdapter to support both server and Vercel/Rest mode).
 
-### `POST /api/mobile/pair`
-**Auth**: None
-**Description**: Exchanges the QR code/pairing token for a device registration.
+---
+
+## 2. Android App API
+
+### Pair Device
+- **Endpoint**: `POST /api/mobile/pair`
+- **Method**: `POST`
+- **Auth Required**: No
+- **Description**: Exchanges the 8-digit pairing code for a device registration.
 **Request Body**:
 ```json
 {
