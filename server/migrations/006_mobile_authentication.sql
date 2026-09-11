@@ -75,3 +75,25 @@ DO $$ BEGIN
     ALTER TABLE push_tokens ADD COLUMN "user_id" UUID REFERENCES "User"("id");
   END IF;
 END $$;
+
+-- -----------------------------------------------------------------------------
+-- SECURITY: Grant API access to the new tables so the RestAdapter can use them
+-- in hosted-backend mode without hitting Row Level Security errors.
+-- -----------------------------------------------------------------------------
+GRANT ALL PRIVILEGES ON TABLE installation TO anon, authenticated;
+GRANT ALL PRIVILEGES ON TABLE mobile_devices TO anon, authenticated;
+GRANT ALL PRIVILEGES ON TABLE mobile_pairing_tokens TO anon, authenticated;
+GRANT ALL PRIVILEGES ON TABLE mobile_sessions TO anon, authenticated;
+
+DO $$ 
+DECLARE t TEXT;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['installation','mobile_devices','mobile_pairing_tokens','mobile_sessions']
+  LOOP
+    IF to_regclass(format('%I', t)) IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY', t);
+      EXECUTE format('DROP POLICY IF EXISTS recura_full_access ON %I', t);
+      EXECUTE format('CREATE POLICY recura_full_access ON %I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true)', t);
+    END IF;
+  END LOOP;
+END $$;
