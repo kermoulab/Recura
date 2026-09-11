@@ -1,50 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Smartphone, Trash2, RefreshCw, QrCode, AlertTriangle } from 'lucide-react';
 import { MobileDevice } from '../../types/erp';
-import { getApiToken } from '../../lib/apiClient';
-import { getActiveSession } from '../../utils/sessionManager';
+import { getDatabase } from '../../db';
 import { toast } from 'sonner';
 
 export const MobileDevicesTab: React.FC = () => {
   const [devices, setDevices] = useState<MobileDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [pairingData, setPairingData] = useState<{ code: string; expiresAt: string } | null>(null);
-  const [serverModeError, setServerModeError] = useState(false);
-
-  const getToken = () => {
-    let t = getApiToken();
-    if (!t) {
-      const session = getActiveSession();
-      // If the session token is not a fake local token, use it
-      if (session?.sessionToken && !session.sessionToken.startsWith('recura_sess_')) {
-        t = session.sessionToken;
-      }
-    }
-    
-    if (!t) {
-      setServerModeError(true);
-    } else {
-      setServerModeError(false);
-    }
-    return t;
-  };
-
+  
   const fetchDevices = async () => {
     try {
-      const token = getToken();
-      if (!token) { setLoading(false); return; }
-      const res = await fetch('/api/mobile/devices', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setDevices(data.devices);
-        setServerModeError(false);
-      } else {
-        toast.error(data.message || 'Failed to load mobile devices.');
+      setLoading(true);
+      const db = getDatabase();
+      const list = await db.adapter.list<MobileDevice>('mobile_devices', { orderBy: { column: 'created_at', ascending: false } });
+      setDevices(list);
+    } catch (err: any) {
+      if (err.code !== 'NOT_CONFIGURED') {
+        toast.error(err.message || 'Failed to load mobile devices.');
       }
-    } catch (err) {
-      toast.error('Failed to load mobile devices.');
     } finally {
       setLoading(false);
     }
@@ -57,23 +31,10 @@ export const MobileDevicesTab: React.FC = () => {
   const handleRevoke = async (id: string) => {
     if (!window.confirm('Are you sure you want to revoke this device?')) return;
     try {
-      const token = getToken();
-      if (!token) return;
-      const res = await fetch('/api/mobile/devices', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ action: 'revoke', id }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        toast.success('Device revoked successfully.');
-        fetchDevices();
-      } else {
-        toast.error(data.message || 'Failed to revoke device.');
-      }
+      const db = getDatabase();
+      await db.adapter.delete('mobile_devices', id);
+      toast.success('Device revoked successfully.');
+      fetchDevices();
     } catch (err) {
       toast.error('Failed to revoke device.');
     }
@@ -81,20 +42,34 @@ export const MobileDevicesTab: React.FC = () => {
 
   const handleGeneratePairing = async () => {
     try {
-      const token = getToken();
-      if (!token) return;
-      const res = await fetch('/api/mobile/generate', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setPairingData({ code: data.code, expiresAt: data.expiresAt });
-      } else {
-        toast.error(data.message || 'Failed to generate pairing token.');
+      const db = getDatabase();
+      
+      // Ensure installation exists
+      let installations = await db.adapter.list<any>('installation', { limit: 1 });
+      if (installations.length === 0) {
+        // Fallback installation name
+        const id = crypto.randomUUID();
+        await db.adapter.upsert('installation', [{ id, name: 'Recura Server', is_active: true }], 'id');
       }
-    } catch (err) {
-      toast.error('Failed to generate pairing token.');
+      
+      // Generate code & hash
+      const rawCode = Math.floor(10000000 + Math.random() * 90000000).toString();
+      const encoder = new TextEncoder();
+      const data = encoder.encode(rawCode);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const codeHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      
+      await db.adapter.insert('mobile_pairing_tokens', [{
+        code_hash: codeHash,
+        expires_at: expiresAt
+      }]);
+      
+      setPairingData({ code: rawCode, expiresAt });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate pairing token.');
     }
   };
 
@@ -115,27 +90,6 @@ export const MobileDevicesTab: React.FC = () => {
           <span>Link New Device</span>
         </button>
       </div>
-
-      {serverModeError && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start text-amber-800">
-          <AlertTriangle className="h-5 w-5 mr-3 mt-0.5 text-amber-500 flex-shrink-0" />
-          <div className="flex-1">
-            <h3 className="font-semibold text-sm">Server Mode Required</h3>
-            <p className="mt-1 text-sm text-amber-700">
-              Mobile device management requires the Recura backend server to be running. Your current session does not have a valid server token.
-            </p>
-            <button
-              onClick={() => {
-                localStorage.removeItem('recura_active_session_v2');
-                window.location.reload();
-              }}
-              className="mt-3 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-md shadow hover:bg-amber-700"
-            >
-              Re-authenticate to Enable
-            </button>
-          </div>
-        </div>
-      )}
 
       {pairingData && (
         <div className="p-6 bg-indigo-50 border border-indigo-100 rounded-lg flex flex-col items-center justify-center space-y-4">

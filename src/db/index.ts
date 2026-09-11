@@ -74,8 +74,9 @@ async function hostedAdminExists(): Promise<boolean> {
 export async function detectDatabaseMode(): Promise<DatabaseMode> {
   if (mode) return mode;
 
-  // 1. Hosted backend configured by the installer (PostgREST URL + optional key).
-  if (loadHostedConfig()) {
+  // 1. Hosted backend configured by the installer (PostgREST URL + optional key)
+  // or statically baked into the build via .env variables (e.g., VITE_SUPABASE_URL).
+  if (loadHostedConfig() || isRestConfigured) {
     mode = 'rest';
     needsInstall = !(await hostedAdminExists());
     return mode;
