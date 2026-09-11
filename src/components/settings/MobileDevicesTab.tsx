@@ -1,24 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, ShieldAlert, Trash2, RefreshCw, QrCode } from 'lucide-react';
+import { Smartphone, Trash2, RefreshCw, QrCode, AlertTriangle } from 'lucide-react';
 import { MobileDevice } from '../../types/erp';
-import { getActiveSession } from '../../utils/sessionManager';
+import { getApiToken } from '../../lib/apiClient';
 import { toast } from 'sonner';
 
 export const MobileDevicesTab: React.FC = () => {
   const [devices, setDevices] = useState<MobileDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [pairingData, setPairingData] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [serverModeError, setServerModeError] = useState(false);
+
+  const getToken = () => {
+    const t = getApiToken();
+    if (!t) setServerModeError(true);
+    return t;
+  };
 
   const fetchDevices = async () => {
     try {
-      const session = getActiveSession();
-      if (!session) return;
+      const token = getToken();
+      if (!token) { setLoading(false); return; }
       const res = await fetch('/api/mobile/devices', {
-        headers: { Authorization: `Bearer ${session.sessionToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (data.ok) {
         setDevices(data.devices);
+        setServerModeError(false);
+      } else {
+        toast.error(data.message || 'Failed to load mobile devices.');
       }
     } catch (err) {
       toast.error('Failed to load mobile devices.');
@@ -34,13 +44,13 @@ export const MobileDevicesTab: React.FC = () => {
   const handleRevoke = async (id: string) => {
     if (!window.confirm('Are you sure you want to revoke this device?')) return;
     try {
-      const session = getActiveSession();
-      if (!session) return;
+      const token = getToken();
+      if (!token) return;
       const res = await fetch('/api/mobile/devices', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}` 
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ action: 'revoke', id }),
       });
@@ -58,11 +68,11 @@ export const MobileDevicesTab: React.FC = () => {
 
   const handleGeneratePairing = async () => {
     try {
-      const session = getActiveSession();
-      if (!session) return;
+      const token = getToken();
+      if (!token) return;
       const res = await fetch('/api/mobile/generate', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${session.sessionToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (data.ok) {
@@ -92,6 +102,19 @@ export const MobileDevicesTab: React.FC = () => {
           <span>Link New Device</span>
         </button>
       </div>
+
+      {serverModeError && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+          <div className="text-sm">
+            <p className="font-bold text-amber-900">Server Mode Required</p>
+            <p className="text-amber-700 mt-0.5">
+              Mobile device management requires the Recura backend server to be running.
+              Please log in while the server is active to use this feature.
+            </p>
+          </div>
+        </div>
+      )}
 
       {pairingData && (
         <div className="p-6 bg-indigo-50 border border-indigo-100 rounded-lg flex flex-col items-center justify-center space-y-4">
