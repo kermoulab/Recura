@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Smartphone, Trash2, RefreshCw, QrCode, AlertTriangle } from 'lucide-react';
 import { MobileDevice } from '../../types/erp';
 import { getApiToken } from '../../lib/apiClient';
+import { getActiveSession } from '../../utils/sessionManager';
 import { toast } from 'sonner';
 
 export const MobileDevicesTab: React.FC = () => {
@@ -11,8 +12,20 @@ export const MobileDevicesTab: React.FC = () => {
   const [serverModeError, setServerModeError] = useState(false);
 
   const getToken = () => {
-    const t = getApiToken();
-    if (!t) setServerModeError(true);
+    let t = getApiToken();
+    if (!t) {
+      const session = getActiveSession();
+      // If the session token is not a fake local token, use it
+      if (session?.sessionToken && !session.sessionToken.startsWith('recura_sess_')) {
+        t = session.sessionToken;
+      }
+    }
+    
+    if (!t) {
+      setServerModeError(true);
+    } else {
+      setServerModeError(false);
+    }
     return t;
   };
 

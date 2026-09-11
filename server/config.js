@@ -102,7 +102,18 @@ export function writeConfig(databaseConfig) {
 
 export function readConfig() {
   const cfg = readJson(configPath());
-  return cfg && cfg.database ? cfg.database : null;
+  if (cfg && cfg.database) return cfg.database;
+  
+  // Fallback to DATABASE_URL if the user bypassed the installer and
+  // provided a direct connection string in .env
+  const envUrl = process.env.DATABASE_URL;
+  if (envUrl && envUrl.startsWith('postgres')) {
+    return {
+      connectionString: envUrl,
+      ssl: envUrl.includes('supabase') || envUrl.includes('render') ? { rejectUnauthorized: false } : false
+    };
+  }
+  return null;
 }
 
 export function hasConfig() {
