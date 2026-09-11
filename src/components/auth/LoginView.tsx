@@ -114,6 +114,20 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
         onAuditLog?.('LOGIN', `User ${profile.fullName} (${profile.email}) authenticated via hosted database.`, 'SUCCESS');
         setFailedAttempts(0);
         setLockoutTimer(0);
+
+        // Silently register a server-side session token so that server-only APIs
+        // (e.g. mobile device management) work even when the primary auth is local.
+        // This is fire-and-forget — a failure here does NOT block login.
+        try {
+          const serverData = await apiPost('/api/auth/login', { identifier: cleanUsername, password: cleanPassword });
+          if (serverData?.token) {
+            setApiToken(serverData.token);
+            session.sessionToken = serverData.token;
+          }
+        } catch {
+          // Server not running or unavailable — local mode only, mobile APIs won't work.
+        }
+
         onLoginSuccess(profile, session);
         return;
       }
