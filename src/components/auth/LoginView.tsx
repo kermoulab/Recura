@@ -124,8 +124,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
             setApiToken(serverData.token);
             session.sessionToken = serverData.token;
           }
-        } catch {
-          // Server not running or unavailable — local mode only, mobile APIs won't work.
+        } catch (err: any) {
+          console.error('[Mobile API] Server mode login failed. This usually means the Node.js server is not connected to the database. Mobile features will be disabled.', err);
         }
 
         onLoginSuccess(profile, session);

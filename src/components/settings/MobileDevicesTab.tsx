@@ -117,14 +117,22 @@ export const MobileDevicesTab: React.FC = () => {
       </div>
 
       {serverModeError && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-          <div className="text-sm">
-            <p className="font-bold text-amber-900">Server Mode Required</p>
-            <p className="text-amber-700 mt-0.5">
-              Mobile device management requires the Recura backend server to be running.
-              Please log in while the server is active to use this feature.
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start text-amber-800">
+          <AlertTriangle className="h-5 w-5 mr-3 mt-0.5 text-amber-500 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-sm">Server Mode Required</h3>
+            <p className="mt-1 text-sm text-amber-700">
+              Mobile device management requires the Recura backend server to be running. Your current session does not have a valid server token.
             </p>
+            <button
+              onClick={() => {
+                localStorage.removeItem('recura_active_session_v2');
+                window.location.reload();
+              }}
+              className="mt-3 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-md shadow hover:bg-amber-700"
+            >
+              Re-authenticate to Enable
+            </button>
           </div>
         </div>
       )}
