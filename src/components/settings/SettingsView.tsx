@@ -26,6 +26,7 @@ import {
 import { Language, WhatsAppTemplate, UserProfile } from '../../types/erp';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../utils/whatsapp';
 import { sanitizeInput, sanitizeUsername, validateEmail, stripControlCharacters, verifyArgon2idPassword } from '../../utils/security';
+import { MobileDevicesTab } from './MobileDevicesTab';
 
 export type SettingsTab = 'profile' | 'sessions' | 'system' | 'security' | 'whatsapp' | 'export';
 
@@ -73,7 +74,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
 
-  const ALL_SETTINGS_TABS: SettingsTab[] = ['profile', 'sessions', 'system', 'security', 'whatsapp', 'export'];
+  const ALL_SETTINGS_TABS: SettingsTab[] = ['profile', 'sessions', 'system', 'security', 'whatsapp', 'mobile', 'export'];
   const SETTINGS_TAB_KEY = 'recura_settings_active_tab_v1';
 
   function loadSettingsTab(): SettingsTab {
@@ -274,10 +275,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     { id: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
     ...(isAdmin
       ? [
-          { id: 'sessions', label: 'Sessions & Devices', icon: <Smartphone className="w-4 h-4" /> },
+          { id: 'sessions', label: 'Sessions & Web Devices', icon: <Smartphone className="w-4 h-4" /> },
           { id: 'system', label: 'System & Currency', icon: <Globe className="w-4 h-4" /> },
           { id: 'security', label: 'Security & Encryption', icon: <Lock className="w-4 h-4" /> },
           { id: 'whatsapp', label: 'WhatsApp Templates', icon: <MessageSquare className="w-4 h-4" /> },
+          { id: 'mobile', label: 'Mobile App', icon: <Smartphone className="w-4 h-4" /> },
           { id: 'export', label: 'Export & Backup', icon: <Download className="w-4 h-4" /> },
         ]
       : []),
@@ -889,6 +891,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'mobile' && (
+          <div className="max-w-3xl">
+            <MobileDevicesTab />
           </div>
         )}
 

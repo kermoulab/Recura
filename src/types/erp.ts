@@ -158,3 +158,28 @@ export interface UserProfile {
   activeSessionsCount?: number;
   currency?: string;
 }
+
+export interface MobileDevice {
+  id: string;
+  installation_id: string;
+  device_id: string;
+  device_name: string;
+  platform: string;
+  app_version?: string;
+  status: 'active' | 'revoked' | 'inactive';
+  created_at: string;
+  last_seen_at: string;
+  revoked_at?: string;
+  user_id?: string;
+  user_name?: string;
+}
+
+export interface MobilePairingToken {
+  id: string;
+  installation_id: string;
+  token_hash: string;
+  expires_at: string;
+  used_at?: string;
+  created_at: string;
+  created_by: string;
+}

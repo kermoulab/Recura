@@ -29,6 +29,7 @@ import {
 } from './auth.js';
 import * as install from './install.js';
 import { handleDataApi } from './appApi.js';
+import { handleMobileApi } from './mobileApi.js';
 import { verifyPassword } from './hash.js';
 import { queryOne, queryAll } from './db.js';
 
@@ -308,6 +309,10 @@ function handleApi(req, res, urlPath, body) {
     return handleDataApi(body, req.headers).then((result) => {
       sendJson(res, result.status || (result.ok ? 200 : 400), result);
     });
+  }
+  if (area === 'mobile') {
+    // Mobile API routes handle their own auth/CSRF requirements based on the route
+    return handleMobileApi(req, res, route, body, req.headers);
   }
   if (area === 'health') {
     return sendJson(res, 200, { ok: true, status: getInstallStatus() });

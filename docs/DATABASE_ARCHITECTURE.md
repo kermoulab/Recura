@@ -212,3 +212,61 @@ order's own sale price/duration/credentials are never overwritten.
   creates can collide; there is no unique constraint on `orderNumber`.
 - `Plan.availableStock` and `Plan.activeOrders` are read-modify-write
   client-side and are **not** atomic.
+
+## Mobile Authentication Tables (Migration 006)
+
+To securely integrate the Android app with self-hosted Recura installations without exposing database credentials, the following tables have been added:
+
+### `installation`
+A singleton table representing the Recura backend. Android devices pair with a specific installation ID.
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | `gen_random_uuid()` |
+| `name` | TEXT | default `'Recura'` |
+| `status` | TEXT | default `'active'` |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+
+### `mobile_devices`
+Represents an authorized Android device paired via QR token.
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | `gen_random_uuid()` |
+| `installation_id` | UUID FK → `installation.id` | |
+| `device_id` | TEXT | generated during pairing |
+| `device_name` | TEXT | |
+| `platform` | TEXT | |
+| `app_version` | TEXT | nullable |
+| `status` | TEXT | `active`, `revoked`, `inactive` |
+| `last_seen_at` | TIMESTAMPTZ | |
+| `revoked_at` | TIMESTAMPTZ | nullable |
+| `user_id` | UUID FK → `User.id` | last logged-in user |
+| `created_at` | TIMESTAMPTZ | |
+
+### `mobile_pairing_tokens`
+Short-lived tokens for QR code pairing.
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | `gen_random_uuid()` |
+| `installation_id` | UUID FK → `installation.id` | |
+| `token_hash` | TEXT | SHA-256 hashed code |
+| `expires_at` | TIMESTAMPTZ | |
+| `used_at` | TIMESTAMPTZ | nullable |
+| `created_by` | UUID FK → `User.id` | |
+| `created_at` | TIMESTAMPTZ | |
+
+### `mobile_sessions`
+Long-lived API sessions for mobile devices.
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | `gen_random_uuid()` |
+| `mobile_device_id` | UUID FK → `mobile_devices.id` | `ON DELETE CASCADE` |
+| `user_id` | UUID FK → `User.id` | `ON DELETE CASCADE` |
+| `session_token_hash`| TEXT | |
+| `expires_at` | TIMESTAMPTZ | |
+| `last_active_at` | TIMESTAMPTZ | |
+| `created_at` | TIMESTAMPTZ | |
+
+### `push_tokens` (Modified)
+The existing `push_tokens` table was enhanced with:
+- `installation_id` (UUID FK → `installation.id`)
+- `user_id` (UUID FK → `User.id`)

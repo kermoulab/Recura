@@ -40,6 +40,25 @@ export const TABLES = Object.freeze({
     'id', 'timestamp', 'userEmail', 'userName', 'action', 'details',
     'ipAddress', 'status', 'createdAt',
   ]),
+  installation: Object.freeze([
+    'id', 'name', 'status', 'created_at', 'updated_at'
+  ]),
+  mobile_devices: Object.freeze([
+    'id', 'installation_id', 'device_id', 'device_name', 'platform',
+    'app_version', 'status', 'created_at', 'last_seen_at', 'revoked_at', 'user_id'
+  ]),
+  mobile_pairing_tokens: Object.freeze([
+    'id', 'installation_id', 'token_hash', 'expires_at', 'used_at',
+    'created_at', 'created_by'
+  ]),
+  mobile_sessions: Object.freeze([
+    'id', 'mobile_device_id', 'user_id', 'session_token_hash',
+    'expires_at', 'created_at', 'last_active_at'
+  ]),
+  push_tokens: Object.freeze([
+    'id', 'user_email', 'device_token', 'platform', 'created_at', 'updated_at',
+    'device_id', 'app_version', 'is_active', 'last_seen_at', 'installation_id', 'user_id'
+  ]),
 });
 
 /** Quote a Postgres identifier. Names come from the allow-list, never the client. */
