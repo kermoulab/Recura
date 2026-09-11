@@ -14,9 +14,14 @@ export const MobileDevicesTab: React.FC = () => {
     try {
       setLoading(true);
       const db = getDatabase();
+      console.log('[MobileDevicesTab] Fetching devices using adapter:', db.adapter.provider);
+      
       const list = await db.adapter.list<MobileDevice>('mobile_devices', { orderBy: { column: 'created_at', ascending: false } });
+      console.log('[MobileDevicesTab] Fetched list:', list);
+      
       setDevices(list);
     } catch (err: any) {
+      console.error('[MobileDevicesTab] fetchDevices error:', err);
       if (err.code !== 'NOT_CONFIGURED') {
         toast.error(err.message || 'Failed to load mobile devices.');
       }
@@ -89,13 +94,22 @@ export const MobileDevicesTab: React.FC = () => {
             Manage Android devices connected to your Recura installation.
           </p>
         </div>
-        <button
-          onClick={handleGeneratePairing}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center space-x-2"
-        >
-          <Key className="w-4 h-4" />
-          <span>Link New Device</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={fetchDevices}
+            className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+            title="Refresh Devices"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+          <button
+            onClick={handleGeneratePairing}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center space-x-2"
+          >
+            <Key className="w-4 h-4" />
+            <span>Link New Device</span>
+          </button>
+        </div>
       </div>
 
       {pairingData && (
