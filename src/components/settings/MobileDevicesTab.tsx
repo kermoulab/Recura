@@ -60,7 +60,7 @@ export const MobileDevicesTab: React.FC = () => {
     try {
       const session = getActiveSession();
       if (!session) return;
-      const res = await fetch('/api/mobile/pair/generate', {
+      const res = await fetch('/api/mobile/generate', {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.sessionToken}` },
       });

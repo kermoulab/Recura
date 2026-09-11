@@ -38,7 +38,7 @@ function generateCode(length = 8) {
 export async function handleMobileApi(req, res, route, body, headers = {}) {
   try {
     switch (route) {
-      case 'pair/generate':
+      case 'generate':
         return await handleGeneratePairing(res, body, headers);
       case 'pair':
         return await handlePairDevice(res, body);

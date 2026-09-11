@@ -7,7 +7,7 @@
 
 ## 1. Device Pairing
 
-### `POST /api/mobile/pair/generate`
+### `POST /api/mobile/generate`
 **Auth**: Required (Web App Session)
 **Description**: Generates a short-lived pairing token and QR code for a new Android device.
 **Request Body**: None
