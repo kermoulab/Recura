@@ -283,7 +283,7 @@ function handleApi(req, res, urlPath, body) {
   if (req.method === 'GET' && area === 'health') {
     return sendJson(res, 200, { ok: true, status: getInstallStatus() });
   }
-  if (req.method === 'GET' && area === 'mobile' && route === 'devices') {
+  if (req.method === 'GET' && area === 'mobile' && (route === 'devices' || route === 'config')) {
     return handleMobileApi(req, res, route, {}, req.headers);
   }
   if (req.method !== 'POST') {
