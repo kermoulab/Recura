@@ -275,9 +275,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     { id: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
     ...(isAdmin
       ? [
-          { id: 'sessions', label: 'Sessions & Web Devices', icon: <Smartphone className="w-4 h-4" /> },
           { id: 'system', label: 'System & Currency', icon: <Globe className="w-4 h-4" /> },
-          { id: 'security', label: 'Security & Encryption', icon: <Lock className="w-4 h-4" /> },
           { id: 'whatsapp', label: 'WhatsApp Templates', icon: <MessageSquare className="w-4 h-4" /> },
           { id: 'mobile', label: 'Mobile App', icon: <Smartphone className="w-4 h-4" /> },
           { id: 'export', label: 'Export & Backup', icon: <Download className="w-4 h-4" /> },
@@ -658,16 +656,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           {profile.role === 'ADMIN' ? 'System Admin' : 'Limited Staff'}
                         </span>
 
-                        {profile.id !== currentUser.id && onSelectProfile && (
-                          <button
-                            onClick={() => onSelectProfile(profile)}
-                            className="text-xs bg-white hover:bg-slate-100 text-slate-700 font-bold px-3 py-1 rounded-lg border border-slate-200 cursor-pointer shadow-2xs"
-                          >
-                            Switch To
-                          </button>
-                        )}
-
-                        {profile.id !== currentUser.id && onDeleteProfile && (
+                        {profile.id !== currentUser.id && profile.role !== 'ADMIN' && onDeleteProfile && (
                           <button
                             onClick={() => onDeleteProfile(profile.id)}
                             className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"

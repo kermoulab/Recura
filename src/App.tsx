@@ -14,7 +14,6 @@ import { PlansView } from './components/plans/PlansView';
 import { OrdersView } from './components/orders/OrdersView';
 import { ServiceAccountsView } from './components/accounts/ServiceAccountsView';
 import { AlertsView } from './components/alerts/AlertsView';
-import { DatabaseView } from './components/database/DatabaseView';
 import { AuditLogsView } from './components/audit/AuditLogsView';
 import { SettingsView, SettingsTab } from './components/settings/SettingsView';
 import { DEFAULT_WHATSAPP_TEMPLATES } from './utils/whatsapp';
@@ -48,7 +47,7 @@ import { getDatabase } from './db';
 import { calculateDaysRemaining } from './utils/crypto';
 
 const LAST_VIEW_KEY = 'recura_last_view_v1';
-const VALID_VIEWS: ERPView[] = ['dashboard', 'customers', 'orders', 'accounts', 'plans', 'alerts', 'database', 'audit', 'settings'];
+const VALID_VIEWS: ERPView[] = ['dashboard', 'customers', 'orders', 'accounts', 'plans', 'alerts', 'audit', 'settings'];
 const CURRENCY_KEY = 'recura_currency_v1';
 
 function loadLastView(): ERPView {
@@ -244,7 +243,7 @@ export default function App() {
         setCurrency(matchedUser.currency);
       }
       // If restored view is admin-only and user is not ADMIN, fall back to dashboard
-      if (matchedUser.role !== 'ADMIN' && ['plans', 'database', 'audit', 'accounts'].includes(currentView)) {
+      if (matchedUser.role !== 'ADMIN' && ['plans', 'audit', 'accounts'].includes(currentView)) {
         setCurrentView('dashboard');
       }
     }
@@ -289,7 +288,7 @@ export default function App() {
       return;
     }
 
-    if (currentUser.role !== 'ADMIN' && (view === 'plans' || view === 'database' || view === 'audit' || view === 'accounts')) {
+    if (currentUser.role !== 'ADMIN' && (view === 'plans' || view === 'audit' || view === 'accounts')) {
       toast.error('Access Restricted: Low-level staff profiles cannot access this page.');
       setCurrentView('orders');
       return;
@@ -421,7 +420,7 @@ export default function App() {
     }
 
     toast.success(`Welcome back, ${user.fullName}!`);
-    if (user.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit' || currentView === 'accounts')) {
+    if (user.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'audit' || currentView === 'accounts')) {
       setCurrentView('orders');
     }
   };
@@ -491,7 +490,7 @@ export default function App() {
     saveActiveSession(newSession);
     toast.info(`Switched active profile to ${profile.fullName} (${profile.role === 'ADMIN' ? 'System Administrator' : 'Limited Staff'})`);
     logAudit('LOGIN', `Switched active profile session to ${profile.fullName} (${profile.email})`);
-    if (profile.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'database' || currentView === 'audit' || currentView === 'accounts')) {
+    if (profile.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'audit' || currentView === 'accounts')) {
       setCurrentView('orders');
     }
   };
@@ -1136,8 +1135,6 @@ export default function App() {
             }}
           />
         )}
-
-        {currentView === 'database' && <DatabaseView />}
 
         {currentView === 'audit' && <AuditLogsView logs={auditLogs} />}
 

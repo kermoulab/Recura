@@ -21,7 +21,6 @@ export type ERPView =
   | 'accounts'
   | 'plans'
   | 'alerts'
-  | 'database'
   | 'audit'
   | 'settings';
 
@@ -81,14 +80,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: expiringBadgeCount,
     },
     {
-      id: 'database',
-      label: 'Database & SQL',
-      icon: <Database className="w-5 h-5" />,
-      adminOnly: true,
-    },
-    {
       id: 'audit',
-      label: 'Audit Logs',
+      label: 'System Audit Logs',
       icon: <ShieldCheck className="w-5 h-5" />,
       adminOnly: true,
     },
