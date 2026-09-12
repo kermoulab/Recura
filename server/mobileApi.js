@@ -53,6 +53,8 @@ export async function handleMobileApi(req, res, route, body, headers = {}) {
           return await handleRevokeDevice(res, body.id, headers);
         }
         break;
+      case 'config':
+        return await handleMobileConfig(res);
       default:
         return sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: 'Unknown mobile route.' });
     }
@@ -255,4 +257,12 @@ async function handleRevokeDevice(res, deviceId, headers) {
 
     sendJson(res, 200, { ok: true });
   });
+}
+
+/** Web App: Return config for Android App */
+async function handleMobileConfig(res) {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.DATABASE_URL || '';
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  // If the web app is proxying or using a custom domain for supabase, we can return the origin
+  sendJson(res, 200, { supabaseUrl, supabaseAnonKey });
 }
