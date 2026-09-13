@@ -92,8 +92,8 @@ export const Header: React.FC<HeaderProps> = ({
 
   const rawTopTabs: { id: ERPView; label: string; adminOnly?: boolean }[] = [
     { id: 'dashboard', label: 'Overview' },
-    { id: 'orders', label: 'Revenue' },
     { id: 'customers', label: 'Customers' },
+    { id: 'orders', label: 'Revenue' },
     { id: 'alerts', label: 'Retention' },
   ];
 
