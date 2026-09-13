@@ -65,3 +65,7 @@ INSERT INTO product_categories (name, description) VALUES
 ('VPN & Security', 'NordVPN, ExpressVPN'),
 ('Other Digital Goods', 'Miscellaneous digital subscriptions')
 ON CONFLICT DO NOTHING;
+
+
+-- Force PostgREST to reload its schema cache (for Supabase)
+NOTIFY pgrst, 'reload schema';
