@@ -106,24 +106,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-2xl shadow-xs border border-[#E8EAF0] flex flex-wrap items-center justify-end gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="bg-[#F5F7FA] border border-[#E8EAF0] rounded-xl text-xs font-medium text-[#111827] px-3 py-2 focus:outline-none"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-              <option value="BLOCKED">Blocked</option>
-              <option value="VIP">VIP</option>
-            </select>
-          </div>
-        </div>
-      </div>
+    
 
       {/* Customers Table */}
       <div className="bg-white rounded-3xl shadow-xs border border-[#E8EAF0] overflow-hidden">
