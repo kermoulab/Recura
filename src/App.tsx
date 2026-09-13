@@ -1053,27 +1053,58 @@ export default function App() {
         )}
 
         {currentView === 'products' && (
-          <ProductsView
-            products={products}
-            categories={productCategories}
-            assets={digitalAssets}
-            plans={plans}
-            onAddProduct={async (p) => {
-              const saved = await db.products.insert(p as any);
-              setProducts([...products, saved]);
-              toast.success('Product created!');
-            }}
-            onUpdateProduct={async (p) => {
-              const saved = await db.products.update(p);
-              setProducts(products.map(x => x.id === p.id ? saved : x));
-              toast.success('Product updated!');
-            }}
-            onDeleteProduct={async (id) => {
-              await db.products.delete(id);
-              setProducts(products.filter(x => x.id !== id));
-              toast.success('Product deleted!');
-            }}
-          />
+            <ProductsView
+              products={products}
+              categories={productCategories}
+              assets={digitalAssets}
+              plans={plans}
+              orders={orders}
+              onAddProduct={async (p) => {
+                const saved = await db.products.insert(p as any);
+                setProducts([...products, saved]);
+                toast.success('Product created!');
+              }}
+              onUpdateProduct={async (p) => {
+                const saved = await db.products.update(p);
+                setProducts(products.map(x => x.id === p.id ? saved : x));
+                toast.success('Product updated!');
+              }}
+              onDeleteProduct={async (id) => {
+                await db.products.delete(id);
+                setProducts(products.filter(x => x.id !== id));
+                toast.success('Product deleted!');
+              }}
+              onAddPlan={async (plan) => {
+                const saved = await db.plans.insert(plan as any);
+                setPlans([...plans, saved]);
+                toast.success('Plan created!');
+              }}
+              onUpdatePlan={async (plan) => {
+                const saved = await db.plans.update(plan);
+                setPlans(plans.map(x => x.id === plan.id ? saved : x));
+                toast.success('Plan updated!');
+              }}
+              onDeletePlan={async (id) => {
+                await db.plans.delete(id);
+                setPlans(plans.filter(x => x.id !== id));
+                toast.success('Plan deleted!');
+              }}
+              onAddAsset={async (asset) => {
+                const saved = await db.digitalAssets.insert(asset as any);
+                setDigitalAssets([...digitalAssets, saved]);
+                toast.success('Asset created!');
+              }}
+              onUpdateAsset={async (asset) => {
+                const saved = await db.digitalAssets.update(asset);
+                setDigitalAssets(digitalAssets.map(x => x.id === asset.id ? saved : x));
+                toast.success('Asset updated!');
+              }}
+              onDeleteAsset={async (id) => {
+                await db.digitalAssets.delete(id);
+                setDigitalAssets(digitalAssets.filter(x => x.id !== id));
+                toast.success('Asset deleted!');
+              }}
+            />
         )}
 
         {currentView === 'plans' && (
