@@ -232,18 +232,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="lg:col-span-5 bg-white p-6 rounded-3xl shadow-xs border border-[#E8EAF0] relative flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-base text-[#111827]">Monthly Revenue</h3>
-            <div className="flex items-center gap-1.5">
-              <span className="bg-[#F5F7FA] text-[#6B7280] text-[11px] font-bold px-2.5 py-1 rounded-full border border-[#E8EAF0]">
-                All
-              </span>
-              <button className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-              <button className="flex items-center gap-1 bg-[#F5F7FA] text-[#111827] text-[11px] font-bold px-2.5 py-1 rounded-full border border-[#E8EAF0] hover:bg-slate-100">
-                <Filter className="w-3 h-3 text-slate-500" />
-                Filter
-              </button>
-            </div>
           </div>
 
           <div className="my-6">
