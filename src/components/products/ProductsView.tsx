@@ -99,8 +99,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   </td>
                   <td className="py-4 px-6">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                      {getFulfillmentIcon(prod.fulfillmentType)}
-                      {prod.fulfillmentType.replace('_', ' ')}
+                      {getFulfillmentIcon(prod.fulfillmentType || 'MANUAL')}
+                      {(prod.fulfillmentType || 'MANUAL').replace('_', ' ')}
                     </span>
                   </td>
                   <td className="py-4 px-6 text-slate-700">
