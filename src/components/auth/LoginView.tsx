@@ -119,7 +119,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLoginSuccess, 
         // (e.g. mobile device management) work even when the primary auth is local.
         // This is fire-and-forget — a failure here does NOT block login.
         try {
-          const serverData = await apiPost('/api/auth/login', { identifier: cleanUsername, password: cleanPassword });
+          const serverData = await apiPost('/api/auth/login', { identifier: cleanUsername, password: cleanPassword }) as { token?: string };
           if (serverData?.token) {
             setApiToken(serverData.token);
             session.sessionToken = serverData.token;

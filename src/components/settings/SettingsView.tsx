@@ -28,7 +28,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES } from '../../utils/whatsapp';
 import { sanitizeInput, sanitizeUsername, validateEmail, stripControlCharacters, verifyArgon2idPassword } from '../../utils/security';
 import { MobileDevicesTab } from './MobileDevicesTab';
 
-export type SettingsTab = 'profile' | 'sessions' | 'system' | 'security' | 'whatsapp' | 'export';
+export type SettingsTab = 'profile' | 'sessions' | 'system' | 'security' | 'whatsapp' | 'export' | 'mobile';
 
 interface SettingsViewProps {
   currentUser?: UserProfile;

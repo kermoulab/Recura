@@ -32,16 +32,7 @@ import { ProductRepository, createProductRepository } from './repositories/produ
 import { DigitalAssetRepository, createDigitalAssetRepository } from './repositories/digitalAssetRepository';
 import { ProductCategoryRepository, createProductCategoryRepository } from './repositories/productCategoryRepository';
 import { UserProfileRepository, createUserProfileRepository } from './repositories/userProfileRepository';
-import {
-  WhatsAppTemplateRepository,
-  ProductRepository,
-  DigitalAssetRepository,
-  ProductCategoryRepository,
-  createWhatsAppTemplateRepository,
-  ProductRepository,
-  DigitalAssetRepository,
-  ProductCategoryRepository,
-} from './repositories/whatsAppTemplateRepository';
+import { WhatsAppTemplateRepository, createWhatsAppTemplateRepository } from './repositories/whatsAppTemplateRepository';
 
 export interface Database {
   readonly adapter: DatabaseAdapter;
@@ -154,4 +145,5 @@ export type {
   DigitalAssetRepository,
   ProductCategoryRepository,
 } from './repositories';
+
 
