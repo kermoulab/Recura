@@ -94,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'dashboard', label: 'Overview' },
     { id: 'customers', label: 'Customers' },
     { id: 'orders', label: 'Revenue' },
-    { id: 'alerts', label: 'Retention' },
+    { id: 'settings', label: 'Settings' },
   ];
 
   const topTabs = isAdmin ? rawTopTabs : rawTopTabs.filter((t) => !t.adminOnly);
