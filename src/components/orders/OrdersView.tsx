@@ -210,24 +210,6 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-2xl shadow-xs border border-[#E8EAF0] flex flex-wrap items-center justify-end gap-4">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="bg-[#F5F7FA] border border-[#E8EAF0] rounded-xl text-xs font-medium text-[#111827] px-3 py-2 focus:outline-none"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="EXPIRING_7D">Expiring in 7 Days</option>
-            <option value="EXPIRING_3D">Expiring in 3 Days</option>
-            <option value="EXPIRED">Expired</option>
-          </select>
-        </div>
-      </div>
-
       {/* Orders List Cards */}
       <div className="space-y-4">
         {filteredOrders.length === 0 ? (
