@@ -83,12 +83,24 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ logs }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E8EAF0] text-xs">
-              {filteredLogs.map((log) => (
+              {filteredLogs.map((log) => {
+                let formattedDate = log.timestamp;
+                try {
+                  const d = new Date(log.timestamp);
+                  if (!isNaN(d.getTime())) {
+                    const yy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const min = String(d.getMinutes()).padStart(2, '0');
+                    formattedDate = `${yy}-${mm}-${dd}/${hh}:${min}`;
+                  }
+                } catch (e) {}
+                return (
                 <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-4 px-6 font-mono text-slate-500 font-semibold">{log.timestamp}</td>
+                  <td className="py-4 px-6 font-mono text-slate-500 font-semibold">{formattedDate}</td>
                   <td className="py-4 px-6">
                     <span className="font-extrabold text-[#111827] block">{log.userName}</span>
-                    <span className="text-[11px] text-slate-400">{log.userEmail}</span>
                   </td>
                   <td className="py-4 px-6">
                     <span className="bg-blue-50 text-blue-700 font-extrabold text-[10px] px-2.5 py-1 rounded-md border border-blue-200">
@@ -110,7 +122,8 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ logs }) => {
                     </span>
                   </td>
                 </tr>
-              ))}
+                );
+                })}
             </tbody>
           </table>
         </div>
@@ -118,3 +131,4 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ logs }) => {
     </div>
   );
 };
+
