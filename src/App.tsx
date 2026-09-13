@@ -138,7 +138,7 @@ export default function App() {
         if (!db.isConnected()) {
           toast.warning('Database not connected. Create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart — changes will not be saved until then.');
         }
-        const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedAccounts, loadedLogs, loadedTemplates, loadedProducts, loadedCategories, loadedAssets] = await Promise.all([
+        const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedAccounts, loadedLogs, loadedProducts, loadedCategories, loadedAssets, loadedTemplates] = await Promise.all([
           db.userProfiles.fetchAll(),
           db.customers.fetchAll(),
           db.plans.fetchAll(),
@@ -157,11 +157,11 @@ export default function App() {
         setOrders(loadedOrders);
         setServiceAccounts(loadedAccounts);
         setAuditLogs(loadedLogs);
+        setProducts(loadedProducts);
+        setProductCategories(loadedCategories);
+        setDigitalAssets(loadedAssets);
         if (loadedTemplates) {
           setWhatsAppTemplates(loadedTemplates);
-          setProducts(loadedProducts);
-          setProductCategories(loadedCategories);
-          setDigitalAssets(loadedAssets);
         }
       } catch (error) {
         console.error('Failed fetching data from database:', error);
@@ -1272,5 +1272,6 @@ export default function App() {
     </div>
   );
 }
+
 
 
