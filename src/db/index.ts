@@ -28,10 +28,19 @@ import {
   createServiceAccountRepository,
 } from './repositories/serviceAccountRepository';
 import { AuditLogRepository, createAuditLogRepository } from './repositories/auditLogRepository';
+import { ProductRepository, createProductRepository } from './repositories/productRepository';
+import { DigitalAssetRepository, createDigitalAssetRepository } from './repositories/digitalAssetRepository';
+import { ProductCategoryRepository, createProductCategoryRepository } from './repositories/productCategoryRepository';
 import { UserProfileRepository, createUserProfileRepository } from './repositories/userProfileRepository';
 import {
   WhatsAppTemplateRepository,
+  ProductRepository,
+  DigitalAssetRepository,
+  ProductCategoryRepository,
   createWhatsAppTemplateRepository,
+  ProductRepository,
+  DigitalAssetRepository,
+  ProductCategoryRepository,
 } from './repositories/whatsAppTemplateRepository';
 
 export interface Database {
@@ -43,6 +52,9 @@ export interface Database {
   readonly auditLogs: AuditLogRepository;
   readonly userProfiles: UserProfileRepository;
   readonly whatsAppTemplates: WhatsAppTemplateRepository;
+  readonly products: ProductRepository;
+  readonly digitalAssets: DigitalAssetRepository;
+  readonly productCategories: ProductCategoryRepository;
 
   isConnected(): boolean;
   getStatus(): DbStatus;
@@ -119,6 +131,9 @@ export function getDatabase(): Database {
       auditLogs: createAuditLogRepository(adapter),
       userProfiles: createUserProfileRepository(adapter),
       whatsAppTemplates: createWhatsAppTemplateRepository(adapter),
+      products: createProductRepository(adapter),
+      digitalAssets: createDigitalAssetRepository(adapter),
+      productCategories: createProductCategoryRepository(adapter),
       isConnected: () => adapter.isConnected(),
       getStatus: () => adapter.getStatus(),
     };
@@ -135,4 +150,8 @@ export type {
   AuditLogRepository,
   UserProfileRepository,
   WhatsAppTemplateRepository,
+  ProductRepository,
+  DigitalAssetRepository,
+  ProductCategoryRepository,
 } from './repositories';
+

@@ -31,6 +31,9 @@ function formatForDb(o: Order) {
   return {
     id: o.id,
     orderNumber: o.orderNumber || null,
+    product_id: o.productId || null,
+    digital_asset_id: o.digitalAssetId || null,
+    fulfillment_type: o.fulfillmentType || null,
     customerId: o.customerId,
     customerName: o.customerName,
     customerWhatsApp: o.customerWhatsApp,
@@ -60,6 +63,9 @@ function formatFromDb(row: OrderRow): Order {
   return {
     id: row.id,
     orderNumber: Number(row.orderNumber || 0) || undefined,
+    productId: row.product_id || row.productId || undefined,
+    digitalAssetId: row.digital_asset_id || row.digitalAssetId || undefined,
+    fulfillmentType: row.fulfillment_type || row.fulfillmentType || undefined,
     customerId: row.customerId || row.customer_id || '',
     customerName: row.customerName || row.customer_name || 'Customer',
     customerWhatsApp: row.customerWhatsApp || row.customer_whatsapp || '',
@@ -142,3 +148,4 @@ export function createOrderRepository(adapter: DatabaseAdapter): OrderRepository
     },
   };
 }
+

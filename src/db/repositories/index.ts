@@ -5,3 +5,6 @@ export type { ServiceAccountRepository } from './serviceAccountRepository';
 export type { AuditLogRepository } from './auditLogRepository';
 export type { UserProfileRepository } from './userProfileRepository';
 export type { WhatsAppTemplateRepository } from './whatsAppTemplateRepository';
+export type { ProductRepository } from './productRepository';
+export type { DigitalAssetRepository } from './digitalAssetRepository';
+export type { ProductCategoryRepository } from './productCategoryRepository';

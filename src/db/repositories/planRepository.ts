@@ -14,6 +14,7 @@ type PlanRow = Record<string, any>;
 function formatForDb(p: Plan) {
   return {
     id: p.id,
+    product_id: p.productId || null,
     name: p.name,
     category: p.category,
     price: p.price,
@@ -31,6 +32,7 @@ function formatForDb(p: Plan) {
 function formatFromDb(row: PlanRow): Plan {
   return {
     id: row.id,
+    productId: row.product_id || undefined,
     name: row.name,
     category: row.category || 'Other',
     price: Number(row.price || 0),
@@ -81,3 +83,4 @@ export function createPlanRepository(adapter: DatabaseAdapter): PlanRepository {
     },
   };
 }
+

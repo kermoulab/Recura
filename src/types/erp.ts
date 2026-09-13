@@ -18,6 +18,7 @@ export interface Customer {
 }
 
 export interface Plan {
+  productId?: string;
   id: string;
   name: string;
   category: 'Netflix' | 'Disney+' | 'Prime Video' | 'Spotify' | 'IPTV' | 'YouTube Premium' | 'HBO Max' | 'Other';
@@ -30,6 +31,9 @@ export interface Plan {
 }
 
 export interface Order {
+  productId?: string;
+  digitalAssetId?: string;
+  fulfillmentType?: FulfillmentType;
   id: string;
   orderNumber?: number;
   customerId: string;
@@ -183,3 +187,61 @@ export interface MobilePairingToken {
   created_at: string;
   created_by: string;
 }
+
+export type FulfillmentType =
+  | 'SHARED_ACCOUNT'
+  | 'DEDICATED_ACCOUNT'
+  | 'PROFILE'
+  | 'SEAT'
+  | 'INVITATION'
+  | 'LICENSE_KEY'
+  | 'ACTIVATION_CODE'
+  | 'CREDENTIALS'
+  | 'MANUAL';
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  categoryId?: string;
+  providerId?: string;
+  fulfillmentType: FulfillmentType;
+  status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+  metadata?: any;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DigitalAsset {
+  id: string;
+  productId: string;
+  fulfillmentType: FulfillmentType;
+  identifier: string;
+  status: 'AVAILABLE' | 'ASSIGNED' | 'EXHAUSTED' | 'EXPIRED' | 'DISABLED';
+  capacity: number;
+  occupiedCapacity: number;
+  expiresAt?: string;
+  metadata?: any;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ERPView = 
+  | 'dashboard'
+  | 'customers'
+  | 'orders'
+  | 'accounts'
+  | 'plans'
+  | 'products'
+  | 'alerts'
+  | 'audit'
+  | 'settings';

@@ -20,6 +20,7 @@ export type ERPView =
   | 'orders'
   | 'accounts'
   | 'plans'
+  | 'products'
   | 'alerts'
   | 'audit'
   | 'settings';
@@ -65,6 +66,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'accounts',
       label: 'Service Accounts',
       icon: <Server className="w-5 h-5" />,
+      adminOnly: true,
+    },
+    {
+      id: 'products',
+      label: 'Products & Fulfillment',
+      icon: <Package className="w-5 h-5" />,
       adminOnly: true,
     },
     {
@@ -211,3 +218,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
+

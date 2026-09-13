@@ -11,6 +11,7 @@ import { Header } from './components/layout/Header';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { CustomersView } from './components/customers/CustomersView';
 import { PlansView } from './components/plans/PlansView';
+import { ProductsView } from './components/products/ProductsView';
 import { OrdersView } from './components/orders/OrdersView';
 import { ServiceAccountsView } from './components/accounts/ServiceAccountsView';
 import { AlertsView } from './components/alerts/AlertsView';
@@ -41,7 +42,7 @@ const INITIAL_KPI_STATS: KPIStats = {
   expiredCount: 0,
   mrrGrowth: 0,
 };
-import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile, UserSession, Language, WhatsAppTemplate, ServiceAccount, SubscriptionStatus } from './types/erp';
+import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile, UserSession, Language, WhatsAppTemplate, ServiceAccount, SubscriptionStatus, Product, ProductCategory, DigitalAsset } from './types/erp';
 import { hashPasswordArgon2id, createSecureSessionToken } from './utils/security';
 import { getDatabase } from './db';
 import { calculateDaysRemaining } from './utils/crypto';
@@ -120,6 +121,9 @@ export default function App() {
   // State collections connected to the database
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [serviceAccounts, setServiceAccounts] = useState<ServiceAccount[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -134,13 +138,16 @@ export default function App() {
         if (!db.isConnected()) {
           toast.warning('Database not connected. Create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart — changes will not be saved until then.');
         }
-        const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedAccounts, loadedLogs, loadedTemplates] = await Promise.all([
+        const [loadedProfiles, loadedCustomers, loadedPlans, loadedOrders, loadedAccounts, loadedLogs, loadedTemplates, loadedProducts, loadedCategories, loadedAssets] = await Promise.all([
           db.userProfiles.fetchAll(),
           db.customers.fetchAll(),
           db.plans.fetchAll(),
           db.orders.fetchAll(),
           db.serviceAccounts.fetchAll(),
           db.auditLogs.fetchAll(),
+          db.products.fetchAll(),
+          db.productCategories.fetchAll(),
+          db.digitalAssets.fetchAll(),
           db.whatsAppTemplates.fetchAll(),
         ]);
 
@@ -152,6 +159,9 @@ export default function App() {
         setAuditLogs(loadedLogs);
         if (loadedTemplates) {
           setWhatsAppTemplates(loadedTemplates);
+          setProducts(loadedProducts);
+          setProductCategories(loadedCategories);
+          setDigitalAssets(loadedAssets);
         }
       } catch (error) {
         console.error('Failed fetching data from database:', error);
@@ -1042,6 +1052,30 @@ export default function App() {
           />
         )}
 
+        {currentView === 'products' && (
+          <ProductsView
+            products={products}
+            categories={productCategories}
+            assets={digitalAssets}
+            plans={plans}
+            onAddProduct={async (p) => {
+              const saved = await db.products.insert(p as any);
+              setProducts([...products, saved]);
+              toast.success('Product created!');
+            }}
+            onUpdateProduct={async (p) => {
+              const saved = await db.products.update(p);
+              setProducts(products.map(x => x.id === p.id ? saved : x));
+              toast.success('Product updated!');
+            }}
+            onDeleteProduct={async (id) => {
+              await db.products.delete(id);
+              setProducts(products.filter(x => x.id !== id));
+              toast.success('Product deleted!');
+            }}
+          />
+        )}
+
         {currentView === 'plans' && (
           <PlansView
             plans={plans}
@@ -1238,3 +1272,5 @@ export default function App() {
     </div>
   );
 }
+
+
