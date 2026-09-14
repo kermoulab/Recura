@@ -52,8 +52,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     category: 'Other',
     price: 0,
     cost: 0,
-    duration: 30,
-    durationUnit: 'DAYS',
+    durationMonths: 1,
+    
     maxDevices: 1,
     availableStock: 999
   });
@@ -193,8 +193,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                       <input type="number" value={newPlan.cost || 0} onChange={e => setNewPlan({...newPlan, cost: Number(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Duration (Days)</label>
-                      <input type="number" value={newPlan.duration || 30} onChange={e => setNewPlan({...newPlan, duration: Number(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Duration (Months)</label>
+                      <input type="number" value={newPlan.durationMonths || 1} onChange={e => setNewPlan({...newPlan, durationMonths: Number(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                     </div>
                   </div>
                   <div className="flex justify-end pt-2">
@@ -202,7 +202,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                       if (!newPlan.name) return;
                       onAddPlan({...newPlan as any, productId: selectedProduct.id});
                       setIsAddingPlan(false);
-                      setNewPlan({category: 'Other', price: 0, cost: 0, duration: 30, durationUnit: 'DAYS', maxDevices: 1, availableStock: 999});
+                      setNewPlan({category: 'Other', price: 0, cost: 0, durationMonths: 1,  maxDevices: 1, availableStock: 999});
                     }} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold shadow-md">
                       Save Plan
                     </button>
@@ -226,7 +226,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                       </div>
                       <div className="flex flex-col text-right">
                         <span className="text-[10px] uppercase text-slate-500 font-bold">Duration</span>
-                        <span className="font-bold text-slate-700">{plan.duration} Days</span>
+                        <span className="font-bold text-slate-700">{plan.durationMonths} Months</span>
                       </div>
                     </div>
                   </div>
@@ -546,3 +546,5 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     </div>
   );
 };
+
+

@@ -42,6 +42,7 @@ export interface Order {
   planId: string;
   planName: string;
   price: number;
+  cost?: number;
   durationMonths: number;
   startDate: string;
   endDate: string;
@@ -245,3 +246,6 @@ export type ERPView =
   | 'alerts'
   | 'audit'
   | 'settings';
+
+
+

@@ -46,6 +46,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
 
   const [price, setPrice] = useState(0);
+  const [cost, setCost] = useState(0);
   const [durationMonths, setDurationMonths] = useState(1);
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -67,6 +68,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       setSelectedProductId(initialData.productId || '');
       setSelectedPlanId(initialData.planId);
       setPrice(initialData.price);
+      setCost(initialData.cost || 0);
       setDurationMonths(initialData.durationMonths);
       setStartDate(initialData.startDate);
       setEndDate(initialData.endDate);
@@ -103,6 +105,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       setProfileNumber('');
       setSelectedAssetId('');
       setPrice(0);
+      setCost(0);
       setDurationMonths(1);
       setStartDate(todayStr);
       setEndDate('');
@@ -178,17 +181,12 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       const plan = plans.find((p) => p.id === selectedPlanId);
       if (plan) {
         setPrice(plan.price);
-        setDurationMonths(plan.durationMonths || (plan as any).duration/30 || 1); // rough fallback
+        setCost((plan as any).cost || 0);
+        setDurationMonths(plan.durationMonths || 1);
 
         if (startDate) {
           const start = new Date(startDate);
-          // If the plan has exact days `duration`, use it, else months.
-          const exactDays = (plan as any).duration;
-          if (exactDays) {
-             start.setDate(start.getDate() + exactDays);
-          } else {
-             start.setMonth(start.getMonth() + (plan.durationMonths || 1));
-          }
+          start.setMonth(start.getMonth() + (plan.durationMonths || 1));
           setEndDate(start.toISOString().split('T')[0]);
         }
       }
@@ -264,6 +262,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
         planId: plan.id,
         planName: plan.name,
         price,
+        cost,
         durationMonths,
         startDate,
         endDate,
@@ -393,7 +392,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                       setSelectedAccountId(e.target.value);
                       if (!initialData) {
                         const acc = serviceAccounts.find(a => a.id === e.target.value);
-                        if (acc) setProfileNumber(getNextFreeProfileNumber(acc, orders).toString());
+                        if (acc) setProfileNumber(getNextFreeProfileNumber(acc.id, orders).toString());
                       }
                     }}
                     className="w-full px-3 py-2 bg-white border border-[#E8EAF0] rounded-xl font-medium focus:outline-none"
@@ -457,10 +456,14 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
           </div>
 
           {/* Auto Calculation Preview */}
-          <div className="grid grid-cols-3 gap-3 p-3 bg-blue-50/60 rounded-2xl border border-blue-100">
+          <div className="grid grid-cols-4 gap-3 p-3 bg-blue-50/60 rounded-2xl border border-blue-100">
             <div>
               <span className="text-[10px] text-blue-700 font-bold uppercase block">Final Price</span>
               <input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} className="w-full bg-transparent text-base font-black text-[#111827] outline-none border-b border-blue-200" />
+            </div>
+            <div>
+              <span className="text-[10px] text-blue-700 font-bold uppercase block">Cost</span>
+              <input type="number" value={cost} onChange={e => setCost(Number(e.target.value))} className="w-full bg-transparent text-base font-black text-[#111827] outline-none border-b border-blue-200" />
             </div>
             <div>
               <span className="text-[10px] text-blue-700 font-bold uppercase block">Start Date</span>
@@ -523,3 +526,4 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
     </div>
   );
 };
+
