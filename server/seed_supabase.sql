@@ -96,9 +96,9 @@ ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS fulfillment_type fulfillment_type;
 -- 2) Seed data — use fixed UUIDs so re-runs are idempotent
 -- ============================================================================
 
--- ---- Admin user (password: TestAdmin@123) ----
+-- ---- Admin user (only if none exists with this username/email) ----
 INSERT INTO "User" ("id","name","username","email","passwordHash","role","mfaEnabled","currency","createdAt","updatedAt")
-VALUES (
+SELECT
   'a0000000-0000-0000-0000-000000000001',
   'Admin User',
   'admin',
@@ -109,8 +109,9 @@ VALUES (
   'USD ($)',
   '2025-01-01T00:00:00Z',
   '2025-01-01T00:00:00Z'
-)
-ON CONFLICT ("id") DO NOTHING;
+WHERE NOT EXISTS (
+  SELECT 1 FROM "User" WHERE "username" = 'admin' OR "email" = 'admin@recura.test'
+);
 
 -- ---- Product Categories ----
 INSERT INTO product_categories (id, name, description, status) VALUES
