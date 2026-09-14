@@ -68,6 +68,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   userRole = 'ADMIN',
 }) => {
   const isAdmin = userRole === 'ADMIN';
+  const hasData = customers.length > 0 || orders.length > 0 || plans.length > 0 || products.length > 0 || serviceAccounts.length > 0 || assets.length > 0;
   const orderDates = orders.map((o) => o.startDate).filter(Boolean).sort();
   const safeDate = (d: string) => { try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }); } catch { return ''; } };
   const safeDateFull = (d: string) => { try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; } };
@@ -193,6 +194,34 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const totalCapacity = assets.reduce((sum, a) => sum + (a.capacity || 0), 0);
   const occupiedCapacityTotal = assets.reduce((sum, a) => sum + (a.occupiedCapacity || 0), 0);
   const inventoryUtilization = totalCapacity > 0 ? Math.round((occupiedCapacityTotal / totalCapacity) * 100) : 0;
+
+  if (!hasData) {
+    return (
+      <div id="subly-dashboard-view" className="p-8 bg-[#F5F7FA] min-h-[calc(100vh-72px)]">
+        <div className="bg-white border border-[#E8EAF0] rounded-2xl p-10 text-center max-w-lg mx-auto mt-16">
+          <ShoppingBag className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-[#111827] mb-2">No Data Yet</h2>
+          <p className="text-[#6B7280] mb-6">
+            Your database appears empty. Create your first customer, order, or product to see dashboard analytics.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={onOpenNewCustomer}
+              className="bg-[#111827] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#1F2937] transition-colors"
+            >
+              + New Customer
+            </button>
+            <button
+              onClick={onOpenNewOrder}
+              className="bg-white border border-[#E5E7EB] text-[#111827] px-4 py-2 rounded-lg font-medium hover:bg-[#F9FAFB] transition-colors"
+            >
+              + New Order
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="subly-dashboard-view" className="p-8 space-y-8 bg-[#F5F7FA] min-h-[calc(100vh-72px)]">
