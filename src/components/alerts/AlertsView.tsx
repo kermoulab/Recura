@@ -11,9 +11,11 @@ import {
   Copy,
   ExternalLink,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { Order, Language, WhatsAppTemplate, Customer, Plan } from '../../types/erp';
 import { renderWhatsAppMessage, createWhatsAppWebUrl, DEFAULT_WHATSAPP_TEMPLATES } from '../../utils/whatsapp';
+import { deriveOrderStatus } from '../../utils/orderStatus';
 import {
   isOrderCustomerMissing,
   resolveOrderCustomerName,
@@ -29,6 +31,7 @@ interface AlertsViewProps {
   onMarkContacted: (orderId: string) => void;
   onBulkMarkContacted: (orderIds: string[]) => void;
   onOpenOrder?: (orderId: string) => void;
+  onRenew?: (order: Order) => void;
   initialTab?: '3d' | '7d' | 'expired';
   focusOrderId?: string | null;
 }
@@ -41,6 +44,7 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
   onMarkContacted,
   onBulkMarkContacted,
   onOpenOrder,
+  onRenew,
   initialTab = '3d',
   focusOrderId = null,
 }) => {
@@ -65,9 +69,9 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
   }, [focusOrderId]);
 
   // Filter orders according to tab
-  const expiring3DaysOrders = orders.filter((o) => o.status === 'EXPIRING_3D');
-  const expiring7DaysOrders = orders.filter((o) => o.status === 'EXPIRING_7D');
-  const expiredOrders = orders.filter((o) => o.status === 'EXPIRED');
+  const expiring3DaysOrders = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRING_3D');
+  const expiring7DaysOrders = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRING_7D');
+  const expiredOrders = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRED');
 
   const currentTabOrders =
     activeTab === '3d'
@@ -321,6 +325,17 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
 
                       <td className="py-4 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
+                          {onRenew && (
+                            <button
+                              onClick={() => onRenew(ord)}
+                              className="inline-flex items-center gap-1 bg-[#111827] hover:bg-black text-white font-extrabold px-3 py-1.5 rounded-full text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
+                              title="Extend this order in the renewal modal"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              <span>Renew Now</span>
+                            </button>
+                          )}
+
                           <a
                             href={waUrl}
                             target="_blank"

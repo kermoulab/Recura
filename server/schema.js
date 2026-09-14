@@ -17,7 +17,7 @@ export const TABLES = Object.freeze({
     'isDeleted', 'createdAt', 'updatedAt',
   ]),
   Plan: Object.freeze([
-    'id', 'name', 'category', 'price', 'durationMonths', 'notes',
+    'id', 'product_id', 'name', 'category', 'price', 'durationMonths', 'notes',
     'availableStock', 'totalAccounts', 'activeOrders', 'isDeleted',
     'createdAt', 'updatedAt',
   ]),
@@ -26,7 +26,20 @@ export const TABLES = Object.freeze({
     'planId', 'planName', 'price', 'durationMonths', 'startDate', 'endDate',
     'status', 'accountEmail', 'accountPasswordEncrypted', 'pinCodeEncrypted',
     'screenProfileName', 'notes', 'contactedForRenewal', 'contactedAt',
-    'service_account_id', 'profile_number', 'isDeleted', 'createdAt', 'updatedAt',
+    'service_account_id', 'profile_number', 'product_id', 'digital_asset_id',
+    'fulfillment_type', 'isDeleted', 'createdAt', 'updatedAt',
+  ]),
+  product_categories: Object.freeze([
+    'id', 'name', 'description', 'status', 'created_at', 'updated_at',
+  ]),
+  products: Object.freeze([
+    'id', 'name', 'description', 'category_id', 'provider_id',
+    'fulfillment_type', 'status', 'metadata', 'created_at', 'updated_at',
+  ]),
+  digital_assets: Object.freeze([
+    'id', 'product_id', 'fulfillment_type', 'identifier', 'status',
+    'capacity', 'occupied_capacity', 'expires_at', 'metadata',
+    'created_at', 'updated_at',
   ]),
   service_accounts: Object.freeze([
     'id', 'service_type', 'provider_id', 'email', 'password',

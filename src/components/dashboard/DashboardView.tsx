@@ -27,11 +27,12 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { KPIStats, SubscriptionStatus, Customer, Order, Plan, UserRole, ServiceAccount } from '../../types/erp';
+import { KPIStats, SubscriptionStatus, Customer, Order, Plan, UserRole, ServiceAccount, Product, DigitalAsset } from '../../types/erp';
 import { ERPView } from '../layout/Sidebar';
 // No mock defaults — rely on data passed from parent or DB-driven queries
 import { formatCurrency } from '../../utils/crypto';
 import { getServiceAccountStats, getMostProfitableService } from '../../utils/serviceAccounts';
+import { deriveOrderStatus } from '../../utils/orderStatus';
 
 interface DashboardViewProps {
   kpis: KPIStats;
@@ -39,6 +40,8 @@ interface DashboardViewProps {
   orders?: Order[];
   plans?: Plan[];
   serviceAccounts?: ServiceAccount[];
+  products?: Product[];
+  assets?: DigitalAsset[];
   currency?: string;
   onOpenNewCustomer: () => void;
   onOpenNewOrder: () => void;
@@ -54,6 +57,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   orders = [],
   plans = [],
   serviceAccounts = [],
+  products = [],
+  assets = [],
   currency = 'USD ($)',
   onOpenNewCustomer,
   onOpenNewOrder,
@@ -95,7 +100,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     return {
       month,
-      total: cumulativeCount > 0 ? cumulativeCount : idx + 1,
+      total: cumulativeCount,
       newCustomers: newInMonth,
     };
   });
@@ -119,7 +124,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const rev = dayOrders.reduce((sum, o) => sum + (o.price || 0), 0);
     return {
       day: dayLabel,
-      orders: count > 0 ? count : (dayLabel === 'Mon' || dayLabel === 'Wed' || dayLabel === 'Sun' ? 1 : 0),
+      orders: count,
       revenue: rev,
     };
   });
@@ -158,14 +163,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     })
     .sort((a, b) => b.sales - a.sales);
 
-  // Donut chart distribution
-  const activeOrdersCount = orders.filter((o) => o.status === 'ACTIVE').length;
-  const expiring7DCount = orders.filter((o) => o.status === 'EXPIRING_7D').length;
+  // Donut chart distribution (derived from order end dates, never mocked)
+  const activeOrdersCount = orders.filter((o) => deriveOrderStatus(o) === 'ACTIVE').length;
+  const expiring7DCount = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRING_7D').length;
+  const expiring3DCount = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRING_3D').length;
+  const expiredCount = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRED').length;
   const statusDistributionData = [
-    { name: 'Active', value: activeOrdersCount || 1, color: '#4A90FF' },
-    { name: 'Expiring in 7D', value: expiring7DCount || 1, color: '#D9B8FF' },
-    { name: 'Expiring in 3D', value: kpis.expiring3DaysCount || 1, color: '#F8A8D8' },
-    { name: 'Expired', value: kpis.expiredCount || 1, color: '#FF5B5B' },
+    { name: 'Active', value: activeOrdersCount, color: '#4A90FF' },
+    { name: 'Expiring in 7D', value: expiring7DCount, color: '#D9B8FF' },
+    { name: 'Expiring in 3D', value: expiring3DCount, color: '#F8A8D8' },
+    { name: 'Expired', value: expiredCount, color: '#FF5B5B' },
   ];
   const totalStatusCount = statusDistributionData.reduce((sum, d) => sum + d.value, 0);
   const activePercent = totalStatusCount > 0 ? Math.round((activeOrdersCount / totalStatusCount) * 100) : 0;
@@ -173,6 +180,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Service Accounts widgets (real data)
   const accountStats = getServiceAccountStats(serviceAccounts, orders);
   const mostProfitable = getMostProfitableService(serviceAccounts, orders);
+
+  // Product & Digital Asset inventory metrics (live, no mock data)
+  const activeProductsCount = products.filter((p) => p.status === 'ACTIVE').length;
+  const totalAssetsCount = assets.length;
+  const availableAssetsCount = assets.filter(
+    (a) => a.status === 'AVAILABLE' && a.occupiedCapacity < a.capacity
+  ).length;
+  const soldOutAssetsCount = assets.filter(
+    (a) => a.status === 'AVAILABLE' && a.occupiedCapacity >= a.capacity
+  ).length;
+  const totalCapacity = assets.reduce((sum, a) => sum + (a.capacity || 0), 0);
+  const occupiedCapacityTotal = assets.reduce((sum, a) => sum + (a.occupiedCapacity || 0), 0);
+  const inventoryUtilization = totalCapacity > 0 ? Math.round((occupiedCapacityTotal / totalCapacity) * 100) : 0;
 
   return (
     <div id="subly-dashboard-view" className="p-8 space-y-8 bg-[#F5F7FA] min-h-[calc(100vh-72px)]">
@@ -183,7 +203,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Digital Subscription Reseller Overview
           </h1>
           <p className="text-xs text-[#6B7280] mt-1">
-            Real-time control center for Netflix, Disney+, Prime Video & IPTV accounts.
+            Real-time control center for your digital products, subscriptions & accounts.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -544,6 +564,62 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-[10px] text-emerald-500 font-medium">
               {mostProfitable ? `${formatCurrency(mostProfitable.revenue, currency)} (${mostProfitable.count} orders)` : 'no linked sales'}
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* PRODUCTS & INVENTORY WIDGETS */}
+      <div className="bg-white p-6 rounded-3xl shadow-xs border border-[#E8EAF0]">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="font-bold text-lg text-[#111827]">Products & Inventory</h2>
+            <p className="text-xs text-[#6B7280] mt-0.5">
+              Catalog size, digital asset stock, and utilization.
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('products')}
+            className="text-xs font-bold text-[#4A90FF] hover:underline"
+          >
+            View Products
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+          <div className="p-3.5 rounded-2xl bg-[#F5F7FA] border border-[#E8EAF0]">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Active Products</span>
+            <span className="text-lg font-black text-[#111827] block mt-1">{activeProductsCount}</span>
+            <span className="text-[10px] text-slate-400 font-medium">in catalog</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-[#F5F7FA] border border-[#E8EAF0]">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Assets</span>
+            <span className="text-lg font-black text-[#111827] block mt-1">{totalAssetsCount}</span>
+            <span className="text-[10px] text-slate-400 font-medium">registered</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200">
+            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block">Available Assets</span>
+            <span className="text-lg font-black text-emerald-600 block mt-1">{availableAssetsCount}</span>
+            <span className="text-[10px] text-emerald-400 font-medium">with free slots</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200">
+            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block">Sold Out</span>
+            <span className="text-lg font-black text-amber-600 block mt-1">{soldOutAssetsCount}</span>
+            <span className="text-[10px] text-amber-400 font-medium">at full capacity</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200">
+            <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider block">Seats Used</span>
+            <span className="text-lg font-black text-blue-600 block mt-1">{occupiedCapacityTotal}</span>
+            <span className="text-[10px] text-blue-400 font-medium">across assets</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-cyan-50 border border-cyan-200">
+            <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-wider block">Total Capacity</span>
+            <span className="text-lg font-black text-cyan-600 block mt-1">{totalCapacity}</span>
+            <span className="text-[10px] text-cyan-400 font-medium">seats</span>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-[#111827] text-white">
+            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Utilization</span>
+            <span className="text-lg font-black text-cyan-400 block mt-1">{inventoryUtilization}%</span>
+            <span className="text-[10px] text-slate-400 font-medium">filled</span>
           </div>
         </div>
       </div>

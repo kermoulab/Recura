@@ -3,6 +3,7 @@ import { Search, Bell, ShieldCheck, UserCheck, ChevronDown, CheckCircle2, User, 
 import { ERPView } from './Sidebar';
 import { UserProfile, Order, ServiceAccount, Customer } from '../../types/erp';
 import { getEffectiveAccountStatus, getDaysRemaining, resolveOrderCustomerName } from '../../utils/serviceAccounts';
+import { deriveOrderStatus } from '../../utils/orderStatus';
 
 interface HeaderProps {
   currentView: ERPView;
@@ -45,9 +46,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenRenewalTab,
   onOpenAccounts,
 }) => {
-  const expiring3DOrders = orders.filter((o) => o.status === 'EXPIRING_3D');
-  const expiring7DOrders = orders.filter((o) => o.status === 'EXPIRING_7D');
-  const expiredOrders = orders.filter((o) => o.status === 'EXPIRED');
+  const expiring3DOrders = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRING_3D');
+  const expiring7DOrders = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRING_7D');
+  const expiredOrders = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRED');
   const expiring3DNames = expiring3DOrders.map((o) => resolveOrderCustomerName(o, customers)).slice(0, 3);
   const expiring7DNames = expiring7DOrders.map((o) => resolveOrderCustomerName(o, customers)).slice(0, 3);
   const expiredNames = expiredOrders.map((o) => resolveOrderCustomerName(o, customers)).slice(0, 3);

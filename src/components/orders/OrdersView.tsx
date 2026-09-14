@@ -22,11 +22,13 @@ import {
   Server,
   Send,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { Order, SubscriptionStatus, ServiceAccount, Customer, Plan, Language, WhatsAppTemplate } from '../../types/erp';
 import { simulateDecrypt, maskEmail, formatCurrency, isEncryptedValue } from '../../utils/crypto';
+import { deriveOrderStatus } from '../../utils/orderStatus';
 import {
   createWhatsAppWebUrl,
   cleanWhatsAppNumber,
@@ -57,6 +59,7 @@ interface OrdersViewProps {
   onDeleteOrder: (id: string) => void;
   onOpenServiceAccount?: (accountId: string) => void;
   onOpenRenewal?: (order: Order) => void;
+  onRenew?: (order: Order) => void;
   focusOrderId?: string | null;
 }
 
@@ -72,6 +75,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   onDeleteOrder,
   onOpenServiceAccount,
   onOpenRenewal,
+  onRenew,
   focusOrderId = null,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -143,7 +147,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       String(ord.profileNumber || '').includes(cleanSearch) ||
       (account ? account.email.toLowerCase().includes(cleanSearch) : false);
 
-    const matchesStatus = selectedStatus === 'ALL' || ord.status === selectedStatus;
+    const matchesStatus = selectedStatus === 'ALL' || deriveOrderStatus(ord) === selectedStatus;
 
     return matchesSearch && matchesStatus;
   });
@@ -153,7 +157,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     return idx >= 0 ? 1001 + idx : 0;
   };
 
-  const getStatusBadge = (status: SubscriptionStatus) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ACTIVE':
         return (
@@ -181,6 +185,20 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
           <span className="inline-flex items-center gap-1.5 text-slate-800 bg-slate-200 px-3 py-1 rounded-full text-xs font-bold border border-slate-300 shadow-2xs">
             <AlertCircle className="w-3.5 h-3.5 text-slate-600" />
             Expired
+          </span>
+        );
+      case 'PENDING':
+        return (
+          <span className="inline-flex items-center gap-1.5 text-blue-800 bg-blue-100 px-3 py-1 rounded-full text-xs font-bold border border-blue-300 shadow-2xs">
+            <Clock className="w-3.5 h-3.5 text-blue-600" />
+            Pending
+          </span>
+        );
+      case 'CANCELLED':
+        return (
+          <span className="inline-flex items-center gap-1.5 text-slate-800 bg-slate-100 px-3 py-1 rounded-full text-xs font-bold border border-slate-300 shadow-2xs">
+            <AlertCircle className="w-3.5 h-3.5 text-slate-600" />
+            Cancelled
           </span>
         );
     }
@@ -231,6 +249,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             const currentCustomerName = resolveOrderCustomerName(ord, customers);
             const currentCustomerWhatsApp = resolveOrderCustomerWhatsApp(ord, customers);
             const currentPlanName = resolveOrderPlanName(ord, plans);
+            const effectiveStatus = deriveOrderStatus(ord);
 
             // Thanks message uses the customer's communication language.
             // Customer name/WhatsApp resolve from the CURRENT customer record
@@ -301,8 +320,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       <span className="font-mono text-xs font-black text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md">
                         #{ord.orderNumber || fallbackOrderNumber(ord.id)}
                       </span>
-                      {getStatusBadge(ord.status)}
-                      {ord.status !== 'ACTIVE' &&
+                      {getStatusBadge(effectiveStatus)}
+                      {effectiveStatus !== 'ACTIVE' &&
                         (ord.contactedForRenewal ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-emerald-700 bg-emerald-50 border-emerald-200">
                             contacted
@@ -352,6 +371,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                           <Send className="w-4 h-4" />
                         )}
                       </button>
+                      {onRenew && (
+                        <button
+                          onClick={() => onRenew(ord)}
+                          className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                          title="Renew Order"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </button>
+                      )}
                       {onEditOrder && (
                         <button
                           onClick={() => onEditOrder(ord)}

@@ -195,7 +195,15 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       start.setMonth(start.getMonth() + durationMonths);
       setEndDate(start.toISOString().split('T')[0]);
     }
-  }, [selectedPlanId, startDate, durationMonths, initialData, plans]);
+}, [selectedPlanId, startDate, durationMonths, initialData, plans]);
+
+  // Auto-fill account email from the selected asset identifier
+  useEffect(() => {
+    if (!initialData && selectedAssetId) {
+      const asset = assets.find(a => a.id === selectedAssetId);
+      if (asset) setAccountEmail(asset.identifier);
+    }
+  }, [selectedAssetId, assets, initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,7 +251,11 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
           return;
         }
       }
-    } else if (fulfillmentType === 'LICENSE_KEY' || fulfillmentType === 'DEDICATED_ACCOUNT' || fulfillmentType === 'ACTIVATION_CODE' || fulfillmentType === 'SEAT') {
+} else if (fulfillmentType === 'LICENSE_KEY' || fulfillmentType === 'DEDICATED_ACCOUNT' || fulfillmentType === 'ACTIVATION_CODE' || fulfillmentType === 'SEAT') {
+      if (isSoldOut) {
+        setError('Product is sold out. Please stock your inventory first.');
+        return;
+      }
       if (!selectedAssetId && fulfillmentType !== 'MANUAL') {
         setError('A digital asset is required for this product type.');
         return;
@@ -253,9 +265,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
 
     try {
       const orderData: Omit<Order, 'id'> = {
-        customerId: customer.id,
-        customerName: customer.fullName,
-        customerWhatsApp: customer.whatsappNumber,
+customerId: customer.id,
+        customerName: customer.name,
+        customerWhatsApp: customer.whatsapp,
         productId: selectedProductId || undefined,
         digitalAssetId: selectedAssetId || undefined,
         fulfillmentType: fulfillmentType === 'LEGACY' ? undefined : fulfillmentType,
@@ -285,8 +297,11 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
 
   const selectedAccount = serviceAccounts.find((a) => a.id === selectedAccountId);
   
-  // Available assets for generic products
-  const availableAssets = selectedProductId ? assets.filter(a => a.productId === selectedProductId && a.status === 'AVAILABLE') : [];
+// Available assets for generic products (must have remaining capacity)
+  const availableAssets = selectedProductId ? assets.filter(a => a.productId === selectedProductId && a.status === 'AVAILABLE' && a.occupiedCapacity < a.capacity) : [];
+  const needsAsset = fulfillmentType === 'LICENSE_KEY' || fulfillmentType === 'DEDICATED_ACCOUNT' || fulfillmentType === 'ACTIVATION_CODE' || fulfillmentType === 'SEAT';
+  const keepsCurrentAsset = !!(initialData && initialData.digitalAssetId);
+  const isSoldOut = needsAsset && !keepsCurrentAsset && availableAssets.length === 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
@@ -325,9 +340,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                 className="w-full pl-10 pr-3 py-2 bg-white border border-[#E8EAF0] rounded-xl font-medium focus:outline-none focus:border-blue-500"
                 disabled={!!initialData}
               >
-                {customers.map((c) => (
+{customers.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.fullName} ({c.whatsappNumber})
+                    {c.name} ({c.whatsapp})
                   </option>
                 ))}
               </select>
@@ -366,11 +381,14 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                   onChange={(e) => setSelectedPlanId(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 bg-white border border-[#E8EAF0] rounded-xl font-medium focus:outline-none focus:border-blue-500"
                 >
-                  {availablePlans.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} - {formatCurrency(p.price, currency)}
-                    </option>
-                  ))}
+{availablePlans.map((p) => {
+                    const soldOut = p.availableStock <= 0 && !(initialData && initialData.planId === p.id);
+                    return (
+                      <option key={p.id} value={p.id} disabled={soldOut}>
+                        {p.name} - {formatCurrency(p.price, currency)}{soldOut ? ' (SOLD OUT)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
@@ -444,8 +462,14 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                     </option>
                   )}
                 </select>
-                {availableAssets.length === 0 && !initialData && (
-                  <p className="text-red-500 text-[10px] mt-1 font-bold">No available assets for this product in inventory!</p>
+{isSoldOut ? (
+                  <p className="flex items-center gap-1.5 text-amber-700 text-[10px] mt-1 font-bold">
+                    <AlertCircle className="w-3.5 h-3.5" /> Product is sold out. Please stock your inventory first.
+                  </p>
+                ) : (
+                  availableAssets.length === 0 && !initialData && (
+                    <p className="text-red-500 text-[10px] mt-1 font-bold">No available assets for this product in inventory!</p>
+                  )
                 )}
               </div>
             )}
@@ -516,7 +540,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
             </select>
             <div className="flex gap-2">
               <button type="button" onClick={onClose} className="px-4 py-2 rounded-full border border-slate-200 text-slate-600 font-bold hover:bg-slate-50">Cancel</button>
-              <button type="submit" className="px-5 py-2 rounded-full bg-[#4A90FF] text-white font-bold hover:opacity-85 shadow-md active:scale-95 cursor-pointer">
+<button type="submit" disabled={isSoldOut} className="px-5 py-2 rounded-full bg-[#4A90FF] text-white font-bold hover:opacity-85 shadow-md active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                 {initialData ? 'Save Changes' : 'Provision Order'}
               </button>
             </div>

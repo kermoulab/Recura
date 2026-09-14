@@ -46,9 +46,10 @@ import { Customer, Plan, Order, AuditLog, KPIStats, UserProfile, UserSession, La
 import { hashPasswordArgon2id, createSecureSessionToken } from './utils/security';
 import { getDatabase } from './db';
 import { calculateDaysRemaining } from './utils/crypto';
+import { deriveOrderStatus } from './utils/orderStatus';
 
 const LAST_VIEW_KEY = 'recura_last_view_v1';
-const VALID_VIEWS: ERPView[] = ['dashboard', 'customers', 'orders', 'accounts', 'plans', 'alerts', 'audit', 'settings'];
+const VALID_VIEWS: ERPView[] = ['dashboard', 'customers', 'orders', 'accounts', 'plans', 'products', 'alerts', 'audit', 'settings'];
 const CURRENCY_KEY = 'recura_currency_v1';
 
 function loadLastView(): ERPView {
@@ -298,7 +299,7 @@ export default function App() {
       return;
     }
 
-    if (currentUser.role !== 'ADMIN' && (view === 'plans' || view === 'audit' || view === 'accounts')) {
+    if (currentUser.role !== 'ADMIN' && (view === 'plans' || view === 'audit' || view === 'accounts' || view === 'products')) {
       toast.error('Access Restricted: Low-level staff profiles cannot access this page.');
       setCurrentView('orders');
       return;
@@ -320,9 +321,9 @@ export default function App() {
   }, []);
 
   // Compute live KPIs
-  const expiring3DaysCount = orders.filter((o) => o.status === 'EXPIRING_3D').length;
-  const expiring7DaysCount = orders.filter((o) => o.status === 'EXPIRING_7D').length;
-  const expiredCount = orders.filter((o) => o.status === 'EXPIRED').length;
+  const expiring3DaysCount = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRING_3D').length;
+  const expiring7DaysCount = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRING_7D').length;
+  const expiredCount = orders.filter((o) => deriveOrderStatus(o) === 'EXPIRED').length;
 
   // Account-level expiring/expired alerts (kept separate from order alerts)
   const expiringAccountsCount = serviceAccounts.filter(
@@ -430,7 +431,7 @@ export default function App() {
     }
 
     toast.success(`Welcome back, ${user.fullName}!`);
-    if (user.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'audit' || currentView === 'accounts')) {
+    if (user.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'audit' || currentView === 'accounts' || currentView === 'products')) {
       setCurrentView('orders');
     }
   };
@@ -500,7 +501,7 @@ export default function App() {
     saveActiveSession(newSession);
     toast.info(`Switched active profile to ${profile.fullName} (${profile.role === 'ADMIN' ? 'System Administrator' : 'Limited Staff'})`);
     logAudit('LOGIN', `Switched active profile session to ${profile.fullName} (${profile.email})`);
-    if (profile.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'audit' || currentView === 'accounts')) {
+    if (profile.role !== 'ADMIN' && (currentView === 'plans' || currentView === 'audit' || currentView === 'accounts' || currentView === 'products')) {
       setCurrentView('orders');
     }
   };
@@ -858,8 +859,62 @@ export default function App() {
 
   const handleDeleteOrder = async (id: string) => {
     try {
+      const target = orders.find((o) => o.id === id);
       await db.orders.delete(id);
       setOrders((prev) => prev.filter((o) => o.id !== id));
+
+      if (target) {
+        // Release digital asset occupancy (best-effort, non-fatal)
+        try {
+          if (target.digitalAssetId) {
+            const assetToRelease = digitalAssets.find((a) => a.id === target.digitalAssetId);
+            if (assetToRelease) {
+              const released: DigitalAsset = {
+                ...assetToRelease,
+                occupiedCapacity: Math.max(0, assetToRelease.occupiedCapacity - 1),
+                status: assetToRelease.occupiedCapacity - 1 < assetToRelease.capacity ? 'AVAILABLE' : assetToRelease.status,
+              };
+              const savedAsset = await db.digitalAssets.update(released);
+              setDigitalAssets((prev) => prev.map((a) => (a.id === savedAsset.id ? savedAsset : a)));
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to release digital asset occupancy after order delete', e);
+        }
+
+        // Restore plan stock & active orders (best-effort, non-fatal)
+        try {
+          const planToUpdate = plans.find((p) => p.id === target.planId);
+          if (planToUpdate) {
+            const restoredPlan: Plan = {
+              ...planToUpdate,
+              activeOrders: Math.max(0, planToUpdate.activeOrders - 1),
+              availableStock: planToUpdate.availableStock + 1,
+            };
+            const savedPlan = await db.plans.update(restoredPlan);
+            setPlans((prev) => prev.map((p) => (p.id === savedPlan.id ? savedPlan : p)));
+          }
+        } catch (e) {
+          console.warn('Failed to restore plan stock after order delete', e);
+        }
+
+        // Restore customer stats (best-effort, non-fatal)
+        try {
+          const customerToUpdate = customers.find((c) => c.id === target.customerId);
+          if (customerToUpdate) {
+            const restoredCust: Customer = {
+              ...customerToUpdate,
+              ordersCount: Math.max(0, customerToUpdate.ordersCount - 1),
+              totalSpent: Math.max(0, customerToUpdate.totalSpent - (target.price || 0)),
+            };
+            const savedCust = await db.customers.update(restoredCust);
+            setCustomers((prev) => prev.map((c) => (c.id === savedCust.id ? savedCust : c)));
+          }
+        } catch (e) {
+          console.warn('Failed to restore customer stats after order delete', e);
+        }
+      }
+
       toast.info('Order removed');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to delete order.');
@@ -903,6 +958,23 @@ export default function App() {
     } catch (err: any) {
       toast.error(err?.message || 'Failed to update orders.');
     }
+  };
+
+  // Open the order in the edit modal for renewal:
+  // extends the window from the current end date, restores ACTIVE status,
+  // and clears the contacted flag so the order leaves the alert queue.
+  const handleOpenRenewal = (order: Order) => {
+    const plan = plans.find(p => p.id === order.planId);
+    const renewalStart = order.endDate || new Date().toISOString().split('T')[0];
+    setEditingOrder({
+      ...order,
+      status: 'ACTIVE',
+      contactedForRenewal: false,
+      contactedAt: undefined,
+      startDate: renewalStart,
+      durationMonths: plan?.durationMonths || order.durationMonths,
+    });
+    setIsOrderModalOpen(true);
   };
 
 
@@ -1180,6 +1252,7 @@ export default function App() {
               setAlertFocusOrderId(order.id);
               setCurrentView('alerts');
             }}
+            onRenew={handleOpenRenewal}
             focusOrderId={ordersFocusOrderId}
           />
         )}
@@ -1216,6 +1289,7 @@ export default function App() {
             templates={whatsAppTemplates}
             onMarkContacted={handleMarkContacted}
             onBulkMarkContacted={handleBulkMarkContacted}
+            onRenew={handleOpenRenewal}
             initialTab={alertTab}
             focusOrderId={alertFocusOrderId}
             onOpenOrder={(orderId) => {
@@ -1284,6 +1358,8 @@ export default function App() {
         plans={plans}
         serviceAccounts={serviceAccounts}
         orders={orders}
+        products={products}
+        assets={digitalAssets}
         currency={currency}
         preselectedAccountId={assignAccountId}
         onSubmit={handleSaveOrder}

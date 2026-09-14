@@ -172,7 +172,7 @@ test('install: connection-string input drives the full flow and never leaks the 
     const token = start.installToken;
     const migrate = await install.runInstall(token);
     assert.equal(migrate.ok, true);
-    assert.equal(migrate.result.applied.length, 4);
+    assert.equal(migrate.result.applied.length, 9);
 
     // A failed connection must also never surface the password.
     mock.setFailConnect(true);

@@ -48,23 +48,24 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
   // Plan form state
   const [isAddingPlan, setIsAddingPlan] = useState(false);
-  const [newPlan, setNewPlan] = useState<Partial<Plan>>({
+const [newPlan, setNewPlan] = useState<Partial<Plan>>({
     category: 'Other',
     price: 0,
-    cost: 0,
     durationMonths: 1,
-    
-    maxDevices: 1,
     availableStock: 999
   });
 
-  // Asset form state
+// Asset form state
   const [isAddingAsset, setIsAddingAsset] = useState(false);
   const [newAsset, setNewAsset] = useState<Partial<DigitalAsset>>({
     status: 'AVAILABLE',
     capacity: 1,
     occupiedCapacity: 0
   });
+
+  // Edit states
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+  const [editingAsset, setEditingAsset] = useState<DigitalAsset | null>(null);
 
   const getFulfillmentIcon = (type: FulfillmentType) => {
     switch (type) {
@@ -85,8 +86,19 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
   if (selectedProduct) {
     const productPlans = plans.filter(p => p.productId === selectedProduct.id);
-    const productAssets = assets.filter(a => a.productId === selectedProduct.id);
+const productAssets = assets.filter(a => a.productId === selectedProduct.id);
     const productOrders = orders.filter(o => o.productId === selectedProduct.id);
+
+    const planForm = editingPlan ?? newPlan;
+    const setPlanForm = (patch: Partial<Plan>) => {
+      if (editingPlan) setEditingPlan({ ...editingPlan, ...patch });
+      else setNewPlan({ ...newPlan, ...patch });
+    };
+    const assetForm = editingAsset ?? newAsset;
+    const setAssetForm = (patch: Partial<DigitalAsset>) => {
+      if (editingAsset) setEditingAsset({ ...editingAsset, ...patch });
+      else setNewAsset({ ...newAsset, ...patch });
+    };
 
     return (
       <div className="p-8 space-y-6 bg-[#F5F7FA] min-h-[calc(100vh-72px)]">
@@ -102,7 +114,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 {selectedProduct.status}
               </span>
             </div>
-            <p className="text-sm text-slate-500">{categories.find(c => c.id === selectedProduct.categoryId)?.name || 'Uncategorized'} • {(selectedProduct.fulfillmentType || 'MANUAL').replace('_', ' ')}</p>
+            <p className="text-sm text-slate-500">{categories.find(c => c.id === selectedProduct.categoryId)?.name || 'Uncategorized'} ï¿½ {(selectedProduct.fulfillmentType || 'MANUAL').replace('_', ' ')}</p>
           </div>
         </div>
 
@@ -146,6 +158,29 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
                 </div>
+<div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
+                  <select
+                    value={selectedProduct.categoryId || ''}
+                    onChange={e => onUpdateProduct({...selectedProduct, categoryId: e.target.value || undefined})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                  >
+                    <option value="">Uncategorized</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Provider</label>
+                  <input
+                    type="text"
+                    value={selectedProduct.providerId || ''}
+                    onChange={e => onUpdateProduct({...selectedProduct, providerId: e.target.value})}
+                    placeholder="e.g. Netflix, OpenAI, Microsoft"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                  />
+                </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1">Description</label>
                   <textarea 
@@ -171,40 +206,41 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             <div>
               <div className="flex justify-between items-center mb-6 border-b pb-2">
                 <h2 className="text-lg font-bold text-slate-800">Subscription Plans</h2>
-                <button onClick={() => setIsAddingPlan(!isAddingPlan)} className="bg-[#111827] text-white px-4 py-2 rounded-full text-xs font-bold shadow-xs hover:bg-black">
-                  {isAddingPlan ? 'Cancel' : '+ Add Plan'}
+<button onClick={() => { if (editingPlan) setEditingPlan(null); else setIsAddingPlan(!isAddingPlan); }} className="bg-[#111827] text-white px-4 py-2 rounded-full text-xs font-bold shadow-xs hover:bg-black">
+                  {isAddingPlan || editingPlan ? 'Cancel' : '+ Add Plan'}
                 </button>
               </div>
 
-              {isAddingPlan && (
+              {(isAddingPlan || editingPlan) && (
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-6 space-y-4">
-                  <h3 className="font-bold text-sm text-slate-700">New Plan Configuration</h3>
+                  <h3 className="font-bold text-sm text-slate-700">{editingPlan ? 'Edit Plan Configuration' : 'New Plan Configuration'}</h3>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="col-span-3">
                       <label className="block text-xs font-bold text-slate-700 mb-1">Plan Name (e.g. Premium Monthly)</label>
-                      <input type="text" value={newPlan.name || ''} onChange={e => setNewPlan({...newPlan, name: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                      <input type="text" value={planForm.name || ''} onChange={e => setPlanForm({ name: e.target.value })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Selling Price</label>
-                      <input type="number" value={newPlan.price || 0} onChange={e => setNewPlan({...newPlan, price: Number(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Cost</label>
-                      <input type="number" value={newPlan.cost || 0} onChange={e => setNewPlan({...newPlan, cost: Number(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                      <input type="number" value={planForm.price || 0} onChange={e => setPlanForm({ price: Number(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Duration (Months)</label>
-                      <input type="number" value={newPlan.durationMonths || 1} onChange={e => setNewPlan({...newPlan, durationMonths: Number(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                      <input type="number" value={planForm.durationMonths || 1} onChange={e => setPlanForm({ durationMonths: Number(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                     </div>
                   </div>
                   <div className="flex justify-end pt-2">
                     <button onClick={() => {
-                      if (!newPlan.name) return;
-                      onAddPlan({...newPlan as any, productId: selectedProduct.id});
+                      if (!planForm.name) return;
+                      if (editingPlan) {
+                        onUpdatePlan(editingPlan);
+                        setEditingPlan(null);
+                      } else {
+                        onAddPlan({ ...planForm as any, productId: selectedProduct.id });
+                        setNewPlan({ category: 'Other', price: 0, durationMonths: 1, availableStock: 999 });
+                      }
                       setIsAddingPlan(false);
-                      setNewPlan({category: 'Other', price: 0, cost: 0, durationMonths: 1,  maxDevices: 1, availableStock: 999});
                     }} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold shadow-md">
-                      Save Plan
+                      {editingPlan ? 'Save Changes' : 'Save Plan'}
                     </button>
                   </div>
                 </div>
@@ -215,9 +251,12 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   <div className="col-span-full text-center py-8 text-slate-400">No plans linked to this product yet.</div>
                 ) : productPlans.map(plan => (
                   <div key={plan.id} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs">
-                    <div className="flex justify-between items-start mb-2">
+<div className="flex justify-between items-start mb-2">
                       <h4 className="font-bold text-slate-800">{plan.name}</h4>
-                      <button onClick={() => onDeletePlan(plan.id)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => { setEditingPlan(plan); setIsAddingPlan(false); }} className="text-slate-400 hover:text-slate-600"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => onDeletePlan(plan.id)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                      </div>
                     </div>
                     <div className="flex items-center justify-between mt-4">
                       <div className="flex flex-col">
@@ -239,26 +278,26 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             <div>
               <div className="flex justify-between items-center mb-6 border-b pb-2">
                 <h2 className="text-lg font-bold text-slate-800">Digital Assets & Inventory</h2>
-                <button onClick={() => setIsAddingAsset(!isAddingAsset)} className="bg-[#111827] text-white px-4 py-2 rounded-full text-xs font-bold shadow-xs hover:bg-black">
-                  {isAddingAsset ? 'Cancel' : '+ Add Asset'}
+<button onClick={() => { if (editingAsset) setEditingAsset(null); else setIsAddingAsset(!isAddingAsset); }} className="bg-[#111827] text-white px-4 py-2 rounded-full text-xs font-bold shadow-xs hover:bg-black">
+                  {isAddingAsset || editingAsset ? 'Cancel' : '+ Add Asset'}
                 </button>
               </div>
 
-              {isAddingAsset && (
+              {(isAddingAsset || editingAsset) && (
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-6 space-y-4">
-                  <h3 className="font-bold text-sm text-slate-700">Provision New Asset</h3>
+                  <h3 className="font-bold text-sm text-slate-700">{editingAsset ? 'Edit Asset' : 'Provision New Asset'}</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <label className="block text-xs font-bold text-slate-700 mb-1">Identifier (License Key, Email, Link)</label>
-                      <input type="text" value={newAsset.identifier || ''} onChange={e => setNewAsset({...newAsset, identifier: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                      <input type="text" value={assetForm.identifier || ''} onChange={e => setAssetForm({ identifier: e.target.value })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Capacity</label>
-                      <input type="number" value={newAsset.capacity || 1} onChange={e => setNewAsset({...newAsset, capacity: Number(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                      <input type="number" value={assetForm.capacity || 1} onChange={e => setAssetForm({ capacity: Number(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
-                      <select value={newAsset.status || 'AVAILABLE'} onChange={e => setNewAsset({...newAsset, status: e.target.value as any})} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
+                      <select value={assetForm.status || 'AVAILABLE'} onChange={e => setAssetForm({ status: e.target.value as any })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
                         <option value="AVAILABLE">AVAILABLE</option>
                         <option value="RESERVED">RESERVED</option>
                         <option value="SUSPENDED">SUSPENDED</option>
@@ -267,12 +306,17 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   </div>
                   <div className="flex justify-end pt-2">
                     <button onClick={() => {
-                      if (!newAsset.identifier) return;
-                      onAddAsset({...newAsset as any, productId: selectedProduct.id, fulfillmentType: selectedProduct.fulfillmentType || 'MANUAL'});
+                      if (!assetForm.identifier) return;
+                      if (editingAsset) {
+                        onUpdateAsset(editingAsset);
+                        setEditingAsset(null);
+                      } else {
+                        onAddAsset({ ...assetForm as any, productId: selectedProduct.id, fulfillmentType: selectedProduct.fulfillmentType || 'MANUAL' });
+                        setNewAsset({ status: 'AVAILABLE', capacity: 1, occupiedCapacity: 0 });
+                      }
                       setIsAddingAsset(false);
-                      setNewAsset({status: 'AVAILABLE', capacity: 1, occupiedCapacity: 0});
                     }} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold shadow-md">
-                      Save Asset
+                      {editingAsset ? 'Save Changes' : 'Save Asset'}
                     </button>
                   </div>
                 </div>
@@ -300,7 +344,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                           </span>
                         </td>
                         <td className="py-3 px-4">{asset.occupiedCapacity} / {asset.capacity}</td>
-                        <td className="py-3 px-4 text-right">
+<td className="py-3 px-4 text-right">
+                          <button onClick={() => { setEditingAsset(asset); setIsAddingAsset(false); }} className="text-slate-400 hover:text-slate-600 mr-2"><Edit2 className="w-4 h-4 inline-block" /></button>
                           <button onClick={() => onDeleteAsset(asset.id)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4 inline-block" /></button>
                         </td>
                       </tr>
@@ -334,8 +379,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                             {order.status}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-slate-500">
-                          {order.expiryDate ? new Date(order.expiryDate).toLocaleDateString() : 'N/A'}
+<td className="py-3 px-4 text-slate-500">
+                          {order.endDate ? new Date(order.endDate).toLocaleDateString() : 'N/A'}
                         </td>
                       </tr>
                     ))}
@@ -415,7 +460,21 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     {assets.filter(a => a.productId === prod.id).length} Assets
                   </td>
                   <td className="py-4 px-6 text-right">
-                    <button onClick={(e) => { e.stopPropagation(); onDeleteProduct(prod.id); }} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors">
+                    <button onClick={(e) => { e.stopPropagation();
+                      const planCount = plans.filter(p => p.productId === prod.id).length;
+                      const assetCount = assets.filter(a => a.productId === prod.id).length;
+                      const orderCount = orders.filter(o => o.productId === prod.id).length;
+                      const deps = [
+                        planCount ? `${planCount} plan(s)` : null,
+                        assetCount ? `${assetCount} asset(s)` : null,
+                        orderCount ? `${orderCount} order(s)` : null,
+                      ].filter(Boolean).join(', ');
+                      const message = deps
+                        ? `This product has ${deps}. Orders keep their historical snapshot, but plans and assets will be removed from this product.\n\nDelete anyway?`
+                        : 'Delete this product?';
+                      if (!window.confirm(message)) return;
+                      onDeleteProduct(prod.id);
+                    }} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
@@ -467,6 +526,17 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                         </div>
                       ))}
                     </div>
+                  </div>
+
+<div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Provider (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Netflix, OpenAI, Microsoft"
+                      value={newProduct.providerId || ''}
+                      onChange={(e) => setNewProduct({ ...newProduct, providerId: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-semibold"
+                    />
                   </div>
 
                   <div>

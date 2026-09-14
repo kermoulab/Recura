@@ -108,7 +108,7 @@ test('installer: full install flow over HTTP', async () => {
 
   const migrate = await json('POST', '/api/install/migrate', {}, auth);
   assert.equal(migrate.body.ok, true);
-  assert.equal(migrate.body.result.applied.length, 4);
+  assert.equal(migrate.body.result.applied.length, 9);
 
   const admin = await json('POST', '/api/install/admin', {
     name: 'System Owner', username: 'admin', email: 'admin@recura.local', password: 'Sup3rStrong#2024',
