@@ -830,6 +830,24 @@ export default function App() {
           console.warn('Failed to update plan stock after order create', e);
         }
 
+        // Update digital asset capacity if one was assigned
+        try {
+          if (orderData.digitalAssetId) {
+            const assetToUpdate = digitalAssets.find((a) => a.id === orderData.digitalAssetId);
+            if (assetToUpdate) {
+              const updatedAsset = {
+                ...assetToUpdate,
+                occupiedCapacity: assetToUpdate.occupiedCapacity + 1,
+                status: (assetToUpdate.occupiedCapacity + 1 >= assetToUpdate.capacity) ? ('RESERVED' as const) : assetToUpdate.status
+              };
+              const savedAsset = await db.digitalAssets.update(updatedAsset);
+              setDigitalAssets((prev) => prev.map((a) => (a.id === savedAsset.id ? savedAsset : a)));
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to update digital asset capacity after order create', e);
+        }
+
         toast.success(`Order provisioned for ${orderData.customerName}!`);
         logAudit('ORDER_CREATE', `Provisioned order #${newOrd.id} (${orderData.planName}) for ${orderData.customerName}`);
       }
@@ -1007,6 +1025,8 @@ export default function App() {
             orders={orders}
             plans={plans}
             serviceAccounts={serviceAccounts}
+          products={products}
+          assets={digitalAssets}
             currency={currency}
             onOpenNewCustomer={() => {
               setEditingCustomer(null);
@@ -1034,6 +1054,8 @@ export default function App() {
             customers={customers}
             orders={orders}
             serviceAccounts={serviceAccounts}
+          products={products}
+          assets={digitalAssets}
             currency={currency}
             onAddCustomer={() => {
               setEditingCustomer(null);
@@ -1128,6 +1150,8 @@ export default function App() {
           <OrdersView
             orders={orders}
             serviceAccounts={serviceAccounts}
+          products={products}
+          assets={digitalAssets}
             customers={customers}
             plans={plans}
             templates={whatsAppTemplates}
@@ -1303,6 +1327,10 @@ export default function App() {
     </div>
   );
 }
+
+
+
+
 
 
 

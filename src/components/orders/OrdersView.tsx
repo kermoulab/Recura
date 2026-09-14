@@ -44,6 +44,8 @@ import {
 } from '../../utils/serviceAccounts';
 
 interface OrdersViewProps {
+  products?: import('../../types/erp').Product[];
+  assets?: import('../../types/erp').DigitalAsset[];
   orders: Order[];
   serviceAccounts?: ServiceAccount[];
   customers?: Customer[];
@@ -135,7 +137,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     const matchesSearch =
       resolveOrderCustomerName(ord, customers).toLowerCase().includes(cleanSearch) ||
       resolveOrderPlanName(ord, plans).toLowerCase().includes(cleanSearch) ||
-      ord.accountEmail.toLowerCase().includes(cleanSearch) ||
+      (ord.accountEmail || '').toLowerCase().includes(cleanSearch) ||
       ord.id.toLowerCase().includes(cleanSearch) ||
       String(ord.orderNumber || '').includes(cleanSearch) ||
       String(ord.profileNumber || '').includes(cleanSearch) ||
@@ -530,3 +532,5 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     </div>
   );
 };
+
+
